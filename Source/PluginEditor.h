@@ -44,7 +44,8 @@ enum SpaceXSettingsId
     idShowHz,
     idCancelSettings,
     idSaveSettings,
-    idActivate
+    idActivate,
+    idAutoGain
 };
 
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -63,6 +64,7 @@ public:
     struct SettingsSnapshot
     {
         int  theme = 0, layout = 0;
+        bool autoGain = true;
         bool prism = true, mix = false, cats = true, clickEdge = false,
              galaxyStart = false, keepSolo = true, modVis = true, showHz = false;
     };
@@ -210,7 +212,7 @@ private:
         static constexpr int kThemes  = 6;
         static constexpr int kLayouts = 3;
         static constexpr int kSmart   = 3;
-        static constexpr int kBehav   = 5;
+        static constexpr int kBehav   = 6;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
@@ -226,7 +228,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeModern, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
         static const int* smartIds()  { static const int a[kSmart]   = { idMutatePrism, idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idShowModulation, idKeepSolo, idPrismClickJumps, idShowHz, idGalaxyDefault }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idShowModulation, idKeepSolo, idPrismClickJumps, idShowHz, idGalaxyDefault }; return a; }
 
         SettingsPanelComponent()
         {
@@ -249,7 +251,7 @@ private:
             static const char* const themeNames[kThemes]  = { "Silver", "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };
             static const char* const layoutNames[kLayouts] = { "3D", "Flat", "Outline" };
             static const char* const smartNames[kSmart]   = { "Changes Focus", "Changes Mix", "Show Categories" };
-            static const char* const behavNames[kBehav]   = { "Show Modulation", "Keep Solo When Off",
+            static const char* const behavNames[kBehav]   = { "Auto Gain", "Show Modulation", "Keep Solo When Off",
                                                               "Focus: Click Moves Edge", "Show Focus Hz",
                                                               "Galaxy On Startup (Latency)" };
 
@@ -290,9 +292,10 @@ private:
 
             smartBtn[0].setTooltip ("Smart also moves the focus range");
             smartBtn[1].setTooltip ("Smart also moves the Mix knob");
-            behavBtn[1].setTooltip ("Off: switching a soloed section off clears Solo as well");
-            behavBtn[3].setTooltip ("Show the frequency while dragging the focus edges");
-            behavBtn[4].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
+            behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
+            behavBtn[2].setTooltip ("Off: switching a soloed section off clears Solo as well");
+            behavBtn[4].setTooltip ("Show the frequency while dragging the focus edges");
+            behavBtn[5].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }
@@ -1730,6 +1733,8 @@ private:
     // Callback-Modus mit Texteingabe).
     std::unique_ptr<juce::AlertWindow> presetNameDialog;
     float lastDemoDuck = 1.0f;   // siehe timerCallback / paintOverContent
+    float lastAutoGainDb = 0.0f; // Anzeige im Footer, siehe timerCallback
+    juce::Rectangle<int> autoGainReadoutArea;   // in layoutContent gesetzt, in paintContent gezeichnet
 
     // Menu-Item "Show Modulation" (User-Wunsch: "add show modulation
     // visuals / feedback / movement") - schaltet die beweglichen Live-Mod-

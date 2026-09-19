@@ -82,6 +82,13 @@ public:
     std::atomic<bool>  licensed { false };
     std::atomic<float> demoDuck { 1.0f };   // 1 = volle Lautstaerke, 0 = stumm; die GUI dimmt entsprechend mit
 
+    // ===== AUTO GAIN =====
+    // Gerade angewandter Ausgleich in dB, nur zur Anzeige im Footer. Diese
+    // eine Zahl sagt mehr ueber die eigenen Sektionen aus als jede Anleitung:
+    // man sieht schwarz auf weiss, welche Einstellung Pegel macht und welche
+    // wirklich etwas am Bild aendert.
+    std::atomic<float> autoGainDb { 0.0f };
+
     // Uebernimmt eine Seriennummer (bereits geprueft) und merkt sie sich.
     void storeLicence (const juce::String& serial)
     {
@@ -326,6 +333,10 @@ public:
     // 2 = unten mehr. Bewusst drei feste Stufen statt eines Reglers - der
     // nutzbare Bereich ist schmal (User).
     static constexpr auto ID_WING         = "wing";
+    // Auto Gain: gleicht den Pegelunterschied aus, den die eigene Bearbeitung
+    // verursacht - damit ein Bypass-Vergleich ehrlich wird (User: "oft schwer
+    // zu beurteilen ob das Signal jetzt besser oder nur lauter ist").
+    static constexpr auto ID_AUTO_GAIN    = "autoGain";
     static constexpr auto ID_PRISM_LO = "prismLo";
     static constexpr auto ID_PRISM_HI = "prismHi";
 
@@ -510,6 +521,7 @@ private:
     std::atomic<float>* pPrismDim = nullptr;
     std::atomic<float>* pPrismVis = nullptr;
     std::atomic<float>* pWing = nullptr;
+    std::atomic<float>* pAutoGain = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;
@@ -573,6 +585,7 @@ private:
     // Absenkung. Nur im Audio-Thread angefasst.
     double demoPhaseSec = 0.0;
     float  demoGain     = 1.0f;
+
     int chaosDuckHoldSamplesRemaining = 0;
 
     // Einfaches Direct-Form-I-Biquad fuer den "Elevate"-EQ-Trick (rein
@@ -599,9 +612,27 @@ private:
     // Butterworth 2. Ordnung (12 dB/Okt), Hoch- und Tiefpass, bilden zusammen
     // das Band, in dem die Verbreiterung wirkt.
     static void updateHighpassCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz) noexcept;
+    static void updateHighShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb) noexcept;
     static void updateLowpassCoeffs  (BiquadCoeffs& c, double sampleRate, float freqHz) noexcept;
 
     BiquadCoeffs prismHpCoeffs, prismLpCoeffs;
+    // ===== AUTO GAIN =====
+    // Gemessen wird K-gewichtet (vereinfachtes ITU-R BS.1770: Hochpass gegen
+    // den Bassueberschuss, Hoehenschelf fuer die Ohrkurve) auf der Monosumme.
+    // Grund fuer die Gewichtung: das Plugin veraendert vor allem die
+    // Seitenanteile, und Seitenenergie hebt den nackten RMS staerker als die
+    // empfundene Lautheit - ohne Gewichtung wuerde Auto Gain beim
+    // Breitmachen zu viel wegnehmen und es klaenge kraftlos.
+    //
+    // KEINE Latenz: gemessen wird rueckwaerts, kein Lookahead. Der Preis ist
+    // Reaktionszeit, und die ist ausdruecklich gewollt - eine schnelle
+    // Regelung waere ein Kompressor und wuerde die Dynamik veraendern.
+    BiquadCoeffs kwHpCoeffs, kwShelfCoeffs;
+    BiquadState  kwInHp, kwInShelf, kwOutHp, kwOutShelf;
+    double autoGainInSq = 0.0, autoGainOutSq = 0.0;
+    float  autoGainTarget  = 1.0f;   // aus dem letzten Block berechnet
+    float  autoGainApplied = 1.0f;   // zuletzt tatsaechlich angewandt
+    int    autoGainFastSamples = 0;  // kurz nach dem Start schneller einschwingen
     // ZWEI getrennte Filterzustaende, weil die Verbreiterung an zwei
     // verschiedenen Stellen der Kette passiert (Dimension mit Size/Boost und
     // danach Position mit Width) und dort jeweils ein ANDERES Side-Signal

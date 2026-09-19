@@ -272,6 +272,9 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
         // entscheiden ueber die Struktur des Signalwegs, nicht ueber den Klang
         // einer Sektion, und ein zufaellig umgelegter Bypass sieht aus wie ein
         // Fehler.
+        // Auto Gain ist ein Messwerkzeug, kein Klangparameter - wer es zufaellig
+        // umlegt, zerstoert genau die Vergleichbarkeit, fuer die es da ist.
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_GALAXY),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_DIM),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_VIS),
@@ -1623,6 +1626,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.showHz      = p.getBoolValue ("showFocusHz", false);
     settingsSnap.keepSolo    = keepSoloWhenSectionOff;
     settingsSnap.modVis      = modulationVisualsEnabled;
+    settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
 }
 
 // "Cancel": alles zurueck auf den Stand beim Oeffnen. Laeuft ueber dieselben
@@ -1640,6 +1644,8 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (p.getBoolValue ("galaxyActivateDefault", false),settingsSnap.galaxyStart, idGalaxyDefault);
     flipIf (keepSoloWhenSectionOff,                         settingsSnap.keepSolo,    idKeepSolo);
     flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
+    flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
+                                                            settingsSnap.autoGain,    idAutoGain);
 
     if (uiLayoutRef() != settingsSnap.layout)
         handleSettingsAction (settingsSnap.layout == 0 ? idLayoutFrames
@@ -1687,11 +1693,13 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.smartBtn[1].setToggleState (p.getBoolValue ("mutateChangesMix", false),    juce::dontSendNotification);
     settingsPanel.smartBtn[2].setToggleState (p.getBoolValue ("showMutateCategories", true), juce::dontSendNotification);
 
-    settingsPanel.behavBtn[0].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[1].setToggleState (keepSoloWhenSectionOff,                          juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (p.getBoolValue ("prismClickJumps", false),        juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("showFocusHz", false),            juce::dontSendNotification);
-    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[0].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
+                                                                                               juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (keepSoloWhenSectionOff,                          juce::dontSendNotification);
+    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("prismClickJumps", false),        juce::dontSendNotification);
+    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("showFocusHz", false),            juce::dontSendNotification);
+    settingsPanel.behavBtn[5].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
     settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
@@ -1844,6 +1852,13 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                 }
                 case idActivate:
                     promptActivate();
+                    break;
+                case idAutoGain:
+                    if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN))
+                    {
+                        const bool on = prm->getValue() > 0.5f;
+                        prm->setValueNotifyingHost (on ? 0.0f : 1.0f);
+                    }
                     break;
                 case idPresetSetsGalaxy:
                     writeProps.setValue ("presetSetsGalaxy", ! writeProps.getBoolValue ("presetSetsGalaxy", false));
@@ -3588,6 +3603,16 @@ void LCRMSAudioProcessorEditor::timerCallback()
     updateHintBar();
     bool needsRepaint = false;
 
+    // Auto-Gain-Anzeige im Footer nachziehen (nur bei echter Bewegung).
+    {
+        const float db = processor.autoGainDb.load (std::memory_order_relaxed);
+        if (std::abs (db - lastAutoGainDb) > 0.05f)
+        {
+            lastAutoGainDb = db;
+            content.repaint (autoGainReadoutArea.expanded (4));
+        }
+    }
+
     // Demo-Absenkung: nur neu zeichnen, wenn sich wirklich etwas bewegt.
     {
         const float duck = processor.demoDuck.load (std::memory_order_relaxed);
@@ -4413,6 +4438,21 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             g.setFont (f);
             g.drawText ("DEMO", chip, juce::Justification::centred, false);
         }
+    }
+
+    // ===== AUTO-GAIN-ANZEIGE =====
+    // Die eine Zahl, die verraet, welche Einstellung wirklich etwas am Bild
+    // aendert und welche nur Pegel macht.
+    if (autoGainReadoutArea.getHeight() >= 9
+        && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f)
+    {
+        const float db = processor.autoGainDb.load (std::memory_order_relaxed);
+        const juce::String txt = (std::abs (db) < 0.05f)
+                                    ? juce::String ("0.0 dB")
+                                    : juce::String (db, 1) + " dB";
+        g.setFont (juce::Font (juce::FontOptions (juce::jlimit (9.0f, 12.0f, (float) autoGainReadoutArea.getHeight() - 1.0f))));
+        g.setColour (themePalette().knob.withAlpha (0.55f));
+        g.drawText (txt, autoGainReadoutArea, juce::Justification::centred, false);
     }
 
     // Kleine vertikale Trennstriche in der globalen Button-Zeile (User-
@@ -5456,6 +5496,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
             x -= iconSize + kGap;
         }
         const int iconsLeft = x + iconSize + kGap;   // linke Kante von MONO
+
+        // Auto-Gain-Anzeige in den Luftraum UEBER MIX/VOL. Bewusst so
+        // berechnet, dass sie einfach entfaellt, wenn dort kein Platz ist
+        // (siehe Hoehenpruefung in paintContent) - sie darf unter keinen
+        // Umstaenden in die Regler oder die Beschriftung hineinragen.
+        autoGainReadoutArea = juce::Rectangle<int> (mixSlider.getX() - 8, rowTop,
+                                                    (volSlider.getRight() - mixSlider.getX()) + 16,
+                                                    blockTop - rowTop);
 
         // Meter-Block: zwei Zeilen, Label links (knapp bemessen, damit der
         // Balken direkt neben der Schrift beginnt), Balken rechts. Der Block

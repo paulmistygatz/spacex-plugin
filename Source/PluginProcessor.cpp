@@ -111,6 +111,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPrismDim    = apvts.getRawParameterValue (ID_PRISM_DIM);
     pPrismVis    = apvts.getRawParameterValue (ID_PRISM_VIS);
     pWing        = apvts.getRawParameterValue (ID_WING);
+    pAutoGain    = apvts.getRawParameterValue (ID_AUTO_GAIN);
     pPrismLo     = apvts.getRawParameterValue (ID_PRISM_LO);
     pPrismHi     = apvts.getRawParameterValue (ID_PRISM_HI);
     pPosDistance = apvts.getRawParameterValue (ID_POS_DISTANCE);
@@ -208,6 +209,25 @@ void LCRMSAudioProcessor::updateHighpassCoeffs (BiquadCoeffs& c, double sampleRa
     c.b2 = c.b0;
     c.a1 = (float) ((-2.0 * cosW) / a0);
     c.a2 = (float) ((1.0 - alpha) / a0);
+}
+
+// Hochschelf (RBJ-Cookbook, S = 1), auf a0 normalisiert wie die uebrigen.
+// Zweite Stufe der K-Gewichtung fuer Auto Gain.
+void LCRMSAudioProcessor::updateHighShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb) noexcept
+{
+    const double A  = std::pow (10.0, (double) gainDb / 40.0);
+    const double w0 = 2.0 * juce::MathConstants<double>::pi
+                      * juce::jlimit (10.0, sampleRate * 0.45, (double) freqHz) / sampleRate;
+    const double cosW = std::cos (w0);
+    const double alpha = std::sin (w0) * 0.5 * std::sqrt (2.0);
+    const double twoSqrtAalpha = 2.0 * std::sqrt (A) * alpha;
+    const double a0 = (A + 1.0) - (A - 1.0) * cosW + twoSqrtAalpha;
+
+    c.b0 = (float) ((A * ((A + 1.0) + (A - 1.0) * cosW + twoSqrtAalpha)) / a0);
+    c.b1 = (float) ((-2.0 * A * ((A - 1.0) + (A + 1.0) * cosW)) / a0);
+    c.b2 = (float) ((A * ((A + 1.0) + (A - 1.0) * cosW - twoSqrtAalpha)) / a0);
+    c.a1 = (float) ((2.0 * ((A - 1.0) - (A + 1.0) * cosW)) / a0);
+    c.a2 = (float) (((A + 1.0) - (A - 1.0) * cosW - twoSqrtAalpha) / a0);
 }
 
 void LCRMSAudioProcessor::updateLowpassCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz) noexcept
@@ -448,6 +468,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_WING, 1 }, "Wing",
         juce::StringArray { "Flat", "Up", "Down" }, 0));
+    // Standardmaessig AN: der ehrliche Vergleich soll der Normalfall sein,
+    // nicht die Ausnahme, die man erst suchen muss.
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_AUTO_GAIN, 1 }, "Auto Gain", true));
     // Skew 0.25 -> logarithmisches Regelgefuehl ueber den Hoerbereich, sonst
     // liegt die halbe Reglerstrecke oberhalb von 10 kHz.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -558,6 +582,17 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     bypassDryR.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
     bypassBlend.reset (sampleRate, 0.025);   // ~25 ms Ueberblendung
     bypassBlend.setCurrentAndTargetValue (isBypassedNow() ? 1.0f : 0.0f);
+
+    // Auto Gain: K-Gewichtung aufsetzen und Regelung zuruecksetzen. Die
+    // ersten 0,5 s laufen mit kurzer Zeitkonstante, damit ein Offline-Bounce
+    // nicht mit einer hoerbaren Einschwingphase beginnt.
+    updateHighpassCoeffs  (kwHpCoeffs,    sampleRate, 60.0f);
+    updateHighShelfCoeffs (kwShelfCoeffs, sampleRate, 1500.0f, 4.0f);
+    kwInHp = {}; kwInShelf = {}; kwOutHp = {}; kwOutShelf = {};
+    autoGainInSq = autoGainOutSq = 0.0;
+    autoGainTarget = autoGainApplied = 1.0f;
+    autoGainFastSamples = (int) (sampleRate * 0.5);
+    autoGainDb.store (0.0f, std::memory_order_relaxed);
 
     lcrDryDelayL.assign ((size_t) latSize, 0.0f);
     lcrDryDelayR.assign ((size_t) latSize, 0.0f);
@@ -1229,6 +1264,17 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const float rayPiOverFs = juce::MathConstants<float>::pi / (float) currentSampleRate;
     float lastMoveS  = 0.0f;   // letzter geglaetteter Flow-Wert (fuer die Live-Anzeige)
 
+    // ===== AUTO GAIN: Rampe fuer diesen Block =====
+    // Angewandt wird der im VORIGEN Block berechnete Wert. Ein Block Versatz
+    // in der Regelstrecke ist bei rund einer Sekunde Zeitkonstante belanglos
+    // und erspart eine zweite Messschleife.
+    const bool  autoGainOn = pAutoGain->load() > 0.5f;
+    const float agFrom = autoGainApplied;
+    const float agTo   = autoGainOn ? autoGainTarget : 1.0f;
+    const float agStep = (agTo - agFrom) / (float) juce::jmax (1, numSamples);
+    float agNow = agFrom;
+    double agInAcc = 0.0, agOutAcc = 0.0;
+
     // Fuer den Korrelationsmesser: einfache Blockweise-Summen statt einer
     // laufenden Glaettung - guenstig und fuer eine reine Anzeige praezise genug.
     double corrSumLR = 0.0, corrSumLL = 0.0, corrSumRR = 0.0;
@@ -1245,6 +1291,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // schrittweise ueberschrieben werden.
         const float dryL = l;
         const float dryR = r;
+
+        // Auto Gain, Messpunkt EIN: Monosumme, K-gewichtet.
+        {
+            const float m = 0.5f * (dryL + dryR);
+            const float k = kwInShelf.process (kwInHp.process (m, kwHpCoeffs), kwShelfCoeffs);
+            agInAcc += (double) k * (double) k;
+        }
 
         // Alle geglaetteten Regler-/Section-Werte fuer dieses Sample holen.
         const float sensS  = sensSmoothed.getNextValue();
@@ -1703,6 +1756,21 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             r = r + (monoSum - r) * monoGain;
         }
 
+        // ===== AUTO GAIN =====
+        // Sitzt bewusst VOR dem VOL-Trim: VOL soll ein echter Trim bleiben.
+        // Laege Auto Gain dahinter, wuerde es jede VOL-Bewegung wieder
+        // wegregeln und der Regler waere funktionslos.
+        // Gemessen wird das bearbeitete Signal VOR dem Ausgleich - damit ist
+        // die Regelung offen und nicht rueckgekoppelt, also vorhersagbar.
+        {
+            const float m = 0.5f * (l + r);
+            const float k = kwOutShelf.process (kwOutHp.process (m, kwHpCoeffs), kwShelfCoeffs);
+            agOutAcc += (double) k * (double) k;
+        }
+        agNow += agStep;
+        l *= agNow;  r *= agNow;
+        meterL *= agNow;  meterR *= agNow;
+
         // VOL-Trim: allerletzte Gain-Stufe der GESAMTEN Kette (nach
         // Mono-Check, "am ende" - User-Bestaetigung), wirkt daher auch auf
         // alles, was Goniometer und Korrelationsmesser anzeigen - deshalb
@@ -1809,6 +1877,42 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // (Korrektur: dieser Store lag zwischenzeitlich versehentlich in
     // updateVisualMeters(), wo es kein "buffer" gibt - richtiger Ort ist
     // hier, am tatsaechlichen Ende von processBlock().)
+    // ===== AUTO GAIN: Ziel fuer den naechsten Block =====
+    {
+        autoGainApplied = agTo;
+        autoGainDb.store (juce::Decibels::gainToDecibels (agTo, -24.0f), std::memory_order_relaxed);
+
+        const double blockSec = (double) numSamples / juce::jmax (1.0, currentSampleRate);
+        const double inMean  = agInAcc  / (double) juce::jmax (1, numSamples);
+        const double outMean = agOutAcc / (double) juce::jmax (1, numSamples);
+
+        // Kurz nach dem Start schnell einschwingen, danach bewusst traege.
+        const bool fast = autoGainFastSamples > 0;
+        if (fast) autoGainFastSamples -= numSamples;
+        const double tauMeas = fast ? 0.05 : 0.30;
+        const double tauGain = fast ? 0.05 : 0.35;
+
+        const double aMeas = std::exp (-blockSec / tauMeas);
+        autoGainInSq  = inMean  + aMeas * (autoGainInSq  - inMean);
+        autoGainOutSq = outMean + aMeas * (autoGainOutSq - outMean);
+
+        // Bei Stille wird der Wert eingefroren statt weggelaufen - sonst
+        // klettert der Ausgleich in Pausen ins Absurde und knallt beim
+        // naechsten Einsatz.
+        constexpr double kSilence = 1.0e-9;   // ca. -90 dBFS
+        if (autoGainInSq > kSilence && autoGainOutSq > kSilence)
+        {
+            const double ratio = std::sqrt (autoGainInSq / autoGainOutSq);
+            // Begrenzt, damit keine extreme Einstellung einen absurden Boost
+            // erzeugt (und damit ein stummgeschalteter Ausgang nichts reisst).
+            const float wanted = juce::jlimit (juce::Decibels::decibelsToGain (-12.0f),
+                                               juce::Decibels::decibelsToGain (12.0f),
+                                               (float) ratio);
+            const float aGain = (float) std::exp (-blockSec / tauGain);
+            autoGainTarget = wanted + aGain * (autoGainTarget - wanted);
+        }
+    }
+
     // ===== DEMO-MODUS =====
     // Absichtlich ganz am Ende und VOR der Pegelanzeige: das OUT-Meter soll
     // das Absenken mitmachen, sonst wirkt es wie ein Fehler statt wie eine
