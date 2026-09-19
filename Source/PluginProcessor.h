@@ -3,6 +3,7 @@
 #include "DSP/ChannelDelayLine.h"
 #include "DSP/LCRExtractor.h"
 #include "DSP/SimplePitchShifter.h"
+#include "Licence.h"
 #include <array>
 #include <atomic>
 
@@ -71,6 +72,24 @@ public:
     // passthroughWithLatencyCompensation). Die GUI liest denselben Wert, um
     // saemtliche Animationen (Sterne, Goniometer-Trace) einzufrieren.
     std::atomic<bool> uiBypassed { false };
+
+    // ===== DEMO-MODUS =====
+    // Ohne gueltige Seriennummer laeuft das Plugin vollstaendig - es wird nur
+    // alle 50 Sekunden fuer gut drei Sekunden leise. Bewusst KEIN Zeitlimit:
+    // ein Demo, das nach 14 Tagen tot ist, zwingt zur Kaufentscheidung, bevor
+    // jemand das Plugin in einem echten Mix gehoert hat. Bewusst auch kein
+    // Rauschen - das verfaelscht den Eindruck vom Klang.
+    std::atomic<bool>  licensed { false };
+    std::atomic<float> demoDuck { 1.0f };   // 1 = volle Lautstaerke, 0 = stumm; die GUI dimmt entsprechend mit
+
+    // Uebernimmt eine Seriennummer (bereits geprueft) und merkt sie sich.
+    void storeLicence (const juce::String& serial)
+    {
+        juce::PropertiesFile props (appPropertiesOptions());
+        props.setValue ("licence", spacex::normaliseSerial (serial));
+        props.saveIfNeeded();
+        licensed.store (true, std::memory_order_relaxed);
+    }
 
     // Host-Bypass als echter Parameter: dann ruft der VST3-Wrapper bei
     // Host-Bypass weiter processBlock() auf (statt processBlockBypassed)
@@ -549,6 +568,11 @@ private:
     // hoerbar wird. Der Trigger selbst (chaosTriggerRequested) ist weiter
     // oben im PUBLIC Bereich deklariert, da der Editor ihn direkt setzt.
     juce::SmoothedValue<float> chaosDuckGain;
+
+    // Demo-Modus (siehe licensed/demoDuck oben): Zaehler und aktuelle
+    // Absenkung. Nur im Audio-Thread angefasst.
+    double demoPhaseSec = 0.0;
+    float  demoGain     = 1.0f;
     int chaosDuckHoldSamplesRemaining = 0;
 
     // Einfaches Direct-Form-I-Biquad fuer den "Elevate"-EQ-Trick (rein

@@ -859,7 +859,14 @@ public:
         const juce::Colour onFull = isComicTheme() ? btnAccent.withMultipliedSaturation (0.7f).darker (0.15f)
                                   : gold           ? juce::Colour (0xff2e2a1c)
                                                    : juce::Colour (0xff2a1f33);
-        const bool fillIt = isComicTheme() || isOn || offButPaired;
+        // Knoepfe in den Panels (Settings/View) tragen "noGlow". Ihr
+        // An-Zustand war bisher controlOnFill() - in Pop eine kraeftige Pille,
+        // in allen anderen Themes aber praktisch die Panelfarbe (User: "nur
+        // Pop bleibt im Menue hell, alle anderen sind dunkel"). Sie bekommen
+        // deshalb ihre eigene, deutlich sichtbare Faerbung, die sich aus der
+        // Theme-Farbe ableitet statt aus der Plattenfarbe.
+        const bool panelBtn = button.getProperties().getWithDefault ("noGlow", false);
+        const bool fillIt = isComicTheme() || panelBtn || isOn || offButPaired;
         if (fillIt)
         {
             // An-Zustand auf halbem Weg zwischen "unsichtbar" und dem alten
@@ -872,6 +879,9 @@ public:
             // die Sektionsflaeche heran - sichtbar als Knopf, aber still.
             if (isComicTheme() && sectionIsOffNow)
                 base = juce::Colour (0xff1f1a36);
+            if (panelBtn && ! isComicTheme())
+                base = isOn ? juce::Colour (0xff1e2128).interpolatedWith (themePalette().knob, 0.34f)
+                            : juce::Colour (0xff2a2e37);
             // Knopf an, Sektion aus: nur noch ein Hauch heller als die Platte -
             // sichtbar, aber nicht laut.
             if (offButPaired && ! isOn && ! isComicTheme())
@@ -920,12 +930,15 @@ public:
     // im Akzent statt als harter blauer Balken.
     void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override
     {
+        // Bewusst KEINE abgerundeten Ecken: das Menuefenster selbst ist
+        // rechteckig und deckend, runde Ecken liessen dort helle Zipfel stehen
+        // (User: "kleiner Grafikbug, Ecken sind weiss"). Also ganze Flaeche
+        // fuellen und nur die Kante zeichnen.
         auto b = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
         const auto pal = themePalette();
-        g.setColour (pal.plate.interpolatedWith (juce::Colours::white, 0.05f));
-        g.fillRoundedRectangle (b.reduced (0.5f), 9.0f);
+        g.fillAll (pal.plate.interpolatedWith (juce::Colours::white, 0.05f));
         g.setColour (pal.frameMain.withAlpha (0.38f));
-        g.drawRoundedRectangle (b.reduced (0.75f), 9.0f, 1.2f);
+        g.drawRect (b, 1.0f);
     }
 
     int getPopupMenuBorderSize() override { return 7; }

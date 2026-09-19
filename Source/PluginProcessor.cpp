@@ -72,6 +72,10 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     // Bewusst NICHT im APVTS (kein Preset-/Mutate-Bestandteil), nur fuer den
     // Host-Bypass (siehe getBypassParameter im Header).
     addParameter (hostBypassParam = new juce::AudioParameterBool (juce::ParameterID { "hostBypass", 1 }, "Bypass", false));
+    {
+        juce::PropertiesFile props (appPropertiesOptions());
+        licensed.store (spacex::isValidSerial (props.getValue ("licence")), std::memory_order_relaxed);
+    }
     pGalaxyActivate = apvts.getRawParameterValue (ID_GALAXY_ACTIVATE);
     pLcrEnabled = apvts.getRawParameterValue (ID_LCR_ENABLED);
     pLcrSens    = apvts.getRawParameterValue (ID_LCR_SENS);
@@ -1787,6 +1791,36 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // (Korrektur: dieser Store lag zwischenzeitlich versehentlich in
     // updateVisualMeters(), wo es kein "buffer" gibt - richtiger Ort ist
     // hier, am tatsaechlichen Ende von processBlock().)
+    // ===== DEMO-MODUS =====
+    // Absichtlich ganz am Ende und VOR der Pegelanzeige: das OUT-Meter soll
+    // das Absenken mitmachen, sonst wirkt es wie ein Fehler statt wie eine
+    // Ansage. Rampe ueber den Block, damit nichts knackt.
+    if (! licensed.load (std::memory_order_relaxed))
+    {
+        constexpr double kPeriodSec = 50.0;   // Abstand zwischen zwei Absenkungen
+        constexpr double kQuietSec  = 3.2;    // wie lange leise
+        constexpr double kFadeSec   = 0.35;   // Rampe in beide Richtungen
+
+        const double blockSec = (double) numSamples / juce::jmax (1.0, currentSampleRate);
+        demoPhaseSec += blockSec;
+        if (demoPhaseSec >= kPeriodSec)
+            demoPhaseSec -= kPeriodSec;
+
+        const float target = (demoPhaseSec >= kPeriodSec - kQuietSec) ? 0.0f : 1.0f;
+        const float maxStep = (float) (blockSec / kFadeSec);
+        const float from = demoGain;
+        demoGain = juce::jlimit (0.0f, 1.0f, from + juce::jlimit (-maxStep, maxStep, target - from));
+        if (from < 1.0f || demoGain < 1.0f)
+            buffer.applyGainRamp (0, numSamples, from, demoGain);
+        demoDuck.store (demoGain, std::memory_order_relaxed);
+    }
+    else
+    {
+        demoGain = 1.0f;
+        demoPhaseSec = 0.0;
+        demoDuck.store (1.0f, std::memory_order_relaxed);
+    }
+
     currentOutputLevel.store (buffer.getMagnitude (0, numSamples), std::memory_order_relaxed);
 
     // Lebenszeichen fuer das Starfield - siehe lastProcessBlockMs im Header.

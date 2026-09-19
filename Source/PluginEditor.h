@@ -43,7 +43,8 @@ enum SpaceXSettingsId
     idResetSettings,
     idShowHz,
     idCancelSettings,
-    idSaveSettings
+    idSaveSettings,
+    idActivate
 };
 
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -215,7 +216,8 @@ private:
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
-                         resetBtn { "Reset" }, cancelBtn { "Cancel" }, saveBtn { "Save" };
+                         resetBtn { "Reset" }, cancelBtn { "Cancel" }, saveBtn { "Save" },
+                         licenceBtn { "Activate..." };
 
         std::function<void (int)> onAction;
         std::function<void()>     onClose;
@@ -280,6 +282,7 @@ private:
             setup (folderBtn, "Preset Folder...",      idOpenPresetFolder);
             setup (manualBtn, "Manual",                idOpenManual);
             setup (resetBtn,  "Reset",                 idResetSettings);
+            setup (licenceBtn, "Activate...", idActivate);
             setup (cancelBtn, "Cancel", idCancelSettings);
             setup (saveBtn,   "Save",   idSaveSettings);
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
@@ -375,6 +378,7 @@ private:
                 r.removeFromBottom (7);
                 const int gap = 7;
                 const int w = 128;
+                licenceBtn.setBounds (row2.removeFromLeft (w + 10));
                 saveBtn.setBounds (row2.removeFromRight (w));
                 row2.removeFromRight (gap);
                 cancelBtn.setBounds (row2.removeFromRight (w));
@@ -1671,6 +1675,11 @@ private:
     void openManual();
     juce::ValueTree presetTree (const juce::String& name) const;
     void promptRenamePreset();
+    // Seriennummer eingeben (Settings -> "Activate..."). Siehe Source/Licence.h.
+    void promptActivate();
+    // Save-/Rename-/Activate-Dialoge in die Theme-Farben bringen - ein
+    // AlertWindow zieht sonst das JUCE-Standardgrau (User).
+    void styleNameDialog (juce::AlertWindow& w);
     // Ordner-Auswahl ("Set Preset Folder...") muss waehrend des Dialogs leben.
     std::unique_ptr<juce::FileChooser> presetFolderChooser;
     // prefillCurrent = true: Name des geladenen Presets vorausgefuellt
@@ -1720,6 +1729,7 @@ private:
     // braucht ein Objekt mit Lebensdauer >= Dialogdauer fuer den async
     // Callback-Modus mit Texteingabe).
     std::unique_ptr<juce::AlertWindow> presetNameDialog;
+    float lastDemoDuck = 1.0f;   // siehe timerCallback / paintOverContent
 
     // Menu-Item "Show Modulation" (User-Wunsch: "add show modulation
     // visuals / feedback / movement") - schaltet die beweglichen Live-Mod-

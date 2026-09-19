@@ -1692,6 +1692,11 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[2].setToggleState (p.getBoolValue ("prismClickJumps", false),        juce::dontSendNotification);
     settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("showFocusHz", false),            juce::dontSendNotification);
     settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    const bool lic = processor.licensed.load (std::memory_order_relaxed);
+    settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
+    settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
+    settingsPanel.licenceBtn.setTooltip (lic ? "This copy is activated"
+                                             : "Enter your serial number to remove the demo mute");
     settingsPanel.repaint();
 }
 
@@ -1837,6 +1842,9 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                         if (m.first == result) setUiTheme (m.second, true);
                     break;   // Wiederoeffnen uebernimmt reopenGuard (siehe oben)
                 }
+                case idActivate:
+                    promptActivate();
+                    break;
                 case idPresetSetsGalaxy:
                     writeProps.setValue ("presetSetsGalaxy", ! writeProps.getBoolValue ("presetSetsGalaxy", false));
                     writeProps.saveIfNeeded();
@@ -2167,6 +2175,7 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
     if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
     presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    styleNameDialog (*presetNameDialog);
 
     presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
     {
@@ -2213,6 +2222,74 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
 // Settings veraendert wurden sollen diese hierbei NICHT mit gespeichert
 // werden!"). Die Datei wird umbenannt, der Inhalt bleibt exakt gleich - ein
 // eventueller Stern am Namen bleibt deshalb auch stehen.
+// Ein AlertWindow benutzt sonst das Standard-LookAndFeel und sieht damit aus
+// wie aus einem anderen Programm. Farben kommen live aus der Theme-Palette,
+// deshalb hier und nicht einmalig im LookAndFeel-Konstruktor.
+void LCRMSAudioProcessorEditor::styleNameDialog (juce::AlertWindow& w)
+{
+    const auto pal = themePalette();
+    w.setLookAndFeel (&lookAndFeel);
+    w.setColour (juce::AlertWindow::backgroundColourId, pal.plate.interpolatedWith (juce::Colours::white, 0.05f));
+    w.setColour (juce::AlertWindow::outlineColourId,    pal.frameMain.withAlpha (0.38f));
+    w.setColour (juce::AlertWindow::textColourId,       juce::Colour (0xffdfe3ea));
+    if (auto* te = w.getTextEditor ("name"))
+    {
+        te->setColour (juce::TextEditor::backgroundColourId,     pal.plate.darker (0.35f));
+        te->setColour (juce::TextEditor::textColourId,           juce::Colour (0xffdfe3ea));
+        te->setColour (juce::TextEditor::outlineColourId,        pal.frameMain.withAlpha (0.30f));
+        te->setColour (juce::TextEditor::focusedOutlineColourId, pal.knob.withAlpha (0.55f));
+        te->setColour (juce::TextEditor::highlightColourId,      pal.knob.withAlpha (0.30f));
+        te->setColour (juce::TextEditor::highlightedTextColourId, juce::Colour (0xff10131a));
+        te->setColour (juce::CaretComponent::caretColourId,      pal.knob);
+    }
+}
+
+// ===== AKTIVIERUNG =====
+// Offline: die Nummer traegt ihre eigene Pruefsumme (Source/Licence.h), es
+// wird also nichts verschickt und nichts nachgeschlagen.
+void LCRMSAudioProcessorEditor::promptActivate()
+{
+    if (processor.licensed.load (std::memory_order_relaxed))
+    {
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
+            "SpaceX", "This copy is activated. Thank you.");
+        return;
+    }
+
+    presetNameDialog = std::make_unique<juce::AlertWindow> ("Activate SpaceX",
+                                                              "Enter your serial number:",
+                                                              juce::MessageBoxIconType::NoIcon);
+    presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
+    if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    presetNameDialog->addButton ("Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
+    styleNameDialog (*presetNameDialog);
+
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    {
+        juce::String entered;
+        if (result == 1 && presetNameDialog != nullptr)
+            entered = presetNameDialog->getTextEditorContents ("name");
+        presetNameDialog.reset();
+        if (result != 1)
+            return;
+
+        if (spacex::isValidSerial (entered))
+        {
+            processor.storeLicence (entered);
+            refreshSettingsPanel();
+            content.repaint();
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
+                "SpaceX", "Activated. Thank you for supporting independent plugins.");
+        }
+        else
+        {
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                "SpaceX", "That serial number was not recognised.\n\nIt looks like: SPX1-XXXX-XXXX-XXXX");
+        }
+    }), false);
+}
+
 void LCRMSAudioProcessorEditor::promptRenamePreset()
 {
     if (currentPresetName.isEmpty() || isDefaultPresetName (currentPresetName))
@@ -2226,6 +2303,7 @@ void LCRMSAudioProcessorEditor::promptRenamePreset()
     if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
     presetNameDialog->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    styleNameDialog (*presetNameDialog);
 
     presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, oldName] (int result)
     {
@@ -3510,6 +3588,16 @@ void LCRMSAudioProcessorEditor::timerCallback()
     updateHintBar();
     bool needsRepaint = false;
 
+    // Demo-Absenkung: nur neu zeichnen, wenn sich wirklich etwas bewegt.
+    {
+        const float duck = processor.demoDuck.load (std::memory_order_relaxed);
+        if (std::abs (duck - lastDemoDuck) > 0.004f)
+        {
+            lastDemoDuck = duck;
+            content.repaint();
+        }
+    }
+
     // Aktueller Solo-Status zuerst ermitteln - wird gebraucht, um ALLE nicht
     // soloten Sektionen visuell wie "aus" darzustellen (User-Feedback:
     // "Wenn eine Section Solo ist, dann muessen die anderen alle ausgegraut
@@ -4307,6 +4395,24 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // mit den Smart-Knoepfen im Header, und es kollidiert auch nicht mit
         // den Sektionsnamen (Dimension). Aendern ist eine Zeile.
         g.drawText ("SPATIAL INTELLIGENCE", sloganLine, juce::Justification::centredLeft);
+
+        // DEMO-Plakette. Steht bewusst klein neben dem Slogan und nicht als
+        // Banner ueber der GUI: das Plugin soll sich im Demo-Modus wie das
+        // fertige Produkt anfuehlen, nur eben alle 50 Sekunden kurz leise.
+        if (! processor.licensed.load (std::memory_order_relaxed))
+        {
+            auto f = juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f);
+            const float sloganW = juce::GlyphArrangement::getStringWidth (sloganFont, "SPATIAL INTELLIGENCE");
+            const float chipW   = juce::GlyphArrangement::getStringWidth (f, "DEMO") + 16.0f;
+            juce::Rectangle<float> chip ((float) sloganLine.getX() + sloganW + 14.0f,
+                                         (float) sloganLine.getCentreY() - 8.5f, chipW, 17.0f);
+            g.setColour (themePalette().frameRaye.withAlpha (0.18f));
+            g.fillRoundedRectangle (chip, 8.0f);
+            g.setColour (themePalette().frameRaye.withAlpha (0.75f));
+            g.drawRoundedRectangle (chip.reduced (0.5f), 8.0f, 1.0f);
+            g.setFont (f);
+            g.drawText ("DEMO", chip, juce::Justification::centred, false);
+        }
     }
 
     // Kleine vertikale Trennstriche in der globalen Button-Zeile (User-
@@ -4983,6 +5089,19 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         g.setColour (juce::Colour (0xff0a0b0e).withAlpha (0.62f));
         g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
         g.restoreState();
+    }
+
+    // Demo-Modus: wird das Audio leiser, geht die GUI im selben Mass mit
+    // runter (User: "wenn das Plugin leiser wird soll es auch gedimmt
+    // werden"). So ist sofort klar, dass das Absenken gewollt ist und kein
+    // Fehler im Mix.
+    {
+        const float duck = processor.demoDuck.load (std::memory_order_relaxed);
+        if (duck < 0.999f)
+        {
+            g.setColour (juce::Colour (0xff0a0b0e).withAlpha ((1.0f - duck) * 0.58f));
+            g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+        }
     }
 
     if (! processor.uiBypassed.load (std::memory_order_relaxed))
