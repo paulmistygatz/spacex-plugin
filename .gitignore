@@ -4,3 +4,4 @@ build_log.txt
 *.swp
 tools/latency-test/LCRExtractor_local.h
 tools/latency-test/latency-test
+dist/
