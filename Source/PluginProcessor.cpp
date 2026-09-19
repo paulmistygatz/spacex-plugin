@@ -886,8 +886,26 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Option, Betrag ist fest (kein eigener Staerke-Regler). Tatsaechlich
     // angewendet wird das weiter unten pro Sample (siehe balanceOnGain).
     balanceOnGain.setTargetValue (pTimewarpBalance->load() > 0.5f ? 1.0f : 0.0f);
-    constexpr float kMaxBalanceCompDb = 4.5f;
-    const float balanceTargetCompGain = juce::Decibels::decibelsToGain ((driftAbsPctMod * 0.01f) * kMaxBalanceCompDb);
+    // Runde 30, zwei Korrekturen (User: "er ist hoerbar, koennte aber noch
+    // mehr centern"):
+    //
+    // 1) Die Kompensation haengt jetzt an der VERZOEGERUNGSZEIT statt am
+    //    Prozentwert des Reglers. Der Regler ist absichtlich krumm skaliert -
+    //    0-80 % decken 0-2 ms ab, die letzten 20 % springen auf 20 ms. Die
+    //    alte Rechnung (Prozent x 4,5 dB) war dadurch oben voellig aus dem
+    //    Tritt: zehnfache Verzoegerung, aber nur 0,9 dB mehr Ausgleich.
+    //
+    // 2) Der Betrag war im Arbeitsbereich schlicht zu klein. Bei 1 ms kamen
+    //    1,8 dB heraus; um den Praezedenzeffekt dort spuerbar zurueckzuholen,
+    //    braucht es je nach Material eher 6-10 dB.
+    //
+    // Oberhalb von 2 ms wird der Ausgleich bewusst EINGEFROREN: dort gewinnt
+    // der Praezedenzeffekt so klar, dass mehr Pegel die Seite nur noch lauter
+    // macht statt mittiger. Weiter aufdrehen wuerde den Fehler vergroessern.
+    constexpr float kBalanceDbPerMs = 3.75f;   // 1 ms -> 3,75 dB, 2 ms -> 7,5 dB
+    constexpr float kBalanceMaxMs   = 2.0f;
+    const float balanceMs = juce::jmin (driftPercentToMs (driftAbsPctMod), kBalanceMaxMs);
+    const float balanceTargetCompGain = juce::Decibels::decibelsToGain (balanceMs * kBalanceDbPerMs);
     const bool balanceBoostsLeft = driftPct >= 0.0f;
     // Live-Anzeige: jetzt direkt der modulierte Prozentwert, kein Umweg mehr
     // ueber die ms-Kurve noetig.
