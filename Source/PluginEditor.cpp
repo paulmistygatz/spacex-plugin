@@ -2809,7 +2809,13 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         b->setClickingTogglesState (true);
         b->setWantsKeyboardFocus (false);
         b->getProperties().set ("filterIcon", true);
-        content.addAndMakeVisible (*b);
+        content.addChildComponent (*b);
+        // Runde 30: unsichtbar. Der Knopf bleibt samt Attachment bestehen
+        // (kein zweiter Weg fuer denselben Zustand), nimmt aber keinen Platz
+        // mehr ein und ist nicht mehr bedienbar. Der Focus wirkt jetzt
+        // einheitlich auf Galaxy, Dimension und Vision.
+        b->setVisible (false);
+        b->setEnabled (false);
     }
     galaxyFilterAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_GALAXY, galaxyFilterButton);
     dimFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_DIM,    dimFilterButton);

@@ -616,6 +616,20 @@ private:
     static void updateLowpassCoeffs  (BiquadCoeffs& c, double sampleRate, float freqHz) noexcept;
 
     BiquadCoeffs prismHpCoeffs, prismLpCoeffs;
+
+    // ===== BASS-GUARD =====
+    // Unterhalb von 120 Hz bleibt das Stereobild unangetastet - fest
+    // verdrahtet, ohne Bedienelement. Begruendung: Verbreitern und LCR im
+    // Bass ruinieren die Monokompatibilitaet und machen den Bass schwammig.
+    // Das ist keine Geschmacksfrage, sondern Korrektheit, und gute Werkzeuge
+    // erzwingen Korrektheit still. Niemand will einen "Zerstoer meinen Bass
+    // nicht"-Schalter, alle wollen ein Plugin, das ihren Bass nicht zerstoert.
+    //
+    // Technisch immer als "Original + Hochpass(Aenderung)": unterhalb der
+    // Grenze steht damit exakt das Eingangssignal, es entstehen keine
+    // Kammfilter, und bei neutralen Einstellungen bleibt alles bitgenau.
+    BiquadCoeffs bassGuardCoeffs;
+    BiquadState  bassGuardGalL, bassGuardGalR, bassGuardDim;
     // ===== AUTO GAIN =====
     // Gemessen wird K-gewichtet (vereinfachtes ITU-R BS.1770: Hochpass gegen
     // den Bassueberschuss, Hoehenschelf fuer die Ohrkurve) auf der Monosumme.

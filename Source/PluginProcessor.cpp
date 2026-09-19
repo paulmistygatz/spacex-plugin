@@ -586,6 +586,9 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // Auto Gain: K-Gewichtung aufsetzen und Regelung zuruecksetzen. Die
     // ersten 0,5 s laufen mit kurzer Zeitkonstante, damit ein Offline-Bounce
     // nicht mit einer hoerbaren Einschwingphase beginnt.
+    updateHighpassCoeffs (bassGuardCoeffs, sampleRate, 120.0f);
+    bassGuardGalL = {}; bassGuardGalR = {}; bassGuardDim = {};
+
     updateHighpassCoeffs  (kwHpCoeffs,    sampleRate, 60.0f);
     updateHighShelfCoeffs (kwShelfCoeffs, sampleRate, 1500.0f, 4.0f);
     kwInHp = {}; kwInShelf = {}; kwOutHp = {}; kwOutShelf = {};
@@ -1176,9 +1179,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // das bisherige.
         const bool coversAll = (loHz <= 25.0f && hiHz >= 19000.0f);
         prismActive = prismOnRaw && ! coversAll;
-        prismGalaxyActive = prismActive && pPrismGalaxy->load() < 0.5f;
-        prismDimActive    = prismActive && pPrismDim->load()    < 0.5f;
-        prismVisActive    = prismActive && pPrismVis->load()    < 0.5f;
+        // Runde 30: die drei Focus-Bypass-Schalter sind aus der Oberflaeche
+    // verschwunden (User: "3 Focus Knobs wieder rueckgaengig machen") - drei
+    // Schalter fuer ein Routing, das man nicht hoeren kann. Der Focus wirkt
+    // jetzt einheitlich auf alle drei Sektionen. Die Parameter bleiben
+    // bestehen, werden aber bewusst ignoriert, damit alte Presets kein
+    // unsichtbares Sonderverhalten mehr ausloesen koennen.
+    prismGalaxyActive = prismActive;
+        prismDimActive    = prismActive;   // siehe prismGalaxyActive
+        prismVisActive    = prismActive;   // siehe prismGalaxyActive
 
         // WING: +-2 dB gegenlaeufig um 700 Hz, nur auf dem Seitensignal.
         // Absichtlich klein - eine Neigung wirkt deutlich staerker als eine
@@ -1393,6 +1402,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const float wg = lcrWetGain.getNextValue();
             float gxL = lcrDryL + (wetL - lcrDryL) * wg;
             float gxR = lcrDryR + (wetR - lcrDryR) * wg;
+            // Bass-Guard (siehe Header): unter 120 Hz bleibt das Original.
+            {
+                const float dL = gxL - lcrDryL;
+                const float dR = gxR - lcrDryR;
+                gxL = lcrDryL + bassGuardGalL.process (dL, bassGuardCoeffs);
+                gxR = lcrDryR + bassGuardGalR.process (dR, bassGuardCoeffs);
+            }
             // "Band Limits Galaxy": nur der ANTEIL der Galaxy-Bearbeitung
             // innerhalb des Bandes bleibt stehen. Dieselbe Rechnung wie bei
             // Dimension/Vision (dry + band(wet - dry)), deshalb ist das
@@ -1487,15 +1503,18 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             // das bisherige Verhalten. Ausserhalb des Bandes bleibt das
             // Side-Signal voellig unberuehrt, es entstehen keine Kammfilter.
             const float sFactor = boostS * widthS;
+            // Bass-Guard: skaliert wird nur der Anteil OBERHALB von 120 Hz.
+            // Darunter bleibt das Side-Signal so, wie es hereinkam.
+            const float sGuard = bassGuardDim.process (s, bassGuardCoeffs);
             float sWet;
             if (prismDimActive)
             {
-                const float band = prismDimLp.process (prismDimHp.process (s, prismHpCoeffs), prismLpCoeffs);
+                const float band = prismDimLp.process (prismDimHp.process (sGuard, prismHpCoeffs), prismLpCoeffs);
                 sWet = s + band * (sFactor - 1.0f);
             }
             else
             {
-                sWet = s * sFactor;
+                sWet = s + sGuard * (sFactor - 1.0f);
             }
             const float lWet = m + sWet;
             const float rWet = m - sWet;
