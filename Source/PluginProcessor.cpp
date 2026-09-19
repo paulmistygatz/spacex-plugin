@@ -724,7 +724,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // deren eigenen Power-Icon-Status (nur fuer die Verarbeitung - die
     // Power-Icons selbst bleiben unveraendert und zeigen weiter ihren
     // eigentlichen An/Aus-Zustand).
-    const int soloSection = juce::jlimit (0, 7, (int) std::round (pSoloSection->load()));
+    // Runde 30: Solo ist aus der Oberflaeche verschwunden (User). Es war eine
+    // LERNfunktion, keine Mischfunktion - "was macht diese Sektion?" fragt man
+    // in der ersten Woche, danach nie wieder -, es ist durch das Ausschalten
+    // der anderen Sektionen vollstaendig ersetzbar, und es hat mehr Fehler
+    // produziert als fast alles andere im Projekt. Der Parameter bleibt
+    // bestehen, wird hier aber fest auf NONE gezogen, damit auch ein altes
+    // Preset oder ein Offline-Rendering kein unsichtbares Solo mehr ausloest.
+    const int soloSection = SOLO_NONE;
+    juce::ignoreUnused (pSoloSection);
     const bool soloActive = soloSection != SOLO_NONE;
 
     // Galaxy ist in ZWEI unabhaengige Schalter aufgeteilt (User-Feedback:

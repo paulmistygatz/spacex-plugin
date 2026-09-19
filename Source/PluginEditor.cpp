@@ -103,7 +103,12 @@ void LCRMSAudioProcessorEditor::setupSoloButton (juce::TextButton& button, int s
     button.setClickingTogglesState (false); // Toggle-Status kommt aus dem geteilten Parameter, nicht lokal
     button.getProperties().set ("soloIcon", true);
     button.setWantsKeyboardFocus (false);
-    content.addAndMakeVisible (button);
+    // Runde 30: unsichtbar (siehe soloSection im Prozessor). Knopf und Logik
+    // bleiben unveraendert bestehen, damit es keine zweite Buchfuehrung fuer
+    // denselben Zustand gibt - er nimmt nur keinen Platz mehr ein.
+    content.addChildComponent (button);
+    button.setVisible (false);
+    button.setEnabled (false);
     button.onClick = [this, soloValue]
     {
         if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
@@ -5627,19 +5632,25 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // nur unsichtbar/aus dem Layout genommen - keine doppelte Buchhaltung
         // fuer denselben Zustand noetig.
         powerBtn.setVisible (false);
-        // Reihenfolge im Header (User-Wunsch, nach Test der "Name zuerst"-
-        // Variante wieder zurueckgedreht: "Name und Solo ist jetzt zu weit
-        // auseinander"): Solo -> Lock -> Name. Solo/Lock sitzen daher wieder
-        // fest links, der Name bekommt den kompletten Rest direkt daneben -
-        // dadurch klebt der Name-Text (Label ist links-buendig) unmittelbar
-        // am Lock-Icon, ohne Luecke.
-        soloBtn.setBounds (header.removeFromLeft (headerH).reduced (1));
-        header.removeFromLeft (6);
+        // Runde 30, neue Ordnung: NAME ganz links, Bedienelemente ganz rechts.
+        //
+        // Der frueher getestete Versuch "Name zuerst" war daran gescheitert,
+        // dass Solo dann ganz rechts sass ("Name und Solo ist jetzt zu weit
+        // auseinander") - Solo klickt man staendig. Mit dem Wegfall von Solo
+        // faellt dieser Einwand weg: rechts steht nur noch das Lock, und das
+        // setzt man einmal und laesst es liegen.
+        //
+        // Lock ist der ANKER und sitzt immer ganz aussen rechts. Dadurch
+        // stehen die Lock-Icons ueber alle Sektionen hinweg auf einer Linie,
+        // egal wie viel sonst noch im Kopf liegt. Das Mod-Paar schiebt sich
+        // links davor, mit etwas Luft dazwischen, damit es als eigene Gruppe
+        // gelesen wird. Der Name bewegt sich dabei nie.
+        soloBtn.setVisible (false);
         if (lockBtn != nullptr)
         {
             const int lockSize = juce::roundToInt (headerH * 0.72f);
-            auto lockArea = header.removeFromLeft (lockSize);
-            header.removeFromLeft (6);
+            auto lockArea = header.removeFromRight (lockSize);
+            header.removeFromRight (10);   // Luft zwischen Lock und Mod-Gruppe
             lockBtn->setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
         }
         // Optionales Mod-Icon (Sinuswelle) + Tiefe-Regler ganz rechts im
