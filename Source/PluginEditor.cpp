@@ -1,0 +1,5881 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+#include "SpaceXManualData.h"   // eingebettetes Handbuch, siehe openManual()
+#include "GUI/SpaceAssets.h"
+
+namespace
+{
+    void styleRotary (juce::Slider& s, bool withTextBox = false)
+    {
+        s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        if (withTextBox)
+        {
+            s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 64, 16);
+            s.setColour (juce::Slider::textBoxTextColourId, juce::Colours::white);
+        }
+        else
+        {
+            s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        }
+    }
+
+    // Kleine, moderne "ENHANCER"-Style-Typografie: kompakt, fett, mit
+    // leichtem zusaetzlichen Zeichenabstand statt reiner Systemschrift.
+    juce::Font paramFont()  { return juce::Font (juce::FontOptions (12.0f, juce::Font::bold)).withExtraKerningFactor (0.06f); }
+    juce::Font titleFont()  { return juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.12f); }
+
+    void styleLabel (juce::Label& l, const juce::String& text)
+    {
+        l.setText (text.toUpperCase(), juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centred);
+        l.setFont (paramFont());
+        // Bug-Fix (User: "MONO Icon + MONO Schrift sieht gestaucht aus"):
+        // JUCE-Labels stauchen Text horizontal, wenn er nicht in die Breite
+        // passt (minimumHorizontalScale < 1). Das war die "gequetschte"
+        // Schrift bei den schmalen Footer-Labels. Nie mehr stauchen - lieber
+        // die Labelflaeche breiter machen (siehe Footer-Layout).
+        // Bug-Fix (User: "unten in den beiden Sections sind die Schriften
+        // abgeschnitten" - DIST..., ELEV..., SPE...): 1.0 fuer ALLE Labels
+        // war zu hart - die Regler-Labels in den schmalen Sektionen brauchen
+        // etwas Spielraum. Regler-Labels duerfen minimal stauchen (0.88, kaum
+        // sichtbar), die Footer-Labels bleiben auf 1.0 (siehe dort). Dazu
+        // faellt der 5px-Standard-Innenrand links/rechts weg, der bei
+        // zentriertem Text nur Platz frisst.
+        l.setMinimumHorizontalScale (0.88f);
+        l.setBorderSize (juce::BorderSize<int> (1, 0, 1, 0));
+    }
+
+    // Sektions-Titel oben links in jedem Rahmen, in der Rahmenfarbe gehalten.
+    void styleTitle (juce::Label& l, const juce::String& text, juce::Colour colour)
+    {
+        l.setText (text, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centredLeft);
+        l.setColour (juce::Label::textColourId, colour);
+        l.setFont (titleFont());
+    }
+}
+
+void LCRMSAudioProcessorEditor::setupPowerButton (juce::TextButton& button, const juce::String& paramId,
+                                                   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& attachment,
+                                                   int soloValue)
+{
+    button.setClickingTogglesState (true);
+    button.getProperties().set ("powerIcon", true);
+    // Verhindert einen vom Betriebssystem/JUCE gezeichneten Fokus-Rahmen um
+    // das Icon (sah wie ein zusaetzliches "Kaestchen" um den Button aus) -
+    // nur der reine Power-Icon-Kreis soll zu sehen sein.
+    button.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (button);
+    attachment = std::make_unique<ButtonAttachment> (processor.apvts, paramId, button);
+
+    // Symmetrisch zur "Solo schaltet dauerhaft an"-Regel: schaltet man eine
+    // solote Sektion manuell per Power-Icon aus, geht Solo automatisch mit
+    // auf "None" zurueck - eine Sektion kann nie solo+off gleichzeitig sein
+    // (User-Bestaetigung).
+    if (soloValue != LCRMSAudioProcessor::SOLO_NONE || paramId == LCRMSAudioProcessor::ID_LCR_ENABLED)
+    {
+        button.onClick = [this, &button, soloValue, paramId]
+        {
+            // onClick feuert NACH dem Umschalten des Toggle-Status - nur bei
+            // AUSschalten (nicht beim Einschalten) soll Solo mit zurueckgesetzt
+            // werden.
+            // Solo bleibt beim Ausschalten stehen (User: "Sektion weiterhin
+            // solo lassen, aber bypassed") - hoerbar ist dann das trockene
+            // Signal, und beim Wiedereinschalten ist die Sektion sofort
+            // wieder allein zu hoeren.
+            // Bug-Fix (User-Feedback): Galaxy-Sektion per Power-Icon
+            // einzuschalten, waehrend Activate Galaxy global aus ist, hatte
+            // keine hoerbare Wirkung - jetzt automatisch mit aktiviert (siehe
+            // activateGalaxyIfNeeded()-Kommentar im Header).
+            if (button.getToggleState() && paramId == LCRMSAudioProcessor::ID_LCR_ENABLED)
+                activateGalaxyIfNeeded();
+            juce::ignoreUnused (soloValue);
+        };
+    }
+}
+
+// Solo-Icons sind KEIN normaler Bool-Parameter, sondern schreiben den
+// gemeinsamen Choice-Parameter ID_SOLO_SECTION - exklusiv wie ein
+// Radio-Button, aber erneutes Klicken auf das bereits aktive Solo schaltet
+// wieder auf "None" zurueck (kein Solo mehr aktiv).
+void LCRMSAudioProcessorEditor::setupSoloButton (juce::TextButton& button, int soloValue)
+{
+    button.setClickingTogglesState (false); // Toggle-Status kommt aus dem geteilten Parameter, nicht lokal
+    button.getProperties().set ("soloIcon", true);
+    button.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (button);
+    button.onClick = [this, soloValue]
+    {
+        if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
+        {
+            const int current = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+            const int next = (current == soloValue) ? LCRMSAudioProcessor::SOLO_NONE : soloValue;
+            // Bug-Fix (User: "ray solo schaltet Position solo ein"): der Teiler
+            // war mit 6 hart codiert - bei jetzt 7 Sektionen landete der Wert von
+            // RAYE (7/6 > 1) geklemmt auf dem letzten Eintrag davor: Position.
+            param->setValueNotifyingHost ((float) next / (float) LCRMSAudioProcessor::SOLO_MAX);
+
+            // Solo schaltet die zugehoerige Sektion dauerhaft an (schreibt den
+            // echten Power-Parameter mit, kein unsichtbarer Zwischenzustand) -
+            // eine Sektion kann also nicht gleichzeitig solo und off sein.
+            // Bleibt so auch nach dem Aus-Solon bestehen (kein Zuruecksetzen).
+            if (next != LCRMSAudioProcessor::SOLO_NONE)
+            {
+                const char* onParamId = nullptr;
+                switch (next)
+                {
+                    case LCRMSAudioProcessor::SOLO_GALAXY:     onParamId = LCRMSAudioProcessor::ID_LCR_ENABLED;    break;
+                    case LCRMSAudioProcessor::SOLO_TIMEWARP:   onParamId = LCRMSAudioProcessor::ID_DRIFT_ON;       break;
+                    case LCRMSAudioProcessor::SOLO_POLARITY:   onParamId = LCRMSAudioProcessor::ID_POL_ON;         break;
+                    case LCRMSAudioProcessor::SOLO_DIMENSION:  onParamId = LCRMSAudioProcessor::ID_WIDTHBOOST_ON;  break;
+                    case LCRMSAudioProcessor::SOLO_HYPERDRIVE: onParamId = LCRMSAudioProcessor::ID_FLOW_ON;        break;
+                    case LCRMSAudioProcessor::SOLO_POSITION:   onParamId = LCRMSAudioProcessor::ID_POS_ON;         break;
+                    case LCRMSAudioProcessor::SOLO_RAY:        onParamId = LCRMSAudioProcessor::ID_RAY_ON;         break;
+                    default: break;
+                }
+                if (onParamId != nullptr)
+                {
+                    if (auto* onParam = processor.apvts.getParameter (onParamId))
+                        onParam->setValueNotifyingHost (1.0f);
+                }
+            }
+        }
+    };
+}
+
+// Setzt Solo zurueck auf "None", falls die aktuell solote Sektion genau die
+// ist, deren Power gerade (manuell, per Icon ODER per Klick auf den Titel)
+// ausgeschaltet wurde - eine Sektion kann nie solo+off gleichzeitig sein.
+void LCRMSAudioProcessorEditor::resetSoloIfMatches (int soloValue)
+{
+    if (auto* soloParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
+    {
+        const int current = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+        if (current == soloValue)
+            soloParam->setValueNotifyingHost ((float) LCRMSAudioProcessor::SOLO_NONE / (float) LCRMSAudioProcessor::SOLO_MAX);
+    }
+}
+
+// Siehe Kommentar an der Deklaration (PluginEditor.h).
+void LCRMSAudioProcessorEditor::toggleUiBypass()
+{
+    processor.uiBypassed.store (! processor.uiBypassed.load (std::memory_order_relaxed), std::memory_order_relaxed);
+    content.repaint();
+}
+
+// Section-Lock-Icon (User-Wunsch: "Sections ausschliessen" von Chaos/Mutate
+// und Breathe, Variante "Lock Icon pro Section") - reiner GUI-Toggle, der
+// processor.setSectionLocked() schreibt (persistiert automatisch mit dem
+// Plugin-Zustand, siehe Processor-Kommentar). Kein APVTS-Attachment, daher
+// muss der sichtbare Status beim Laden eines Zustands einmalig aus dem
+// Processor uebernommen werden (siehe Konstruktor-Ende).
+void LCRMSAudioProcessorEditor::setupLockButton (juce::TextButton& button, int soloValue)
+{
+    button.setClickingTogglesState (true);
+    button.getProperties().set ("lockIcon", true);
+    button.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (button);
+    button.setToggleState (processor.isSectionLocked (soloValue), juce::dontSendNotification);
+    button.onClick = [this, &button, soloValue]
+    {
+        processor.setSectionLocked (soloValue, button.getToggleState());
+    };
+}
+
+// Siehe Kommentar an der Deklaration (PluginEditor.h). ID_GALAXY_ACTIVATE
+// (globaler Engine-An/Aus-Schalter, steuert AUSSCHLIESSLICH die Latenz)
+// gehoert bewusst NICHT zur LCR/Galaxy-Liste - Mutate fasst ihn NIE an
+// (siehe globalChaosButton.onClick), ein anderes Konzept als die Sektion im
+// Signalpfad. Die Sektion selbst (ID_LCR_ENABLED) gehoert dagegen weiterhin
+// zu dieser Liste - Mutate darf sie umwuerfeln, aber nur solange Galaxy
+// gerade manuell aktiv ist (siehe globalChaosButton.onClick); Section-Lock
+// schliesst sie zusaetzlich IMMER aus, unabhaengig davon.
+// ===== MUTATE =====
+// Gemeinsame Umsetzung beider Mutate-Tasten.
+//
+// Die urspruengliche Fassung hat schlicht JEDEN nicht ausgeschlossenen
+// Parameter auf rng.nextFloat() gesetzt, also gleichverteilt zwischen 0 und 1.
+// Genau das war das eigentliche Problem hinter "Mutate soll auch geile
+// Ergebnisse liefern": bei rund zwanzig Parametern ist die Wahrscheinlichkeit,
+// dass alle gleichzeitig musikalisch sinnvoll landen, verschwindend klein.
+// Schutzregeln reparieren dann nur die schlimmsten Kollisionen, machen das
+// DURCHSCHNITTLICHE Ergebnis aber nicht besser.
+//
+// Deshalb jetzt dreistufig:
+//  1. GLOCKENVERTEILUNG um den jeweiligen Default statt Gleichverteilung.
+//     Moderate Werte werden haeufig, Extreme selten - so, wie ein Mensch
+//     einstellen wuerde.
+//  2. WILDCARDS: 1 bis 3 zufaellig gewaehlte Parameter werden davon
+//     ausgenommen und voll gleichverteilt gewuerfelt. Ohne sie waere Mutate
+//     brav und langweilig - jeder Wurf klaenge nach demselben Mittelmass.
+//     Mit ihnen ist das meiste sinnvoll und EINE Sache ueberrascht. Bewusst
+//     nicht mehr als 3: ist alles auffaellig, ist nichts mehr auffaellig,
+//     und wir waeren wieder bei der Gleichverteilung.
+//  3. SICHERUNGEN ganz zum Schluss, NACH den Wildcards - damit auch eine
+//     Wildcard die Regeln nicht aushebeln kann.
+void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
+{
+    juce::Random& rng = juce::Random::getSystemRandom();
+    // Sektions-Schalter, die Mutate setzt, duerfen Galaxy nicht scharfschalten.
+    suppressGalaxyAutoArm = true;
+    struct Unsuppress { bool& f; ~Unsuppress() { f = false; } } unsuppress { suppressGalaxyAutoArm };
+    globalChaosButton.getProperties().set ("mutateColorState", rng.nextInt (16));
+    globalChaosSectionsButton.getProperties().set ("mutateColorState", rng.nextInt (16));
+
+    processor.chaosTriggerRequested.store (true);
+
+    // Stand der Polarity-Position VOR dem Wuerfeln merken. Wenn dieser Wurf
+    // weder L noch R aktiviert, wird sie unten wieder zurueckgesetzt - eine
+    // wandernde 1-4-Auswahl ohne Flip ist reine Augenwischerei (User).
+    const float polPosBefore = [this]
+    {
+        auto* p = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS);
+        return p != nullptr ? p->getValue() : 0.0f;
+    }();
+
+    // Hidden Egg: rund jeder zwanzigste Mutate-Wurf schickt das Raumschiff
+    // los. Selten genug, dass man es nicht erwartet - und Mutate ist der
+    // Moment, in dem man ohnehin aufs Feld schaut.
+    if (rng.nextInt (20) == 0)
+        goniometer.triggerEasterEgg();
+
+    // Der globale Engine-Schalter (ID_GALAXY_ACTIVATE, steuert AUSSCHLIESSLICH
+    // die Latenz) wird von Mutate NIE angefasst. Der Section-On/Off-Schalter
+    // der Galaxy-Sektion darf nur umgeworfen werden, wenn Galaxy gerade
+    // manuell aktiv ist - sonst haette es keine hoerbare Wirkung.
+    auto* galaxyActivateParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE);
+    auto* galaxySectionParam  = processor.apvts.getParameter (LCRMSAudioProcessor::ID_LCR_ENABLED);
+    const bool galaxyCurrentlyActive = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
+
+    juce::Array<juce::RangedAudioParameter*> excluded {
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_CHECK),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_DRY),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION),
+        galaxyActivateParam,
+        // ===== PRISM WIRD NICHT MITGEWUERFELT (jedenfalls nicht so) =====
+        // User-Frage: "Soll Prism auch randomisiert werden? Oder eher nicht?"
+        //
+        // Im generischen Pool auf keinen Fall - und das war bis eben ein
+        // echter Fehler: die drei PRISM-Parameter waren schlicht nicht
+        // ausgeschlossen und wurden wie jeder andere Regler gewuerfelt. Lo
+        // und Hi sind aber nicht unabhaengig voneinander; frei gewuerfelt
+        // landet man regelmaessig bei einem 40Hz-Band irgendwo oben, das
+        // alles andere praktisch stummschaltet. Man haette Mutate dann nicht
+        // als "anderer Klang" erlebt, sondern als "kaputt".
+        //
+        // Stattdessen wird PRISM weiter unten GEZIELT und selten gesetzt,
+        // mit musikalisch sinnvollen Baendern.
+        // Die beiden Focus-Bypass-Schalter gehoeren ebenfalls NICHT in den Pool
+        // (User: "Smart sollte diese Filter nicht deaktivieren koennen") - sie
+        // entscheiden ueber die Struktur des Signalwegs, nicht ueber den Klang
+        // einer Sektion, und ein zufaellig umgelegter Bypass sieht aus wie ein
+        // Fehler.
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_GALAXY),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_DIM),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_VIS),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_ON),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_LO),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_HI),
+        // RAY ebenfalls gezielt statt generisch (siehe eigener Block unten):
+        // ein Phaser ist ein Charakter-Eingriff, der nicht in jedem Wurf
+        // vorkommen soll - und sein Ein/Aus darf NICHT wie die sechs
+        // Sektionsschalter behandelt werden ("alle an").
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_ON),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_STRENGTH),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_RATE),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_PAIR),
+        // MIX: nie im generischen Pool, optional gezielt (siehe unten).
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX)
+    };
+    // Regel (User, Runde 26): Smart schaltet NIE die Galaxy-Engine scharf -
+    // eine Latenzaenderung darf nie aus einem Wuerfelwurf kommen. Solange die
+    // Engine aus ist, bleibt die ganze Sektion unberuehrt (frueher wurde nur
+    // der Section-Schalter geschont, die Regler liefen trotzdem mit - genau
+    // die Inkonsistenz, die bei den Kategorien aufgefallen ist).
+    if (! galaxyCurrentlyActive)
+    {
+        excluded.add (galaxySectionParam);
+        for (auto& paramId : sectionParamIds (LCRMSAudioProcessor::SOLO_GALAXY))
+            excluded.add (processor.apvts.getParameter (paramId));
+    }
+
+    // Section-Lock: jede gesperrte Sektion bleibt komplett unangetastet.
+    const int lockableSections[] = {
+        LCRMSAudioProcessor::SOLO_GALAXY, LCRMSAudioProcessor::SOLO_TIMEWARP,
+        LCRMSAudioProcessor::SOLO_POLARITY, LCRMSAudioProcessor::SOLO_DIMENSION,
+        LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::SOLO_POSITION,
+        LCRMSAudioProcessor::SOLO_RAY
+    };
+    for (int section : lockableSections)
+    {
+        if (! processor.isSectionLocked (section))
+            continue;
+        for (auto& paramId : sectionParamIds (section))
+            excluded.add (processor.apvts.getParameter (paramId));
+    }
+
+    // Die sechs Sektions-Schalter werden NICHT mitgewuerfelt, sondern hier
+    // gezielt gesetzt - sie entscheiden ueber Struktur, nicht ueber Klang.
+    //
+    // NEU (User, Runde 26): Das passiert JETZT VOR dem Wuerfeln der Klang-
+    // parameter. Eine Sektion, die aus bleibt, wird anschliessend komplett
+    // ausgeklammert und behaelt ihre Werte. Vorher wurde auch in
+    // ausgeschalteten Sektionen alles neu gewuerfelt - schaltete man so eine
+    // Sektion spaeter von Hand an, bekam man eine Einstellung, die nie jemand
+    // gehoert oder geprueft hatte. Genau daran fuehlt sich "random" an statt
+    // "smart"; dieselbe Ueberlegung steckt schon hinter der Polarity- und
+    // RAYE-Kopplung.
+    struct SectionSwitch { const char* onId; int solo; };
+    static const SectionSwitch sectionSwitches[6] = {
+        { LCRMSAudioProcessor::ID_LCR_ENABLED,   LCRMSAudioProcessor::SOLO_GALAXY },
+        { LCRMSAudioProcessor::ID_DRIFT_ON,      LCRMSAudioProcessor::SOLO_TIMEWARP },
+        { LCRMSAudioProcessor::ID_POL_ON,        LCRMSAudioProcessor::SOLO_POLARITY },
+        { LCRMSAudioProcessor::ID_WIDTHBOOST_ON, LCRMSAudioProcessor::SOLO_DIMENSION },
+        { LCRMSAudioProcessor::ID_FLOW_ON,       LCRMSAudioProcessor::SOLO_HYPERDRIVE },
+        { LCRMSAudioProcessor::ID_POS_ON,        LCRMSAudioProcessor::SOLO_POSITION }
+    };
+    juce::Array<juce::RangedAudioParameter*> sectionOnParams;
+    for (auto& sw : sectionSwitches)
+        if (auto* p = processor.apvts.getParameter (sw.onId))
+            sectionOnParams.add (p);
+
+    // Welche Sektionen darf der Wuerfel ueberhaupt schalten? (Schloss, und
+    // Galaxy nur bei scharfer Engine - siehe oben.)
+    juce::Array<int> switchable;
+    for (int i = 0; i < 6; ++i)
+    {
+        auto* p = processor.apvts.getParameter (sectionSwitches[i].onId);
+        if (p != nullptr && ! excluded.contains (p))
+            switchable.add (i);
+    }
+    for (int i : switchable)
+        processor.apvts.getParameter (sectionSwitches[i].onId)->setValueNotifyingHost (1.0f);
+
+    juce::Array<int> turnedOff;
+    if (mayDisableSections && switchable.size() >= 4)
+    {
+        const int offCount = juce::jmin (switchable.size() - 3, 2 + rng.nextInt (2));   // 2 oder 3
+        for (int i = 0; i < offCount; ++i)
+        {
+            const int idx = switchable[rng.nextInt (switchable.size())];
+            if (! turnedOff.contains (idx))
+                turnedOff.add (idx);
+        }
+        for (int idx : turnedOff)
+            processor.apvts.getParameter (sectionSwitches[idx].onId)->setValueNotifyingHost (0.0f);
+    }
+    // Was aus bleibt, bleibt auch unveraendert.
+    for (int idx : turnedOff)
+        for (auto& paramId : sectionParamIds (sectionSwitches[idx].solo))
+            excluded.add (processor.apvts.getParameter (paramId));
+    const bool polarityTurnedOff = turnedOff.contains (2);
+
+    // ---- Pool der zu wuerfelnden Klangparameter aufbauen ----
+    juce::Array<juce::RangedAudioParameter*> pool;
+    for (auto* param : processor.getParameters())
+    {
+        auto* rp = dynamic_cast<juce::RangedAudioParameter*> (param);
+        if (rp == nullptr || excluded.contains (rp) || sectionOnParams.contains (rp)
+            || param == processor.getBypassParameter())
+            continue;
+        pool.add (rp);
+    }
+
+    // ---- Wildcards auswaehlen ----
+    // Gewichtung 45/35/20 auf 1/2/3: eine einzelne Ueberraschung ist am
+    // besten lesbar, drei sind die sinnvolle Obergrenze.
+    const int roll = rng.nextInt (100);
+    const int wildcardCount = (roll < 45) ? 1 : (roll < 80) ? 2 : 3;
+
+    juce::Array<int> wildcards;
+    for (int i = 0; i < wildcardCount && pool.size() > 0; ++i)
+    {
+        const int idx = rng.nextInt (pool.size());
+        if (! wildcards.contains (idx))
+            wildcards.add (idx);
+    }
+
+    // ---- Wuerfeln ----
+    // Glocke: der Mittelwert dreier Gleichverteilungen ist glockenfoermig um
+    // 0,5 verteilt. Auf den DEFAULT des jeweiligen Parameters zentriert (nicht
+    // auf 0,5) und mit kSpread skaliert ergibt das "meistens moderat, selten
+    // extrem". Der Default als Zentrum ist wichtig: bei einem einseitigen
+    // Regler wie Boost (0..6 dB, Default 0) entsteht dadurch automatisch
+    // "meistens wenig, manchmal viel" statt "meistens die Haelfte".
+    constexpr float kSpread = 0.55f;
+
+    // ---- Abweichende Glocken-Zentren fuer einzelne Regler ----
+    // Der Default ist NICHT immer ein gutes Zentrum. Bei Reglern, deren
+    // Default am unteren Anschlag liegt, landet die Glocke sonst fast
+    // immer bei null - der Regler wird dadurch praktisch nie gewuerfelt.
+    //
+    // User-Beobachtung: "Hier ist mir aufgefallen, dass Orbit oft fast auf 0
+    // ist. Hier darf also die Glockenkurve deutlich hoeher sein."
+    // Genau dieser Fall: Orbit laeuft 0..100 mit Default 0.
+    //
+    // Entscheidend ist dabei die Unterscheidung, WARUM ein Default am
+    // Anschlag liegt:
+    //  - Boost (0..6 dB, Default 0) steht dort, weil "nichts" der neutrale
+    //    und leiseste Zustand ist. Hier ist "meistens wenig" richtig - das
+    //    Zentrum bleibt der Default.
+    //  - Orbit und Flow stehen dort nur, weil das Plugin neutral starten
+    //    soll. Beide sind aber genau das Interessante an ihrer Sektion und
+    //    voellig ungefaehrlich. Ihr Zentrum wird deshalb bewusst angehoben.
+    auto* orbitParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_LCR_BLEND);
+    auto* flowParam  = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MOVEMENT);
+
+    for (int i = 0; i < pool.size(); ++i)
+    {
+        auto* p = pool.getReference (i);
+        if (wildcards.contains (i))
+        {
+            p->setValueNotifyingHost (rng.nextFloat());
+        }
+        else
+        {
+            float centre = p->getDefaultValue();
+            if (p == orbitParam)      centre = 0.55f;
+            else if (p == flowParam)  centre = 0.35f;
+
+            const float t = (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 3.0f;
+            const float dev = (t - 0.5f) * 2.0f * kSpread;
+            p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, centre + dev));
+        }
+    }
+
+    // ---- Polarity: Sektion und Positionen an den Flip koppeln ----
+    // User: "es macht keinen Sinn, wenn 1-4 sich aendern, die Section aber
+    // off bleibt und sich sowieso nicht L oder R aktiviert hat - oder on ist,
+    // aber L oder R nicht aktiviert wurden. Da Polarity ein groesserer
+    // Eingriff ist als RAYE."
+    // Regel: ein Flip (L, R oder beide) ist die Bedingung fuer alles andere.
+    //   * Kein Flip  -> Positionen 1-4 bleiben unveraendert stehen.
+    //                   Smart 2 schaltet die Sektion zusaetzlich aus.
+    //   * Mit Flip   -> Sektion an, Positionen duerfen gewandert sein.
+    // Smart 1 laesst die Sektion wie alle anderen immer an; nur die
+    // Positionen bleiben ohne Flip unangetastet.
+    if (! polarityTurnedOff && ! processor.isSectionLocked (LCRMSAudioProcessor::SOLO_POLARITY))
+    {
+        auto* polL   = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
+        auto* polR   = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
+        auto* polPos = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS);
+        auto* polOn  = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_ON);
+        const bool flip = (polL != nullptr && polL->getValue() > 0.5f)
+                       || (polR != nullptr && polR->getValue() > 0.5f);
+        if (! flip && polPos != nullptr)
+            polPos->setValueNotifyingHost (polPosBefore);
+        if (polOn != nullptr && ! excluded.contains (polOn))
+            polOn->setValueNotifyingHost ((flip || ! mayDisableSections) ? 1.0f : 0.0f);
+    }
+
+    // ---- PRISM: selten, aber dann musikalisch ----
+    // Antwort auf die User-Frage "Soll Prism auch randomisiert werden?":
+    // ja - aber nicht als Regler, sondern als Auswahl aus einer Handvoll
+    // brauchbarer Baender.
+    //
+    // Der Gedanke dahinter: PRISM ist kein Effektregler, den man "ein
+    // bisschen" aufdreht, sondern eine Entscheidung darueber, WO die
+    // Verbreiterung ueberhaupt passiert. Solche Entscheidungen wuerfelt man
+    // sinnvollerweise aus einer Liste guter Antworten, nicht aus einem
+    // stufenlosen Bereich - genau so, wie man auch keine zufaellige Tonart
+    // auswuerfelt, indem man eine Frequenz zieht.
+    //
+    // Deshalb: in zwei von drei Wuerfen bleibt PRISM auf dem Standard
+    // (200 Hz aufwaerts, also nur der Bass geschuetzt). Nur im letzten
+    // Drittel wird eines von vier Baendern gezogen, die bei Backing Vocals
+    // und Adlibs tatsaechlich Sinn ergeben. PRISM wird dabei NIE
+    // ausgeschaltet - der 200-Hz-Rolloff ist immer die richtige Grundlage.
+    {
+        auto* prismOnP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_ON);
+        auto* prismLoP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_LO);
+        auto* prismHiP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_HI);
+
+        // Neu (User): nur, wenn im Menue "Mutate Changes Frequency Band"
+        // an ist - sonst bleibt PRISM komplett unangetastet. Wenn an:
+        // Glocke um 3 kHz fuer die UNTERE Kante (im Oktavraum, +-1,5 Okt.),
+        // die obere Kante bleibt meist offen (20 kHz, wie ein High-Shelf),
+        // in etwa jedem dritten Wurf liegt sie 1,5-3 Oktaven ueber der
+        // unteren. PRISM wird dabei eingeschaltet.
+        // Bug-Fix (User: "mutate -> frequency geht nicht"): die frueheren
+        // Pruefung "! excluded.contains (prismOnP)" war IMMER falsch, weil
+        // die drei PRISM-Parameter genau deshalb in `excluded` stehen, damit
+        // der generische Pool sie nicht anfasst. Der gezielte Block hier lief
+        // also nie. PRISM hat keinen Section-Lock, die Pruefung entfaellt.
+        if (prismOnP != nullptr && prismLoP != nullptr && prismHiP != nullptr
+            && juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("mutateChangesPrism", true))
+        {
+            // Glocke tiefer und breiter (User: "geht nie unter 1k, muss
+            // oefter auch mal bis 220 Hz gehen"): Mitte 1,2 kHz, +-2,6
+            // Oktaven -> ~200 Hz bis ~7 kHz, Schwerpunkt 500 Hz - 3 kHz.
+            const float bell = (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 3.0f - 0.5f;   // -0.5..0.5, Glocke
+            const float loHz = juce::jlimit (200.0f, 8000.0f, 1200.0f * std::exp2 (bell * 5.2f));
+            float hiHz = 20000.0f;
+            if (rng.nextInt (3) == 0)
+                hiHz = juce::jlimit (loHz * 2.0f, 20000.0f, loHz * std::exp2 (1.5f + rng.nextFloat() * 1.5f));
+
+            prismOnP->setValueNotifyingHost (1.0f);
+            prismLoP->setValueNotifyingHost (prismLoP->convertTo0to1 (loHz));
+            prismHiP->setValueNotifyingHost (prismHiP->convertTo0to1 (hiHz));
+        }
+    }
+
+    // ---- MIX: optional (Menue "Mutate Changes Mix") ----
+    // Glocke um 85 %, Streuung +-30 -> meistens 70-95 %, selten unter 55 %,
+    // nie unter 40 % (User: "eher seltener unter 50 %, meistens 70-80 %").
+    {
+        auto* mixP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX);
+        if (mixP != nullptr && ! isMixLocked()
+            && juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("mutateChangesMix", false))
+        {
+            const float bell = (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 3.0f - 0.5f;
+            const float pct  = juce::jlimit (40.0f, 100.0f, 85.0f + bell * 60.0f);
+            mixP->setValueNotifyingHost (mixP->convertTo0to1 (pct));
+        }
+    }
+
+    // ---- RAY: selten dabei, und wenn, dann meist leicht ----
+    // User-Vorgabe: "Phaser ... auch randomisiert werden. Glockenkurve
+    // default sagen wir mal 10%." Umgesetzt als zwei Wuerfe: ob der Phaser
+    // ueberhaupt mitspielt (rund jeder dritte Wurf), und wenn ja, wie stark
+    // (leicht 60 %, mittel 30 %, stark 10 % - das ist die "10 %"). Pair
+    // gelegentlich, damit auch der gekoppelte Fall vorkommt. Speed bleibt
+    // als einziger stufenloser Regler in der Glocke um seinen Default.
+    {
+        auto* rayOnP  = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_ON);
+        auto* raySt   = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_STRENGTH);
+        auto* rayRate = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_RATE);
+        auto* rayPair = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_PAIR);
+        // Speed liegt auch im generischen Pool und wurde deshalb selbst dann
+        // verstellt, wenn RAYE gar nicht spielt (User: "Speed on, Pair off,
+        // Tiefe 0 - also ist der Effekt aus, genau wie vorhin bei Polarity").
+        // Der Stand vor dem Wurf wird gemerkt und ohne Stufe zurueckgesetzt.
+        const float rayRateBefore = rayRate != nullptr ? rayRate->getValue() : 0.0f;
+
+        if (rayOnP != nullptr && raySt != nullptr && rayRate != nullptr && rayPair != nullptr
+            && ! processor.isSectionLocked (LCRMSAudioProcessor::SOLO_RAY))
+        {
+            // Die Sektion bleibt AN wie alle anderen (User: "Mutate schaltet
+            // RAYE aus, das irritiert") - "spielt nicht" heisst Stufe Off.
+            const bool rayPlays = rng.nextInt (100) < 33;
+            int level = 0;
+            if (rayPlays)
+            {
+                const int r = rng.nextInt (100);
+                level = (r < 60) ? 1 : (r < 90) ? 2 : 3;   // Light/Medium/Strong (0 = Off)
+            }
+            // Bug (User): Pair wurde frueher nur im rayPlays-Zweig gesetzt und
+            // blieb sonst auf seinem alten Wert stehen - dann stand Pair auf
+            // "an", waehrend die Stufe Off war. Pair wird jetzt IMMER gewuerfelt;
+            // faellt es an, waehrend keine Stufe gezogen wurde, gibt es Stufe 1
+            // dazu ("dann schalte Intensity auf Stufe 1"). Hat der Wurf bereits
+            // Stufe 1-3 ergeben, bleibt Pair einfach zufaellig.
+            const bool pairOn = rng.nextInt (100) < 25;
+            if (pairOn && level == 0)
+                level = 1;
+
+            rayOnP->setValueNotifyingHost (1.0f);
+            raySt->setValueNotifyingHost (raySt->convertTo0to1 ((float) level));
+            rayPair->setValueNotifyingHost (pairOn ? 1.0f : 0.0f);
+            if (level > 0)
+            {
+                const float t = (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 3.0f;
+                rayRate->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, rayRate->getDefaultValue() + (t - 0.5f) * 2.0f * kSpread));
+            }
+            else
+            {
+                // Keine Stufe -> RAYE ist stumm, also bleibt auch Speed stehen.
+                rayRate->setValueNotifyingHost (rayRateBefore);
+            }
+        }
+    }
+
+    // ---- Freischalter: Regler, die andere Regler erst wirksam machen ----
+    // User-Feedback aus der Praxis, drei Beobachtungen mit derselben Ursache:
+    //   "Random Aenderung von den 1-4 Buttons ohne dass L oder R an geht
+    //    bringt nichts."
+    //   "Gravity hat keinen Einfluss wenn Orbit off ist."
+    //   "Speed / Sync hat keinen Einfluss wenn Flow off ist."
+    // In allen drei Faellen schaltet ein Parameter die Wirkung eines anderen
+    // ueberhaupt erst frei. Wuerfelt man den abhaengigen Regler, waehrend der
+    // Freischalter auf null steht, ist dieser Wurf schlicht verschwendet -
+    // der Nutzer sieht Regler wandern und hoert nichts.
+    // Deshalb wird nach dem Wuerfeln sichergestellt, dass jeder Freischalter
+    // tatsaechlich etwas durchlaesst.
+    {
+        // a) Polarity BEWUSST OHNE Freischalter.
+        //    Erster Anlauf war hier falsch: wenn weder L noch R aktiv ist,
+        //    wurde einer davon eingeschaltet, damit die Positionen 1-4 eine
+        //    Wirkung haben. Das war ein Denkfehler - dadurch hatte JEDER
+        //    Mutate-Wurf einen Phasen-Flip (User: "Aber das ist oft schon
+        //    auch ein krasser Eingriff. Es sollte eher seltener vorkommen").
+        //    Ein Flip ist der drastischste Eingriff im ganzen Plugin; dass
+        //    die Positions-Buttons ohne ihn bedeutungslos sind, ist dagegen
+        //    voellig harmlos - man sieht und hoert schlicht nichts davon.
+        //    Es gibt also nichts zu reparieren.
+        //    Wie oft ein Flip vorkommt, regeln jetzt allein die Wildcards:
+        //    L und R werden nur dann eingeschaltet, wenn sie als Wildcard
+        //    gezogen werden - bei rund 30 Parametern und 1-3 Wildcards also
+        //    ungefaehr jeder fuenfzehnte Wurf. Genau die gewollte Seltenheit,
+        //    ohne eine weitere Stellschraube.
+
+        // b) Orbit schaltet Gravity frei. Gravity bekommt immer einen Wert,
+        //    also muss Orbit etwas durchlassen, sonst ist er wirkungslos.
+        if (orbitParam != nullptr && ! excluded.contains (orbitParam)
+            && orbitParam->getValue() < 0.12f)
+            orbitParam->setValueNotifyingHost (0.20f + rng.nextFloat() * 0.45f);
+
+        // c) Flow schaltet Speed, Sync und Pulse frei. Steht Flow auf null,
+        //    laeuft der Auto-Pan-LFO gar nicht und alle drei sind wirkungslos.
+        if (flowParam != nullptr && ! excluded.contains (flowParam)
+            && flowParam->getValue() < 0.12f)
+            flowParam->setValueNotifyingHost (0.18f + rng.nextFloat() * 0.35f);
+    }
+
+    // ---- Sicherung 1: Flow abhaengig von der Geschwindigkeit ----
+    // Schnelles Auto-Pan bei hoher Tiefe ist unangenehm, langsames bei hoher
+    // Tiefe ist schoen - eine echte musikalische Abhaengigkeit, keine Vorliebe.
+    // ACHTUNG bei den Parameternamen: ID_SPEED ist die SYNC-AUSWAHL
+    // ("1/16".."8 Bars", Index 0 = am schnellsten), ID_SPEED_RATE ist die
+    // freie Hz-Rate. Die beiden heissen genau andersherum, als man vermutet -
+    // das wurde vor dem Einbau im Processor gegengeprueft.
+    {
+        auto* flowP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MOVEMENT);
+        if (flowP != nullptr && ! excluded.contains (flowP))
+        {
+            const bool syncOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
+
+            float fastness = 0.0f; // 0 = langsam, 1 = so schnell wie moeglich
+            if (syncOn)
+            {
+                const int rateIdx = juce::jlimit (0, 7,
+                    (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED)->load()));
+                fastness = 1.0f - (float) rateIdx / 7.0f; // Index 0 = 1/16 = am schnellsten
+            }
+            else if (auto* rateP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SPEED_RATE))
+            {
+                fastness = rateP->getValue(); // normalisiert, monoton mit der Frequenz
+            }
+
+            // 100% erlaubt bei langsam, herunter auf 30% bei maximalem Tempo.
+            const float maxFlow = 1.0f - fastness * 0.7f;
+            if (flowP->getValue() > maxFlow)
+                flowP->setValueNotifyingHost (maxFlow * (0.6f + rng.nextFloat() * 0.4f));
+        }
+    }
+
+    // ---- Sicherung 2: Lautheit (Drift / Size / Boost) ----
+    // Diese drei erhoehen alle die Seitenenergie. Einzeln brauchbar, zu zweit
+    // vertretbar, alle drei am Anschlag ergibt zuverlaessig ein zu lautes,
+    // zerfallenes Stereobild. Laeuft bewusst ZULETZT, damit auch eine
+    // Wildcard sie nicht umgehen kann.
+    // Im normalisierten Raum als Abstand vom Default gerechnet, weil die drei
+    // voellig unterschiedliche Einheiten haben (Drift % um 0, Size 50..200%
+    // um 100, Boost 0..6 dB um 0).
+    {
+        const char* guardIds[3] = { LCRMSAudioProcessor::ID_DRIFT,
+                                    LCRMSAudioProcessor::ID_SIDE_WIDTH,
+                                    LCRMSAudioProcessor::ID_SIDE_BOOST };
+
+        juce::RangedAudioParameter* gp[3] = { nullptr, nullptr, nullptr };
+        float gdev[3] = { 0.0f, 0.0f, 0.0f };
+        bool allPresent = true;
+
+        for (int i = 0; i < 3; ++i)
+        {
+            auto* p = processor.apvts.getParameter (guardIds[i]);
+            if (p == nullptr || excluded.contains (p))
+            {
+                allPresent = false;
+                break;
+            }
+            gp[i]   = p;
+            gdev[i] = std::abs (p->getValue() - p->getDefaultValue());
+        }
+
+        if (allPresent)
+        {
+            int lo = 0;
+            for (int i = 1; i < 3; ++i)
+                if (gdev[i] < gdev[lo])
+                    lo = i;
+
+            bool othersExtreme = true;
+            for (int i = 0; i < 3; ++i)
+                if (i != lo && gdev[i] <= 0.5f)
+                    othersExtreme = false;
+
+            if (othersExtreme && gdev[lo] > 0.1f)
+            {
+                auto* p = gp[lo];
+                const float def = p->getDefaultValue();
+                const float sign = (p->getValue() >= def) ? 1.0f : -1.0f;
+                p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, def + sign * rng.nextFloat() * 0.10f));
+            }
+        }
+    }
+
+    // ---- Kategorie-Profil (Chips ueber dem Sternenfeld) - hat das letzte Wort ----
+    applyMutateProfile (rng, mutateCategory());
+}
+
+// ===== KATEGORIE-PROFILE fuer Mutate =====
+// Eine Kategorie ist keine Klangfarbe, sondern eine Regel, was Mutate DARF.
+// Sie laeuft NACH dem generischen Wurf und ueberschreibt gezielt: welche
+// Sektionen mitspielen, in welchem Bereich die wichtigen Regler landen,
+// wo PRISM beginnt, wie stark RAYE. Alles andere bleibt vom generischen
+// Wurf. Gesperrte Sektionen (Lock) werden auch hier nicht angefasst.
+int LCRMSAudioProcessorEditor::mutateCategory() const
+{
+    return juce::jlimit (0, 6, mutateCategoryValue);
+}
+
+void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
+{
+    mutateCategoryValue = juce::jlimit (0, 6, cat);
+    processor.apvts.state.setProperty ("mutateCategory", mutateCategoryValue, nullptr);   // Session-Recall
+    for (int i = 0; i < 6; ++i)
+    {
+        categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
+        categoryBtn[i].repaint();
+    }
+
+    // Widerspruch aufgeloest (User): mit gewaehlter Kategorie schaltet auch
+    // Smart 1 Sektionen aus, obwohl Smart 1 eigentlich "alle bleiben an"
+    // bedeutet - die Kategorie entscheidet ja selbst, welche Sektion mitspielt.
+    // Deshalb ist Smart 1 gesperrt, solange eine Kategorie aktiv ist; es
+    // bleibt nur der zweite Wuerfel, der ohnehin Sektionen schalten darf.
+    const bool catOn = mutateCategoryValue > 0;
+    globalChaosButton.setEnabled (! catOn);
+    globalChaosButton.setAlpha (catOn ? 0.35f : 1.0f);
+    globalChaosButton.setTooltip (catOn ? "Smart: locked while a category is selected - the category decides which sections play"
+                                        : "Smart: randomize the sound and leave every section switched on");
+    // Der zweite Wuerfel bekommt so lange einen dezenten Hof, damit man
+    // sofort sieht, wohin die Kategorie wirkt (User: "Smart-Icon highlighten").
+    globalChaosSectionsButton.getProperties().set ("categoryArmed", catOn);
+    globalChaosButton.repaint();
+    globalChaosSectionsButton.repaint();
+}
+
+void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int category)
+{
+    if (category <= 0)
+        return;
+    using P = LCRMSAudioProcessor;
+
+    auto bell = [&rng]() { return (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 1.5f - 1.0f; };   // -1..1, Glocke
+    auto param = [this] (const char* id) { return processor.apvts.getParameter (id); };
+    auto locked = [this] (int solo) { return processor.isSectionLocked (solo); };
+    // Wert in ECHTEN Einheiten setzen: centre +- spread (Glocke), begrenzt auf lo..hi.
+    auto roll = [&] (const char* id, float centre, float spread, float lo, float hi)
+    {
+        if (auto* p = param (id))
+            p->setValueNotifyingHost (p->convertTo0to1 (juce::jlimit (lo, hi, centre + bell() * spread)));
+    };
+    auto set = [&] (const char* id, float value)
+    {
+        if (auto* p = param (id))
+            p->setValueNotifyingHost (p->convertTo0to1 (value));
+    };
+    auto chance = [&rng] (int percent) { return rng.nextInt (100) < percent; };
+    const bool galaxyArmed = processor.apvts.getRawParameterValue (P::ID_GALAXY_ACTIVATE)->load() > 0.5f;
+    auto section = [&] (const char* onId, int solo, int onPercent) -> bool
+    {
+        if (locked (solo)) return false;
+        // Dieselbe Regel wie beim freien Wuerfeln (User-Bug: "wenn categories
+        // selected sind aber global galaxy off, dann aktiviert der Wuerfel
+        // dennoch die Galaxy-Section"). Ohne scharfe Engine bleibt sie in Ruhe.
+        if (solo == P::SOLO_GALAXY && ! galaxyArmed) return false;
+        const bool on = chance (onPercent);
+        set (onId, on ? 1.0f : 0.0f);
+        return on;
+    };
+    // Drift in Millisekunden (Vorzeichen zufaellig), Shift in Cent.
+    auto driftMs = [&] (float centreMs, float spreadMs, float maxMs)
+    {
+        const float ms = juce::jlimit (0.0f, maxMs, centreMs + bell() * spreadMs);
+        const float pct = P::driftMsToPercent (ms) * (chance (50) ? 1.0f : -1.0f);
+        set (P::ID_DRIFT, pct);
+    };
+    // Hyperdrive langsam per Sync: Notenindex 3..7 = 1/2 .. 8 Takte.
+    auto slowSync = [&] (int minIdx, int maxIdx)
+    {
+        set (P::ID_SPEED_SYNC, 1.0f);
+        if (auto* p = param (P::ID_SPEED))
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) (minIdx + rng.nextInt (maxIdx - minIdx + 1))));
+    };
+    // PRISM: untere Kante log-verteilt zwischen loMin..loMax, oben offen.
+    auto prism = [&] (float loMin, float loMax)
+    {
+        // Das Menue gilt auch fuer die Kategorien (User-Bug: "wenn smart
+        // aendert frequency band = off, dann aendert smart es trotzdem, wenn
+        // eine Kategorie ausgewaehlt ist").
+        if (! juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions())
+                 .getBoolValue ("mutateChangesPrism", true))
+            return;
+        const float t = 0.5f + 0.5f * bell();   // 0..1 Glocke
+        const float lo = loMin * std::exp2 (t * std::log2 (loMax / loMin));
+        set (P::ID_PRISM_ON, 1.0f);
+        set (P::ID_PRISM_LO, lo);
+        set (P::ID_PRISM_HI, 20000.0f);
+    };
+    // RAYE: Sektion an, Stufe per Wahrscheinlichkeit (0 = Off).
+    auto raye = [&] (int playPercent, int lightPct, int medPct, int pairPct)
+    {
+        if (locked (P::SOLO_RAY)) return;
+        int level = 0;
+        if (chance (playPercent))
+        {
+            const int r = rng.nextInt (100);
+            level = (r < lightPct) ? 1 : (r < lightPct + medPct) ? 2 : 3;
+        }
+        // Mit Kategorie: Stufe Off = Sektion aus (User: "Drums -> RAYE ist
+        // immer on" sah falsch aus). Ohne Kategorie bleibt alles an.
+        set (P::ID_RAY_ON, level > 0 ? 1.0f : 0.0f);
+        set (P::ID_RAY_STRENGTH, (float) level);
+        set (P::ID_RAY_PAIR, chance (pairPct) ? 1.0f : 0.0f);
+    };
+    auto polarityOff = [&]
+    {
+        if (locked (P::SOLO_POLARITY)) return;
+        set (P::ID_POL_L, 0.0f);
+        set (P::ID_POL_R, 0.0f);
+    };
+    auto polarityRare = [&] (int percent)
+    {
+        if (locked (P::SOLO_POLARITY)) return;
+        const bool flip = chance (percent);
+        set (P::ID_POL_L, (flip && chance (50)) ? 1.0f : 0.0f);
+        set (P::ID_POL_R, (flip && param (P::ID_POL_L)->getValue() < 0.5f) ? 1.0f : 0.0f);
+        // Ohne Flip ist die Sektion aus - sonst wechseln die Positionen 1-4
+        // sichtbar, obwohl nichts passiert (User: "sieht komisch aus").
+        set (P::ID_POL_ON, flip ? 1.0f : 0.0f);
+    };
+
+    switch (category)
+    {
+        case 1: // DRUMS - Transienten vertragen keinen Haas, Bass bleibt mono
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 30))
+            {
+                roll (P::ID_LCR_SENS, 40.0f, 15.0f, 15.0f, 65.0f);
+                roll (P::ID_LCR_BLEND, 15.0f, 12.0f, 0.0f, 35.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 40))
+            {
+                driftMs (0.4f, 0.4f, 1.0f);
+                set (P::ID_BEND, 0.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 115.0f, 15.0f, 100.0f, 135.0f);
+                roll (P::ID_SIDE_BOOST, 0.5f, 1.0f, 0.0f, 2.0f);
+            }
+            if (! locked (P::SOLO_HYPERDRIVE)) set (P::ID_FLOW_ON, 0.0f);
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                set (P::ID_POS_OFFSET, 0.0f);
+                roll (P::ID_POS_WIDTH, 105.0f, 10.0f, 100.0f, 120.0f);
+                set (P::ID_POS_DISTANCE, 0.0f);
+                roll (P::ID_POS_ELEVATE, 0.0f, 15.0f, -20.0f, 20.0f);
+            }
+            raye (0, 100, 0, 0);
+            prism (250.0f, 500.0f);
+            break;
+        }
+        case 2: // VOCALS (Lead) - Mitte bleibt stehen, alles dezent
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 50))
+            {
+                roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
+                roll (P::ID_LCR_BLEND, 10.0f, 10.0f, 0.0f, 30.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 60))
+            {
+                driftMs (1.2f, 0.9f, 2.5f);
+                roll (P::ID_BEND, 1.0f, 1.5f, 0.0f, 3.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 112.0f, 10.0f, 100.0f, 128.0f);
+                roll (P::ID_SIDE_BOOST, 0.5f, 1.0f, 0.0f, 2.5f);
+            }
+            if (! locked (P::SOLO_HYPERDRIVE)) set (P::ID_FLOW_ON, 0.0f);
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                set (P::ID_POS_OFFSET, 0.0f);
+                roll (P::ID_POS_WIDTH, 105.0f, 8.0f, 100.0f, 118.0f);
+                roll (P::ID_POS_DISTANCE, 5.0f, 8.0f, 0.0f, 20.0f);
+                roll (P::ID_POS_ELEVATE, 15.0f, 15.0f, -10.0f, 40.0f);
+            }
+            raye (20, 100, 0, 0);
+            prism (200.0f, 350.0f);
+            break;
+        }
+        case 3: // BACKINGS - der Kern des Plugins, hier darf am meisten passieren
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 60))
+            {
+                roll (P::ID_LCR_SENS, 50.0f, 20.0f, 20.0f, 80.0f);
+                roll (P::ID_LCR_BLEND, 45.0f, 25.0f, 15.0f, 80.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 80))
+            {
+                driftMs (4.0f, 2.0f, 6.5f);
+                roll (P::ID_BEND, 3.0f, 2.0f, 0.0f, 6.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            polarityRare (15);   // User: 5 % war zu selten
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 140.0f, 20.0f, 115.0f, 165.0f);
+                roll (P::ID_SIDE_BOOST, 1.0f, 1.5f, 0.0f, 3.0f);
+            }
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 30))
+            {
+                roll (P::ID_MOVEMENT, 25.0f, 15.0f, 8.0f, 45.0f);
+                slowSync (5, 7);   // 2 .. 8 Takte
+            }
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                roll (P::ID_POS_OFFSET, 0.0f, 5.0f, -8.0f, 8.0f);
+                roll (P::ID_POS_WIDTH, 110.0f, 10.0f, 100.0f, 125.0f);
+                roll (P::ID_POS_DISTANCE, 20.0f, 12.0f, 5.0f, 40.0f);
+                roll (P::ID_POS_ELEVATE, 0.0f, 20.0f, -30.0f, 30.0f);
+            }
+            raye (55, 60, 40, 25);
+            prism (200.0f, 260.0f);
+            break;
+        }
+        case 4: // PLUCKED - Haas funktioniert hier hervorragend
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 25))
+            {
+                roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
+                roll (P::ID_LCR_BLEND, 25.0f, 15.0f, 0.0f, 50.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 85))
+            {
+                driftMs (5.5f, 2.5f, 8.5f);
+                set (P::ID_BEND, chance (20) ? juce::jlimit (0.0f, 4.0f, 2.0f + bell() * 1.5f) : 0.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 120.0f, 15.0f, 105.0f, 135.0f);
+                roll (P::ID_SIDE_BOOST, 0.8f, 1.0f, 0.0f, 2.5f);
+            }
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 35))
+            {
+                roll (P::ID_MOVEMENT, 25.0f, 10.0f, 15.0f, 35.0f);
+                slowSync (3, 5);   // 1/2 .. 2 Takte
+            }
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                roll (P::ID_POS_OFFSET, 0.0f, 7.0f, -10.0f, 10.0f);
+                roll (P::ID_POS_WIDTH, 105.0f, 10.0f, 100.0f, 120.0f);
+                roll (P::ID_POS_DISTANCE, 8.0f, 8.0f, 0.0f, 20.0f);
+                roll (P::ID_POS_ELEVATE, 0.0f, 15.0f, -20.0f, 20.0f);
+            }
+            raye (40, 100, 0, 15);
+            prism (150.0f, 300.0f);
+            break;
+        }
+        case 5: // KEYS - breit, aber ruhig; RAYE darf Rhodes spielen
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 20))
+            {
+                roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
+                roll (P::ID_LCR_BLEND, 20.0f, 15.0f, 0.0f, 45.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 50))
+            {
+                driftMs (0.7f, 0.5f, 1.4f);
+                set (P::ID_BEND, 0.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 125.0f, 15.0f, 110.0f, 140.0f);
+                roll (P::ID_SIDE_BOOST, 0.8f, 1.0f, 0.0f, 2.5f);
+            }
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 20))
+            {
+                roll (P::ID_MOVEMENT, 17.0f, 8.0f, 10.0f, 25.0f);
+                slowSync (5, 7);
+            }
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                roll (P::ID_POS_OFFSET, 0.0f, 4.0f, -5.0f, 5.0f);
+                roll (P::ID_POS_WIDTH, 105.0f, 8.0f, 100.0f, 118.0f);
+                roll (P::ID_POS_DISTANCE, 6.0f, 6.0f, 0.0f, 15.0f);
+                set (P::ID_POS_ELEVATE, 0.0f);
+            }
+            raye (50, 40, 60, 20);
+            prism (120.0f, 250.0f);
+            break;
+        }
+        case 6: // PADS - alles darf, nur langsam
+        {
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 60))
+            {
+                roll (P::ID_LCR_SENS, 50.0f, 20.0f, 20.0f, 80.0f);
+                roll (P::ID_LCR_BLEND, 55.0f, 25.0f, 30.0f, 80.0f);
+            }
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 70))
+            {
+                driftMs (6.0f, 4.0f, 10.0f);
+                roll (P::ID_BEND, 5.0f, 2.5f, 3.0f, 8.0f);
+                set (P::ID_TIMEWARP_BALANCE, 1.0f);
+            }
+            polarityRare (8);
+            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
+            {
+                roll (P::ID_SIDE_WIDTH, 155.0f, 25.0f, 130.0f, 180.0f);
+                roll (P::ID_SIDE_BOOST, 2.0f, 2.0f, 0.0f, 4.0f);
+            }
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 70))
+            {
+                roll (P::ID_MOVEMENT, 35.0f, 15.0f, 20.0f, 50.0f);
+                slowSync (5, 7);
+            }
+            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
+            {
+                roll (P::ID_POS_OFFSET, 0.0f, 6.0f, -8.0f, 8.0f);
+                roll (P::ID_POS_WIDTH, 115.0f, 15.0f, 100.0f, 130.0f);
+                roll (P::ID_POS_DISTANCE, 35.0f, 15.0f, 20.0f, 50.0f);
+                roll (P::ID_POS_ELEVATE, 0.0f, 25.0f, -40.0f, 40.0f);
+            }
+            raye (70, 20, 50, 50);
+            prism (100.0f, 200.0f);
+            break;
+        }
+        default: break;
+    }
+}
+
+juce::StringArray LCRMSAudioProcessorEditor::sectionParamIds (int soloSectionId)
+{
+    using P = LCRMSAudioProcessor;
+    switch (soloSectionId)
+    {
+        case P::SOLO_GALAXY:
+            return { P::ID_LCR_ENABLED, P::ID_LCR_SENS, P::ID_LCR_BLEND, P::ID_GALAXY_MOD, P::ID_GALAXY_DEPTH };
+        case P::SOLO_TIMEWARP:
+            return { P::ID_DRIFT_ON, P::ID_DRIFT, P::ID_BEND, P::ID_TIMEWARP_BALANCE, P::ID_TIMEWARP_MOD, P::ID_TIMEWARP_DEPTH };
+        case P::SOLO_POLARITY:
+            return { P::ID_POL_ON, P::ID_POL_L, P::ID_POL_R, P::ID_POL_POS };
+        case P::SOLO_DIMENSION:
+            return { P::ID_WIDTHBOOST_ON, P::ID_SIDE_WIDTH, P::ID_SIDE_BOOST, P::ID_DIMENSION_MOD, P::ID_DIMENSION_DEPTH };
+        case P::SOLO_HYPERDRIVE:
+            return { P::ID_FLOW_ON, P::ID_MOVEMENT, P::ID_SPEED, P::ID_SPEED_RATE, P::ID_SPEED_SYNC, P::ID_PULSE, P::ID_HYPERDRIVE_MOD, P::ID_HYPERDRIVE_DEPTH };
+        case P::SOLO_POSITION:
+            return { P::ID_POS_ON, P::ID_POS_OFFSET, P::ID_POS_WIDTH, P::ID_POS_DISTANCE, P::ID_POS_ELEVATE, P::ID_POSITION_MOD, P::ID_POSITION_DEPTH };
+        case P::SOLO_RAY:
+            return { P::ID_RAY_ON, P::ID_RAY_STRENGTH, P::ID_RAY_RATE, P::ID_RAY_PAIR };
+        default:
+            return {};
+    }
+}
+
+// Macht einen Sektions-Titel zusaetzlich zum Power-Icon klickbar, um die
+// Sektion an/aus zu schalten (User-Feedback). Speichert Ziel-Parameter und
+// Solo-Wert als Component-Properties, damit mouseUp() generisch (ohne feste
+// Label-Liste) herausfinden kann, was zu tun ist.
+void LCRMSAudioProcessorEditor::setupClickableTitle (juce::Label& label, const juce::String& powerParamId, int soloValue)
+{
+    label.getProperties().set ("titlePowerParam", powerParamId);
+    label.getProperties().set ("titleSoloValue", soloValue);
+    label.setInterceptsMouseClicks (true, false);
+    // (Kein eigener addMouseListener mehr - der Editor lauscht seit dem
+    //  View-Panel-Schliessen auf ALLE Kinder von content; doppelt registriert
+    //  kaeme jeder Klick zweimal an.)
+    label.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+}
+
+void LCRMSAudioProcessorEditor::closeViewPanel()
+{
+    if (! viewPanel.isVisible())
+        return;
+    viewGearButton.setToggleState (false, juce::dontSendNotification);
+    // Kurzer Fade-out (User); die Abdunklung der Spalte folgt in paintOverContent.
+    juce::Desktop::getInstance().getAnimator().fadeOut (&viewPanel, 140);
+    content.repaint();
+}
+
+void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
+{
+    auto* comp = e.eventComponent;
+    if (comp == nullptr)
+        return;
+
+    // Footer: Klick auf die Beschriftung MONO/DRY schaltet wie das Icon
+    // (User: "Klick Bereich erweitern -> auch auf SCHRIFT soll on off machen").
+    if (comp == &monoCheckLabel) { monoCheckButton.triggerClick(); return; }
+    if (comp == &monoDryLabel)   { if (monoDryButton.isEnabled()) monoDryButton.triggerClick(); return; }
+
+    if (! comp->getProperties().contains ("titlePowerParam"))
+        return;
+
+    const juce::String paramId = comp->getProperties()["titlePowerParam"].toString();
+    const int soloValue = (int) comp->getProperties()["titleSoloValue"];
+
+    if (auto* param = processor.apvts.getParameter (paramId))
+    {
+        const bool wasOn = param->getValue() > 0.5f;
+        param->setValueNotifyingHost (wasOn ? 0.0f : 1.0f);
+        // Solo bleibt stehen (User) - siehe setupPowerButton().
+        juce::ignoreUnused (soloValue);
+        if (! wasOn && paramId == LCRMSAudioProcessor::ID_LCR_ENABLED) // wurde gerade eingeschaltet
+            activateGalaxyIfNeeded();
+    }
+}
+
+void LCRMSAudioProcessorEditor::activateGalaxyIfNeeded()
+{
+    if (suppressGalaxyAutoArm)
+        return;
+    if (auto* galaxyActivateParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE))
+        if (galaxyActivateParam->getValue() < 0.5f)
+            galaxyActivateParam->setValueNotifyingHost (1.0f);
+}
+
+// Workflow-Beschleunigung (User-Idee): "Wenn Mod Icon off ist, dann ist ja
+// der Mod Regler grau. Wenn ich jetzt am Mod Regler drehe springt Mod Icon
+// automatisch an." Reagiert bewusst auf onValueChange (echte
+// Wertaenderung), nicht auf Klick/Fokus - ein versehentliches Antippen
+// ohne tatsaechliche Drehung loest also nichts aus.
+void LCRMSAudioProcessorEditor::wireModAutoEnable (juce::Slider& depthSlider, juce::TextButton& modButton, const juce::String& modParamId)
+{
+    depthSlider.onValueChange = [this, &modButton, modParamId]
+    {
+        if (! modButton.getToggleState())
+            if (auto* modParam = processor.apvts.getParameter (modParamId))
+                modParam->setValueNotifyingHost (1.0f);
+    };
+}
+
+// Liest die beiden Start-Standardwerte aus dem Hamburger-Menue und wendet
+// sie als Startzustand fuer dieses Fenster an. 2. Anlauf (User-Wunsch:
+// "Gonio und Stars entfernen in der global Leiste. Dafuer im Menu einfach
+// je einen Eintrag hinzufuegen.") - die beiden eigenen Buttons in der
+// globalen Zeile sind komplett entfallen, das Hamburger-Menue ist jetzt
+// die alleinige und SOFORT wirksame Kontrolle (siehe showPresetMenu()),
+// nicht mehr nur ein Start-Standard fuers naechste Oeffnen.
+void LCRMSAudioProcessorEditor::applyVisualsVisibility()
+{
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    // Neuer Schluessel "uiTheme3" (7 Themes, andere Indizes): Standard Sci-Fi (User).
+    uiLayoutRef() = juce::jlimit (0, 2, props.getIntValue ("uiLayout", 0));
+    setUiTheme (props.getIntValue ("uiTheme4", 3), false);
+    applyLayoutMode();
+    goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
+    starVisualsOn       = ! props.getBoolValue ("spaceVisualsDisabledDefault", false);
+    starfieldModMovementOn     = ! props.getBoolValue ("starfieldModMovementDisabled", false);
+    starfieldReducedAnimations = false;   // Reduce Anim. entfernt (Density uebernimmt)
+
+    // Show dreistufig (Off/Stars/Full); alter Bool-Schalter wird uebernommen.
+    const int starMode = props.containsKey ("viewStarMode") ? props.getIntValue ("viewStarMode", 2) : (starVisualsOn ? 2 : 0);
+    starVisualsOn = starMode > 0;
+
+    goniometer.setGoniometerActive (goniometerVisualsOn);
+    goniometer.setStarfieldMode (starMode);
+    goniometer.setModMovementEnabled (starfieldModMovementOn);
+    goniometer.setReducedAnimations (starfieldReducedAnimations);
+
+    // View-Panel mit denselben Werten fuellen (ohne Callback-Sturm), plus
+    // die vier Darstellungsregler.
+    viewPanel.gonioBtn.setToggleState (goniometerVisualsOn, juce::dontSendNotification);
+    viewPanel.setStarModeIndex (starMode);
+    viewPanel.setPhotoIndex (props.getIntValue ("viewPhoto", 1));
+    viewPanel.setGravityIndex (props.getIntValue ("viewGravity", 0));
+    viewPanel.modMoveBtn.setToggleState (starfieldModMovementOn, juce::dontSendNotification);
+    // Dim ist reiner Sitzungszustand: beim Oeffnen IMMER aus (User: "default:
+    // dim off") - gespeicherte alte Werte werden absichtlich ignoriert.
+    viewPanel.dimSlider.setValue      (1.0, juce::dontSendNotification);
+    viewPanel.setGonioStyleIndex (props.getIntValue ("viewGonioStyle", 2));      // Glow
+    viewPanel.speedSlider.setValue    (props.getDoubleValue ("viewSpeed", 1.0),     juce::dontSendNotification);
+    viewPanel.densitySlider.setValue  (props.getDoubleValue ("viewDensity", 1.0),   juce::dontSendNotification);
+    // Gonio-Farbe beim Oeffnen = Standardfarbe des Themes (User), nicht der
+    // zuletzt gewaehlte Wert; die Wahl gilt fuer die Sitzung.
+    viewPanel.setGonioColourIndex (gonioColourForTheme (uiThemeIndex));
+    viewPanel.starsBtn.setToggleState (props.getBoolValue ("viewStars", true), juce::dontSendNotification);
+    viewPanel.linesBtn.setToggleState (props.getBoolValue ("viewStarLines", true), juce::dontSendNotification);
+    applyViewSettings (false);
+}
+
+// Gonio-Standardfarbe je Theme: seit Runde 19 gibt es nur noch Theme und
+// White - der Standard ist immer "Theme", der Grundton kommt aus
+// GoniometerComponent::themeTraceColour().
+int LCRMSAudioProcessorEditor::gonioColourForTheme (int)
+{
+    return 0;
+}
+
+// ===== VIEW-PANEL anwenden (und optional speichern) =====
+// Wird bei jeder Aenderung im Panel gerufen. Die Schalter schreiben dieselben
+// Properties wie frueher die Menue-Eintraege, damit ein gespeicherter
+// Standard weiterhin gilt.
+void LCRMSAudioProcessorEditor::applyViewSettings (bool persist)
+{
+    goniometerVisualsOn        = viewPanel.gonioBtn.getToggleState();
+    starVisualsOn              = viewPanel.starModeIndex() > 0;
+    starfieldModMovementOn     = viewPanel.modMoveBtn.getToggleState();
+    starfieldReducedAnimations = false;
+
+    goniometer.setGoniometerActive (goniometerVisualsOn);
+    goniometer.setStarfieldMode (viewPanel.starModeIndex());
+    goniometer.setPhoto (viewPanel.photoIndex());
+    goniometer.setGravityMode (viewPanel.gravityIndex());
+    viewPanel.updateModMoveEnabled();
+    goniometer.setModMovementEnabled (starfieldModMovementOn);
+    goniometer.setReducedAnimations (starfieldReducedAnimations);
+    goniometer.setViewSpeed ((float) viewPanel.speedSlider.getValue());
+    goniometer.setViewDensity ((float) viewPanel.densitySlider.getValue());
+    goniometer.setViewShine ((float) viewPanel.dimSlider.getValue());
+    viewPanel.syncDimBtn();
+    goniometer.setGonioColour (viewPanel.gonioColourIndex(), 0.85f);   // Intensity fest (Standard-Look)
+    goniometer.setTwinkleVisible (viewPanel.starsBtn.getToggleState());
+    goniometer.setStarLinesVisible (viewPanel.linesBtn.getToggleState());
+    goniometer.setStarColour  (0, 0.25f);   // Sternlinien: fest Blau/pastell (Color+Intensity entfernt, User)
+    goniometer.setGonioStyle (viewPanel.gonioStyleIndex());
+    // Blur fest je Stil (User): Lines weich (0,76), Glow knapp (0,14).
+    goniometer.setGonioGlow (viewPanel.gonioStyleIndex() == 1 ? 0.76f : 0.14f);
+    goniometer.setGonioSpeed (1);   // fest Mid (User: "dann einfach Medium")
+    goniometer.repaint();
+    storeViewSettingsInState();
+
+    if (persist)
+    {
+        juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+        props.setValue ("goniometerDisabledDefault", ! goniometerVisualsOn);
+        props.setValue ("spaceVisualsDisabledDefault", ! starVisualsOn);
+        props.setValue ("viewStarMode", viewPanel.starModeIndex());
+        props.setValue ("viewPhoto", viewPanel.photoIndex());
+        props.setValue ("viewGravity", viewPanel.gravityIndex());
+        props.setValue ("starfieldModMovementDisabled", ! starfieldModMovementOn);
+        props.setValue ("viewShine2", viewPanel.dimSlider.getValue());
+        props.setValue ("viewSpeed", viewPanel.speedSlider.getValue());
+        props.setValue ("viewDensity", viewPanel.densitySlider.getValue());
+        props.setValue ("viewGonioColour", viewPanel.gonioColourIndex());
+        props.setValue ("viewStars", viewPanel.starsBtn.getToggleState());
+        props.setValue ("viewStarLines", viewPanel.linesBtn.getToggleState());
+        props.setValue ("viewGonioStyle", viewPanel.gonioStyleIndex());
+        props.saveIfNeeded();
+    }
+}
+
+// Klick ins Sternenfeld: Farbe weiter, nach Gold aus, danach wieder Blau.
+// Klick ins Sternenfeld: naechstes Hintergrundfoto, nach dem letzten "None"
+// (User: "Klick auf Starfield aendert Hintergrundbild"). Die Gonio-Farbe
+// wird nur noch im View-Panel gewaehlt.
+void LCRMSAudioProcessorEditor::cycleGonioColourFromField (int action)
+{
+    switch (action)
+    {
+        case 2:   // Feldmitte: Goniometer an/aus (nur in Space sinnvoll)
+            if (viewPanel.starModeIndex() == 2)
+                viewPanel.gonioBtn.setToggleState (! viewPanel.gonioBtn.getToggleState(), juce::dontSendNotification);
+            break;
+        case 3:   // Sonne/Mond: Space <-> Gonio-Ansicht ("Licht an / aus")
+            viewPanel.setStarModeIndex (viewPanel.starModeIndex() == 2 ? 1 : 2);
+            break;
+        case 4:   // Cmd+Mitte: naechste Spurfarbe
+            viewPanel.setGonioColourIndex ((viewPanel.gonioColourIndex() + 1) % ViewPanelComponent::kGonioColours);
+            break;
+        case 5:   // Shift+Mitte: Look (Glow <-> Lines)
+            viewPanel.setGonioStyleIndex (viewPanel.gonioStyleIndex() == 1 ? 2 : 1);
+            break;
+        case 6:   // Sonne (ohne Cmd): Shine min <-> max (User: "Sonne hatte min/max Shine gemacht")
+            viewPanel.dimSlider.setValue (viewPanel.dimSlider.getValue() < 0.5 ? 1.0 : 0.0, juce::sendNotificationSync);
+            break;
+        default:
+            break;   // Fotos/Gravity sind fest je Theme (User)
+    }
+    applyViewSettings (false);
+}
+
+bool LCRMSAudioProcessorEditor::isVolLocked()
+{
+    return juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("lockVol", false);
+}
+
+// Rechtsklick auf Mix oder Vol sperrt den Regler: Presets, A/B, Reset und
+// Smart lassen ihn dann stehen. Ein kleines Schloss ueber dem Regler zeigt es
+// an (siehe drawRotarySlider, Property "knobLocked"). Ersetzt den frueheren
+// Menuepunkt "Lock Mix Knob" - die Einstellung gehoert an den Regler, nicht
+// in eine Liste (User).
+void LCRMSAudioProcessorEditor::toggleKnobLock (const char* propName, juce::Slider& knob)
+{
+    juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+    const bool locked = ! p.getBoolValue (propName, false);
+    p.setValue (propName, locked);
+    p.saveIfNeeded();
+    knob.getProperties().set ("knobLocked", locked);
+    knob.repaint();
+}
+
+bool LCRMSAudioProcessorEditor::isMixLocked()
+{
+    return juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("lockMix", false);
+}
+
+// ===== HOVER HINTS =====
+// Kurze, klare englische Hinweise fuer jedes Bedienelement (Menue "Show
+// Hover Hints"). Die Texte sind immer gesetzt; ob sie erscheinen, entscheidet
+// allein, ob das Tooltip-Fenster existiert. Dadurch aendert sich am Layout
+// (Header-Breite!) nichts.
+// ===== LAYOUT-MODI =====
+// "Flat" nimmt die Sektionskaesten weg, "Outline" laesst nur den Rahmen
+// stehen (siehe drawGroup). Der frueher hier eingebaute "Simple"-Modus, der
+// Solo/Lock/On-Off/Titel ausgeblendet hat, ist wieder raus (User: "macht
+// optisch gar keinen Sinn") - diese Funktion stellt jetzt nur noch sicher,
+// dass nach einem Update aus jener Zeit alles wieder sichtbar ist.
+void LCRMSAudioProcessorEditor::applyLayoutMode()
+{
+    juce::Component* headerBits[] = {
+        &lcrSoloButton, &polSoloButton, &driftSoloButton, &widthBoostSoloButton, &flowSoloButton, &posSoloButton, &raySoloButton,
+        &lcrLockButton, &polLockButton, &driftLockButton, &widthBoostLockButton, &flowLockButton, &posLockButton, &rayLockButton,
+        &lcrPowerButton, &polPowerButton, &driftPowerButton, &widthBoostPowerButton, &flowPowerButton, &posPowerButton, &rayPowerButton,
+        &lcrTitleLabel, &polTitleLabel, &driftTitleLabel, &widthBoostTitleLabel, &flowTitleLabel, &posTitleLabel, &rayTitleLabel
+    };
+    for (auto* c : headerBits)
+        c->setVisible (true);
+}
+
+void LCRMSAudioProcessorEditor::applyHoverHints()
+{
+    auto tip = [] (juce::SettableTooltipClient& c, const char* text) { c.setTooltip (text); };
+
+    // Durchgaengiges Muster: "Name: was es tut." Die Bezeichnung bis zum
+    // Doppelpunkt wird fett gesetzt (siehe CustomLookAndFeel::drawTooltip).
+
+    // Header
+    tip (globalBypassButton,         "Bypass: mute the whole plugin and pass the input through");
+    tip (globalChaosButton,          "Smart: rolls a new setting from the tuned rulebook and leaves every section on");
+    tip (globalChaosSectionsButton,  "Smart+: rolls a new setting and decides which sections belong in it");
+    tip (globalBreatheButton,        "Breathe: injects life into every section by bringing modulation in at fresh depths");
+    tip (globalModBypassButton,      "Mod: switch every modulation on or off at once");
+    tip (globalGalaxyActivateButton, "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
+    tip (undoButton,                 "Undo: step back through your changes");
+    tip (redoButton,                 "Redo: step forward again");
+    tip (presetMenuButton,           "Settings: themes, layout, Smart options and everything else. The panel stays open");
+    tip (presetNameButton,           "Preset: the one loaded right now. Click to pick another");
+    tip (presetPrevButton,           "Previous preset");
+    tip (presetNextButton,           "Next preset");
+    tip (globalSaveSizeButton,       "Save: store the current settings as a preset. Name it Default to overwrite the default");
+    tip (presetDeleteButton,         "Delete: remove the loaded preset");
+    tip (globalABButton,             "A / B: switch between two versions of your settings to compare them");
+    tip (abCopyButton,               "Copy: send the current settings to the other A/B slot");
+    tip (globalResetButton,          "Reset: load the Default preset again");
+    tip (logoButton,                 "SpaceX: click the logo to bypass the plugin, same as BYP");
+
+    // Galaxy
+    tip (lcrTitleLabel,   "GALAXY: pulls the centre out of the stereo image and treats L, C and R apart");
+    tip (gravitySlider,   "Gravity: how strongly the centre is separated from the sides");
+    tip (orbitSlider,     "Orbit: down keeps the centre only, up keeps the sides only, middle is the original");
+    tip (galaxyFilterButton, "Focus: Galaxy only separates inside the focus range. Click to let it work across the whole spectrum");
+    tip (galaxyModButton, "Mod: switch modulation on or off for this section");
+    tip (galaxyModDepthSlider, "Depth: how far the modulation moves this section");
+
+    // Polarity
+    tip (polTitleLabel,  "POLARITY: flips the phase of one channel at a chosen point in the chain");
+    tip (polLButton,     "L: flip the left channel");
+    tip (polRButton,     "R: flip the right channel");
+    tip (polLinkButton,  "Link: switch L and R together");
+    tip (polPos1Button,  "Position 1: flip before Galaxy");
+    tip (polPos2Button,  "Position 2: flip after Galaxy, before Dimension");
+    tip (polPos3Button,  "Position 3: flip after Dimension, before Vision");
+    tip (polPos4Button,  "Position 4: flip after Vision, before RAYE");
+
+    // Timewarp
+    tip (driftTitleLabel,   "TIMEWARP: opens a mono-ish sound into a wide one by pulling left and right apart in time and in pitch");
+    tip (driftSlider,       "Drift: sends one side a few milliseconds late, so the image leans and widens - the Haas trick, done carefully");
+    tip (bendSlider,        "Shift: detunes the two sides against each other by a few cents. Width without any delay");
+    tip (driftBalanceButton, "Balance: evens out the loudness shift that Drift causes");
+    tip (driftModButton,    "Mod: switch modulation on or off for this section");
+    tip (driftModDepthSlider, "Depth: how far the modulation moves this section");
+
+    // Dimension
+    tip (widthBoostTitleLabel, "DIMENSION: the width stage - how far the sides reach and how much weight they carry");
+    tip (sideWidthSlider,   "Size: how far the image reaches. Below 100 % pulls it in, above 100 % pushes it out");
+    tip (sideBoostSlider,   "Boost: gives the sides weight without touching what sits in the centre");
+    tip (dimFilterButton, "Focus: Dimension only widens inside the focus range. Click to let it work across the whole spectrum");
+    tip (dimensionModButton, "Mod: switch modulation on or off for this section");
+    tip (dimensionModDepthSlider, "Depth: how far the modulation moves this section");
+
+    // Hyperdrive
+    tip (flowTitleLabel,   "HYPERDRIVE: slow automatic movement through the stereo field");
+    tip (movementSlider,   "Flow: how far the sound travels left and right");
+    tip (pulseButton,      "Pulse: a smoother, pulse-like movement instead of a sine");
+    tip (speedRateSlider,  "Speed: movement rate in Hz");
+    tip (syncButton,       "Sync: lock the speed to the host tempo");
+    tip (speedBox,         "Rate: the note length used while Sync is on");
+    tip (hyperdriveModButton, "Mod: switch modulation on or off for this section");
+    tip (hyperdriveModDepthSlider, "Depth: how far the modulation moves this section");
+
+    // Vision
+    tip (posTitleLabel,   "VISION: where the sound sits in the picture");
+    tip (offsetSlider,    "Tilt: shifts the whole image left or right");
+    tip (posWidthSlider,  "Width: final width of the image");
+    tip (distanceSlider,  "Distance: moves the sound back into the room, or pulls it up close again");
+    tip (elevateSlider,   "Elevate: lifts the sound up and forward, out from behind the rest of the mix");
+    tip (posFilterButton, "Focus: Vision only widens inside the focus range. Click to let it work across the whole spectrum");
+    tip (positionModButton, "Mod: switch modulation on or off for this section");
+    tip (positionModDepthSlider, "Depth: how far the modulation moves this section");
+
+    // Raye
+    tip (rayTitleLabel,     "RAYE: a specially tuned phaser that moves the image instead of the tone");
+    tip (rayStrengthButton, "Strength: click to step through Light, Medium, Strong and Off");
+    tip (rayRateSlider,     "Speed: how fast the movement cycles");
+    tip (rayPairButton,     "Pair: follow Hyperdrive at half its speed");
+
+    // Section headers (shared)
+    for (auto* b : { &lcrSoloButton, &polSoloButton, &driftSoloButton, &widthBoostSoloButton, &flowSoloButton, &posSoloButton, &raySoloButton })
+        tip (*b, "Solo: hear this section on its own");
+    for (auto* b : { &lcrLockButton, &polLockButton, &driftLockButton, &widthBoostLockButton, &flowLockButton, &posLockButton, &rayLockButton })
+        tip (*b, "Lock: Smart and Breathe leave this section alone");
+
+    // Footer
+    tip (monoCheckButton, "Mono: listen to the result in mono");
+    tip (monoDryButton,   "Dry: while in mono, compare with the unprocessed input");
+    tip (mixSlider,       "Mix: blend the processed sound with the original. Right-click to lock it - presets, A/B, Reset and Smart then leave it alone");
+    tip (volSlider,       "Vol: output trim, plus or minus 6 dB. Right-click to lock it against presets and Reset");
+    tip (wingButton,      "Wing: tilts the sides gently - up gives the top more width, down the bottom. Click to step through");
+    tip (prismOnButton,   "Focus: switch the focus range on or off. Wide open it does nothing at all");
+    tip (prismBand,       "Focus: the range SpaceX works in. Drag an edge to resize, the middle to move, up and down or scroll to widen. Outside it the sound passes through untouched");
+    tip (correlationMeter, "Correlation: to the right of centre is mono-safe, to the left it cancels in mono");
+    tip (viewGearButton,  "View: display settings for the goniometer and the starfield");
+    tip (goniometer,      "Starfield: click the field to switch the scope on or off. Cmd-click the centre for the trace colour, shift-click for its look");
+
+    // Kein TooltipWindow mehr (User: "die Hover-Infos sollen in der Zeile
+    // unter dem Footer stehen statt direkt an der Maus") - die Texte werden
+    // weiterhin als Tooltips gesetzt, gelesen werden sie jetzt aber von
+    // updateHintBar() und unten angezeigt.
+    tooltipWindow.reset();
+    helpButton.setToggleState (juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("hoverHints", false),
+                               juce::dontSendNotification);
+    helpButton.repaint();
+}
+
+// Liest den Tooltip des Elements unter der Maus und legt ihn in die
+// Hinweiszeile unten. Laeuft im Timer mit; nur bei echter Aenderung wird
+// neu gezeichnet, damit es nichts kostet.
+void LCRMSAudioProcessorEditor::updateHintBar()
+{
+    juce::String want;
+    if (helpButton.getToggleState())
+    {
+        // Frueher ueber getComponentUnderMouse() - das haengt an den zuletzt
+        // zugestellten Mausereignissen und lieferte erst nach einem Klick
+        // etwas (User-Bug: "geht erst bei click - nicht bei mouse hover").
+        // Jetzt wird die Position selbst abgefragt und der Baum von Hand
+        // durchsucht: unabhaengig von Events, deshalb sofort beim Ueberfahren.
+        const auto screenPos = juce::Desktop::getInstance().getMainMouseSource().getScreenPosition();
+        const auto local = getLocalPoint (nullptr, screenPos).roundToInt();
+        juce::Component* c = getLocalBounds().contains (local) ? getComponentAt (local) : nullptr;
+        for (int guard = 0; c != nullptr && guard < 6 && want.isEmpty(); ++guard, c = c->getParentComponent())
+            if (auto* ttc = dynamic_cast<juce::TooltipClient*> (c))
+                want = ttc->getTooltip();
+    }
+    if (want != currentHint)
+    {
+        currentHint = want;
+        // WICHTIG: hintBarArea liegt im Design-Koordinatensystem der
+        // content-Komponente, nicht im Editor. Ein repaint() auf dem Editor
+        // traf deshalb den falschen Bereich - sichtbar wurde die Zeile nur,
+        // wenn ohnehin gerade alles neu gezeichnet wurde (z.B. waehrend Solo
+        // laeuft). Das war der eigentliche Grund fuer "geht nur bei Klick".
+        content.repaint (hintBarArea.expanded (6));
+    }
+}
+
+juce::ValueTree LCRMSAudioProcessorEditor::viewSettingsTree() const
+{
+    juce::ValueTree t ("ViewSettings");
+    t.setProperty ("gonio",     viewPanel.gonioBtn.getToggleState(),     nullptr);
+    t.setProperty ("starMode",  viewPanel.starModeIndex(),               nullptr);
+    t.setProperty ("photo",     viewPanel.photoIndex(),                  nullptr);
+    t.setProperty ("gravity",   viewPanel.gravityIndex(),                nullptr);
+    t.setProperty ("modMove",   viewPanel.modMoveBtn.getToggleState(),   nullptr);
+    t.setProperty ("shine2",    viewPanel.dimSlider.getValue(),          nullptr);
+    t.setProperty ("speed",     viewPanel.speedSlider.getValue(),        nullptr);
+    t.setProperty ("density",   viewPanel.densitySlider.getValue(),      nullptr);
+    t.setProperty ("gonioCol",  viewPanel.gonioColourIndex(),            nullptr);
+    t.setProperty ("gonioStyle", viewPanel.gonioStyleIndex(),            nullptr);
+    t.setProperty ("stars",     viewPanel.starsBtn.getToggleState(),     nullptr);
+    t.setProperty ("starLines", viewPanel.linesBtn.getToggleState(),     nullptr);
+    return t;
+}
+
+void LCRMSAudioProcessorEditor::storeViewSettingsInState()
+{
+    auto& state = processor.apvts.state;
+    auto existing = state.getChildWithName ("ViewSettings");
+    if (existing.isValid())
+        state.removeChild (existing, nullptr);
+    // Immer als LETZTES Kind anhaengen: die Preset-Pruefsumme zaehlt die
+    // Kinder der Reihe nach, ein Kind am Ende aendert sie nicht.
+    state.appendChild (viewSettingsTree(), nullptr);
+    // Die Mutate-Kategorie gehoert zur Instanz (Spur), nicht zum Preset -
+    // nach jedem replaceState() wieder eintragen.
+    state.setProperty ("mutateCategory", mutateCategoryValue, nullptr);
+}
+
+bool LCRMSAudioProcessorEditor::applyViewSettingsFromTree (const juce::ValueTree& parent)
+{
+    auto t = parent.getChildWithName ("ViewSettings");
+    if (! t.isValid())
+        return false;
+    viewPanel.gonioBtn.setToggleState     ((bool) t.getProperty ("gonio",     true),  juce::dontSendNotification);
+    viewPanel.setStarModeIndex ((int) t.getProperty ("starMode", 2));
+    viewPanel.setPhotoIndex    ((int) t.getProperty ("photo",    1));
+    viewPanel.setGravityIndex  ((int) t.getProperty ("gravity",  0));
+    viewPanel.modMoveBtn.setToggleState   ((bool) t.getProperty ("modMove",   true),  juce::dontSendNotification);
+    // Dim/Shine bewusst NICHT aus Presets/Slots uebernommen (Sitzungszustand, User).
+    viewPanel.speedSlider.setValue    ((double) t.getProperty ("speed",    1.0),  juce::dontSendNotification);
+    viewPanel.densitySlider.setValue  ((double) t.getProperty ("density",  1.0),  juce::dontSendNotification);
+    viewPanel.setGonioColourIndex ((int) t.getProperty ("gonioCol", 0));
+    viewPanel.starsBtn.setToggleState ((bool) t.getProperty ("stars", true), juce::dontSendNotification);
+    viewPanel.linesBtn.setToggleState ((bool) t.getProperty ("starLines", true), juce::dontSendNotification);
+    viewPanel.setGonioStyleIndex  ((int) t.getProperty ("gonioStyle", 2));
+    applyViewSettings (false);
+    return true;
+}
+
+// "Save" im View-Panel: schreibt die View-Einstellungen in die Datei des
+// geladenen Presets (nur dort - der Klang bleibt unangetastet). Ein Preset
+// traegt View-Einstellungen also nur, wenn man das ausdruecklich will.
+void LCRMSAudioProcessorEditor::saveViewSettingsToPreset()
+{
+    if (currentPresetName.isEmpty() || isDefaultPresetName (currentPresetName))
+        return;
+    const auto f = presetFile (currentPresetName);
+    if (! f.existsAsFile())
+        return;
+    auto xml = juce::XmlDocument::parse (f);
+    if (xml == nullptr)
+        return;
+    auto tree = juce::ValueTree::fromXml (*xml);
+    if (! tree.isValid())
+        return;
+    auto old = tree.getChildWithName ("ViewSettings");
+    if (old.isValid())
+        tree.removeChild (old, nullptr);
+    tree.appendChild (viewSettingsTree(), nullptr);
+    if (auto out = tree.createXml())
+        f.replaceWithText (out->toString());
+}
+
+// Das frühere PopupMenu ist einem eigenen Panel gewichen (User: "Menu blinkt
+// bei jedem Klick" - JUCE schliesst ein PopupMenu bei jeder Auswahl, und das
+// Wiederoeffnen blitzt sichtbar). Das Panel bleibt offen, zeigt alle Schalter
+// gleichzeitig und ist damit auch schneller zu ueberblicken.
+void LCRMSAudioProcessorEditor::showPresetMenu()
+{
+    if (settingsPanel.isVisible())
+    {
+        closeSettingsPanel();
+        return;
+    }
+    closeViewPanel();
+    // Momentaufnahme der Oberflaeche, klein gerechnet, weichgezeichnet und
+    // gemerkt. Das kostet einmal ein paar Millisekunden statt jedes Bild neu.
+    {
+        constexpr int kDiv = 4;
+        auto shot = content.createComponentSnapshot (content.getLocalBounds(), false, 1.0f / (float) kDiv);
+        if (shot.isValid())
+        {
+            juce::ImageConvolutionKernel blur (7);
+            blur.createGaussianBlur (2.6f);
+            blur.applyToImage (shot, shot, shot.getBounds());
+            settingsBlur = shot;
+        }
+    }
+    captureSettingsSnapshot();
+    refreshSettingsPanel();
+    settingsBackdrop.setVisible (true);
+    settingsBackdrop.toFront (false);
+    settingsPanel.setAlpha (1.0f);
+    settingsPanel.setVisible (true);
+    settingsPanel.toFront (false);
+    juce::Desktop::getInstance().getAnimator().fadeIn (&settingsPanel, 120);
+    content.repaint();
+}
+
+void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
+{
+    juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+    settingsSnap.theme       = uiThemeIndex;
+    settingsSnap.layout      = uiLayoutRef();
+    settingsSnap.prism       = p.getBoolValue ("mutateChangesPrism", true);
+    settingsSnap.mix         = p.getBoolValue ("mutateChangesMix", false);
+    settingsSnap.cats        = p.getBoolValue ("showMutateCategories", true);
+    settingsSnap.clickEdge   = p.getBoolValue ("prismClickJumps", false);
+    settingsSnap.galaxyStart = p.getBoolValue ("galaxyActivateDefault", false);
+    settingsSnap.showHz      = p.getBoolValue ("showFocusHz", false);
+    settingsSnap.keepSolo    = keepSoloWhenSectionOff;
+    settingsSnap.modVis      = modulationVisualsEnabled;
+}
+
+// "Cancel": alles zurueck auf den Stand beim Oeffnen. Laeuft ueber dieselben
+// Aktionen wie die Knoepfe selbst - es gibt also keinen zweiten Weg, auf dem
+// eine Einstellung gesetzt werden koennte.
+void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
+{
+    juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+    auto flipIf = [&] (bool current, bool wanted, int id) { if (current != wanted) handleSettingsAction (id); };
+    flipIf (p.getBoolValue ("mutateChangesPrism", true),    settingsSnap.prism,       idMutatePrism);
+    flipIf (p.getBoolValue ("mutateChangesMix", false),     settingsSnap.mix,         idMutateMix);
+    flipIf (p.getBoolValue ("showMutateCategories", true),  settingsSnap.cats,        idShowCategories);
+    flipIf (p.getBoolValue ("prismClickJumps", false),       settingsSnap.clickEdge,   idPrismClickJumps);
+    flipIf (p.getBoolValue ("showFocusHz", false),           settingsSnap.showHz,      idShowHz);
+    flipIf (p.getBoolValue ("galaxyActivateDefault", false),settingsSnap.galaxyStart, idGalaxyDefault);
+    flipIf (keepSoloWhenSectionOff,                         settingsSnap.keepSolo,    idKeepSolo);
+    flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
+
+    if (uiLayoutRef() != settingsSnap.layout)
+        handleSettingsAction (settingsSnap.layout == 0 ? idLayoutFrames
+                            : settingsSnap.layout == 1 ? idLayoutFrameless : idLayoutEasy);
+    if (uiThemeIndex != settingsSnap.theme)
+    {
+        static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 0, 4, 1, 3, 2 };
+        for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
+            if (themeForId[i] == settingsSnap.theme)
+            {
+                handleSettingsAction (SettingsPanelComponent::themeIds()[i]);
+                break;
+            }
+    }
+}
+
+void LCRMSAudioProcessorEditor::closeSettingsPanel()
+{
+    if (! settingsPanel.isVisible())
+        return;
+    settingsBackdrop.setVisible (false);
+    settingsBlur = {};
+    juce::Desktop::getInstance().getAnimator().fadeOut (&settingsPanel, 120);
+    content.repaint();
+}
+
+// Haken und Auswahl im Panel auf den tatsaechlichen Stand bringen. Wird nach
+// jeder Aktion aufgerufen - das Panel bleibt dabei offen.
+void LCRMSAudioProcessorEditor::refreshSettingsPanel()
+{
+    juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+    static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 0, 4, 1, 3, 2 };
+    for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
+        settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
+
+    const bool layoutsAvailable = ! isComicTheme();
+    for (int i = 0; i < 3; ++i)
+    {
+        settingsPanel.layoutBtn[i].setToggleState (layoutsAvailable && uiLayoutRef() == i, juce::dontSendNotification);
+        settingsPanel.layoutBtn[i].setEnabled (layoutsAvailable);
+        settingsPanel.layoutBtn[i].setAlpha (layoutsAvailable ? 1.0f : 0.40f);
+    }
+
+    settingsPanel.smartBtn[0].setToggleState (p.getBoolValue ("mutateChangesPrism", true),   juce::dontSendNotification);
+    settingsPanel.smartBtn[1].setToggleState (p.getBoolValue ("mutateChangesMix", false),    juce::dontSendNotification);
+    settingsPanel.smartBtn[2].setToggleState (p.getBoolValue ("showMutateCategories", true), juce::dontSendNotification);
+
+    settingsPanel.behavBtn[0].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (keepSoloWhenSectionOff,                          juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (p.getBoolValue ("prismClickJumps", false),        juce::dontSendNotification);
+    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("showFocusHz", false),            juce::dontSendNotification);
+    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.repaint();
+}
+
+// Fuehrt genau eine Einstellung aus. Frueher der Rumpf des Menue-Callbacks -
+// das Panel ruft dieselbe Stelle auf, damit es nur EINE Wahrheit gibt.
+void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
+{
+    juce::PropertiesFile writeProps (LCRMSAudioProcessor::appPropertiesOptions());
+
+    // Das Band-begrenzt-Galaxy ist ein echter Parameter (steht im Preset),
+    // deshalb laeuft er nicht ueber die Properties wie alles andere hier.
+    if (result == idBandGalaxy)
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PRISM_GALAXY))
+            prm->setValueNotifyingHost (prm->getValue() > 0.5f ? 0.0f : 1.0f);
+        refreshSettingsPanel();
+        return;
+    }
+
+    switch (result)
+            {
+                case idGalaxyDefault:
+                    // Schreibt in das eingebaute Preset "Default" - der Stern
+                    // am Namen folgt sofort, falls der Live-Zustand dadurch
+                    // vom Default abweicht.
+                    writeProps.setValue ("galaxyActivateDefault", ! writeProps.getBoolValue ("galaxyActivateDefault", false));
+                    writeProps.saveIfNeeded();
+                    if (isDefaultPresetName (currentPresetName))
+                    {
+                        presetSignature = signatureOfTree (defaultPresetTree());
+                        presetDirty = std::abs (computePresetSignature() - presetSignature) > 1.0e-5f;
+                        refreshPresetNameDisplay();
+                    }
+                    break;
+                case idOpenPresetFolder:
+                    presetFolder().revealToUser();
+                    break;
+                case idSetPresetFolder:
+                    presetFolderChooser = std::make_unique<juce::FileChooser> ("Choose Preset Folder", presetFolder());
+                    presetFolderChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                        [this] (const juce::FileChooser& fc)
+                        {
+                            const auto dir = fc.getResult();
+                            if (dir.isDirectory())
+                            {
+                                juce::PropertiesFile p2 (LCRMSAudioProcessor::appPropertiesOptions());
+                                p2.setValue ("presetFolder", dir.getFullPathName());
+                                p2.saveIfNeeded();
+                            }
+                            presetFolderChooser.reset();
+                        });
+                    break;
+                case idMutatePrism:
+                    writeProps.setValue ("mutateChangesPrism", ! writeProps.getBoolValue ("mutateChangesPrism", true));
+                    writeProps.saveIfNeeded();
+                    break;
+                case idLockMix:
+                    writeProps.setValue ("lockMix", ! writeProps.getBoolValue ("lockMix", false));
+                    writeProps.saveIfNeeded();
+                    break;
+                case idMutateMix:
+                    writeProps.setValue ("mutateChangesMix", ! writeProps.getBoolValue ("mutateChangesMix", false));
+                    writeProps.saveIfNeeded();
+                    break;
+                case idShowCategories:
+                    writeProps.setValue ("showMutateCategories", ! writeProps.getBoolValue ("showMutateCategories", true));
+                    writeProps.saveIfNeeded();
+                    showMutateCategories = writeProps.getBoolValue ("showMutateCategories", true);
+                    for (auto& b : categoryBtn)
+                        b.setVisible (showMutateCategories);   // resized() reicht nicht: content aendert seine Groesse nicht
+                    break;
+                case idOpenManual:
+                    openManual();
+                    break;
+
+                case idLayoutFrames: case idLayoutFrameless: case idLayoutEasy:
+                    uiLayoutRef() = (result == idLayoutFrames) ? 0 : (result == idLayoutFrameless) ? 1 : 2;
+                    writeProps.setValue ("uiLayout", uiLayoutRef());
+                    writeProps.saveIfNeeded();
+                    applyLayoutMode();
+                    themePlateFor = -1;   // Platte neu backen
+                    resized();
+                    repaint();
+                    break;
+
+                case idSaveSettings:
+                    closeSettingsPanel();
+                    break;
+
+                case idCancelSettings:
+                    restoreSettingsSnapshot();
+                    closeSettingsPanel();
+                    break;
+
+                case idResetSettings:
+                {
+                    // Alles zurueck auf Werkseinstellung (gleicher Gedanke wie
+                    // "Reset" im View-Panel, deshalb auch derselbe Name).
+                    writeProps.setValue ("mutateChangesPrism", true);
+                    writeProps.setValue ("mutateChangesMix", false);
+                    writeProps.setValue ("showMutateCategories", true);
+                    writeProps.setValue ("prismClickJumps", false);
+                    writeProps.setValue ("showFocusHz", false);
+                    prismBand.setShowHz (false);
+                    writeProps.setValue ("galaxyActivateDefault", false);
+                    writeProps.setValue ("keepSoloWhenSectionOff", true);
+                    keepSoloWhenSectionOff = true;
+                    modulationVisualsEnabled = true;
+                    showMutateCategories = true;
+                    writeProps.saveIfNeeded();
+                    applyLayoutMode();
+                    resized();
+                    repaint();
+                    break;
+                }
+
+                case idShowHz:
+                    writeProps.setValue ("showFocusHz", ! writeProps.getBoolValue ("showFocusHz", false));
+                    writeProps.saveIfNeeded();
+                    prismBand.setShowHz (writeProps.getBoolValue ("showFocusHz", false));
+                    break;
+
+                case idKeepSolo:
+                    keepSoloWhenSectionOff = ! keepSoloWhenSectionOff;
+                    writeProps.setValue ("keepSoloWhenSectionOff", keepSoloWhenSectionOff);
+                    writeProps.saveIfNeeded();
+                    break;
+
+                case idHoverHints:
+                    writeProps.setValue ("hoverHints", ! writeProps.getBoolValue ("hoverHints", false));
+                    writeProps.saveIfNeeded();
+                    applyHoverHints();
+                    break;
+                // Theme-Wahl: Menue danach gleich wieder oeffnen (User: "Menue
+                // soll offen bleiben") - JUCE schliesst PopupMenus bei Auswahl.
+                case idThemeModern: case idThemePurple: case idThemeDay: case idThemeDark: case idThemeMoon: case idThemeComic:
+                case idThemeSciFiDark:
+                {
+                    static const std::pair<int, int> map[] = { { idThemeModern, 0 }, { idThemeDark, 1 }, { idThemeComic, 2 },
+                                                               { idThemePurple, 3 }, { idThemeDay, 4 }, { idThemeMoon, 5 },
+                                                               { idThemeSciFiDark, 3 } };   // Sci-Fi Dark ist in Sci-Fi aufgegangen
+                    for (const auto& m : map)
+                        if (m.first == result) setUiTheme (m.second, true);
+                    break;   // Wiederoeffnen uebernimmt reopenGuard (siehe oben)
+                }
+                case idPresetSetsGalaxy:
+                    writeProps.setValue ("presetSetsGalaxy", ! writeProps.getBoolValue ("presetSetsGalaxy", false));
+                    writeProps.saveIfNeeded();
+                    break;
+                case idPrismClickJumps:
+                    writeProps.setValue ("prismClickJumps", ! writeProps.getBoolValue ("prismClickJumps", false));
+                    writeProps.saveIfNeeded();
+                    prismBand.setClickJumps (writeProps.getBoolValue ("prismClickJumps", false));
+                    break;
+                case idHideGonioDefault:
+                    // Jetzt sofort live UND als neuer Start-Standard fuers
+                    // naechste Oeffnen (User-Wunsch: einfacher Menu-Eintrag
+                    // zum Aktivieren/Deaktivieren, kein separater Live-
+                    // Button mehr).
+                    goniometerVisualsOn = ! goniometerVisualsOn;
+                    goniometer.setGoniometerActive (goniometerVisualsOn);
+                    writeProps.setValue ("goniometerDisabledDefault", ! goniometerVisualsOn);
+                    break;
+                case idHideSpaceVisualsDefault:
+                    starVisualsOn = ! starVisualsOn;
+                    goniometer.setSpaceVisualsEnabled (starVisualsOn);
+                    writeProps.setValue ("spaceVisualsDisabledDefault", ! starVisualsOn);
+                    break;
+                case idShowModulation:
+                    modulationVisualsEnabled = ! modulationVisualsEnabled;
+                    writeProps.setValue ("modulationVisualsDisabled", ! modulationVisualsEnabled);
+                    break;
+                case idDisableModMovement:
+                    starfieldModMovementOn = ! starfieldModMovementOn;
+                    goniometer.setModMovementEnabled (starfieldModMovementOn);
+                    writeProps.setValue ("starfieldModMovementDisabled", ! starfieldModMovementOn);
+                    break;
+                case idReduceAnimations:
+                    starfieldReducedAnimations = ! starfieldReducedAnimations;
+                    goniometer.setReducedAnimations (starfieldReducedAnimations);
+                    writeProps.setValue ("starfieldReducedAnimations", starfieldReducedAnimations);
+                    break;
+                case idSaveSizeDefault:
+                    writeProps.setValue ("windowWidth", getWidth());
+                    writeProps.setValue ("windowHeight", getHeight());
+                    break;
+                case idSaveStateDefault:
+                    saveCurrentStateAsDefault();
+                    break;
+                default:
+                    break;
+            }
+
+    writeProps.saveIfNeeded();
+    refreshSettingsPanel();
+}
+
+
+// ===== PRESET-SYSTEM (dateibasiert) =====
+// Presets liegen jetzt als einzelne XML-Dateien in einem Ordner (User-Wunsch:
+// "Open Preset Folder", "Set Preset Folder") - eine Datei pro Preset, Name =
+// Dateiname. Das ist der Standard, den man von anderen Herstellern kennt:
+// man kann Presets kopieren, teilen, sichern und den Ordner selbst waehlen.
+// Vorher lagen alle Presets in der App-Properties-Datei; die werden beim
+// ersten Start EINMALIG in den Ordner uebernommen (siehe migrate...).
+//
+// Zusaetzlich gibt es das eingebaute Preset "Default": immer ganz oben,
+// nicht loeschbar, nicht umbenennbar. Es ist der Zustand, mit dem das Plugin
+// oeffnet. "Save current state as default" im Menue ueberschreibt es;
+// "Activate Galaxy on startup" setzt darin nur den Galaxy-Schalter.
+static const char* const kDefaultPresetName = "Default";
+static const char* const kPresetExt = ".spacex";
+
+juce::File LCRMSAudioProcessorEditor::presetFolder() const
+{
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    const auto custom = props.getValue ("presetFolder", {});
+    juce::File folder = custom.isNotEmpty() ? juce::File (custom)
+                      : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                            .getChildFile ("SpaceX").getChildFile ("Presets");
+    if (! folder.exists())
+    {
+        // Umbenennung "Space X" -> "SpaceX" (User): was im alten Ordner liegt,
+        // wird einmalig mitgenommen, damit keine Presets verloren gehen.
+        auto legacy = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                          .getChildFile ("Space X").getChildFile ("Presets");
+        folder.createDirectory();
+        if (legacy.isDirectory())
+            for (const auto& f : legacy.findChildFiles (juce::File::findFiles, false, "*" + juce::String (kPresetExt)))
+                f.copyFileTo (folder.getChildFile (f.getFileName()));
+    }
+    return folder;
+}
+
+juce::File LCRMSAudioProcessorEditor::presetFile (const juce::String& name) const
+{
+    return presetFolder().getChildFile (juce::File::createLegalFileName (name) + kPresetExt);
+}
+
+// Einmalige Uebernahme der alten Properties-Presets in den Ordner.
+void LCRMSAudioProcessorEditor::migrateLegacyPresets()
+{
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    if (props.getBoolValue ("presetsMigratedToFolder", false))
+        return;
+    auto names = juce::StringArray::fromLines (props.getValue ("presetNames", {}));
+    names.removeEmptyStrings();
+    for (const auto& n : names)
+    {
+        const auto xml = props.getValue ("presetXml_" + n, {});
+        auto f = presetFile (n);
+        if (xml.isNotEmpty() && ! f.existsAsFile())
+            f.replaceWithText (xml);
+    }
+    props.setValue ("presetsMigratedToFolder", true);
+    props.saveIfNeeded();
+}
+
+juce::StringArray LCRMSAudioProcessorEditor::getPresetNames() const
+{
+    juce::StringArray names;
+    names.add (kDefaultPresetName);
+    juce::Array<juce::File> files;
+    presetFolder().findChildFiles (files, juce::File::findFiles, false, juce::String ("*") + kPresetExt);
+    juce::StringArray user;
+    for (const auto& f : files)
+        user.add (f.getFileNameWithoutExtension());
+    user.sortNatural();
+    names.addArray (user);
+    return names;
+}
+
+bool LCRMSAudioProcessorEditor::isDefaultPresetName (const juce::String& name)
+{
+    return name.equalsIgnoreCase (kDefaultPresetName);
+}
+
+// Das eingebaute "Default": gespeicherter Standard-Schnappschuss, falls
+// vorhanden, sonst der Werkszustand - und obendrauf der Galaxy-Startschalter
+// aus dem Menue.
+juce::ValueTree LCRMSAudioProcessorEditor::defaultPresetTree() const
+{
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    juce::ValueTree tree;
+    const auto xmlStr = props.getValue ("defaultPluginState", {});
+    if (xmlStr.isNotEmpty())
+        if (auto xml = juce::XmlDocument::parse (xmlStr))
+            tree = juce::ValueTree::fromXml (*xml);
+    if (! tree.isValid() || ! tree.hasType (processor.apvts.state.getType()))
+        tree = processor.factoryState.createCopy();
+
+    const bool galaxyOnStart = props.getBoolValue ("galaxyActivateDefault", false);
+    for (int i = 0; i < tree.getNumChildren(); ++i)
+    {
+        auto c = tree.getChild (i);
+        if (c.hasType ("PARAM") && c.getProperty ("id").toString() == LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)
+            c.setProperty ("value", galaxyOnStart ? 1.0f : 0.0f, nullptr);
+    }
+    return tree;
+}
+
+juce::ValueTree LCRMSAudioProcessorEditor::presetTree (const juce::String& name) const
+{
+    if (isDefaultPresetName (name))
+        return defaultPresetTree();
+    const auto f = presetFile (name);
+    if (! f.existsAsFile())
+        return {};
+    if (auto xml = juce::XmlDocument::parse (f))
+    {
+        auto tree = juce::ValueTree::fromXml (*xml);
+        if (tree.isValid() && tree.hasType (processor.apvts.state.getType()))
+            return tree;
+    }
+    return {};
+}
+
+// Klick auf das Namensfeld: Liste zum Laden (deleteMode=false) bzw. zum
+// Loeschen (Rechtsklick, deleteMode=true). Unten "Rename..." statt des
+// frueheren "Save as..." (User-Wunsch) - benennt NUR um, speichert keine
+// veraenderten Einstellungen mit.
+void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
+{
+    const auto presetNames = getPresetNames();
+    juce::PopupMenu menu;
+    // Ohne das hier zeichnet JUCE die Liste im eigenen Standard-Look (grauer
+    // Kasten, blauer Balken) - ein PopupMenu erbt das LookAndFeel NICHT vom
+    // Zielknopf (User: "immer noch genau gleich grau").
+    menu.setLookAndFeel (&lookAndFeel);
+
+    for (int i = 0; i < presetNames.size(); ++i)
+    {
+        const bool isDef = isDefaultPresetName (presetNames[i]);
+        const bool enabled = ! (deleteMode && isDef);
+        menu.addItem (i + 1, presetNames[i], enabled, presetNames[i].equalsIgnoreCase (currentPresetName));
+        if (isDef && presetNames.size() > 1)
+            menu.addSeparator();
+    }
+
+    constexpr int kRenameId = 100000;
+    if (! deleteMode)
+    {
+        menu.addSeparator();
+        menu.addItem (kRenameId, "Rename...", currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName));
+    }
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetNameButton),
+        [this, presetNames, deleteMode] (int result)
+        {
+            if (result == 100000)
+            {
+                promptRenamePreset();
+                return;
+            }
+            if (result <= 0 || result > presetNames.size())
+                return;
+            const auto name = presetNames[result - 1];
+            if (! deleteMode)
+            {
+                loadPreset (name);
+                return;
+            }
+            juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+                "Delete Preset", "Delete preset \"" + name + "\"?",
+                nullptr,
+                juce::ModalCallbackFunction::create ([this, name] (int okResult)
+                {
+                    if (okResult != 0)
+                        deletePreset (name);
+                }));
+        });
+}
+
+// Schreibt den aktuellen Zustand als eingebautes "Default". Erreichbar ueber
+// das Menue UND ueber Save mit dem Namen "Default" (User: "so dass beide Wege
+// gehen").
+// "Open Manual (PDF)": Das Handbuch steckt im Plugin selbst (siehe
+// juce_add_binary_data in CMakeLists.txt). Liegt es bereits am
+// Standard-Installationsort, wird dieses genommen - sonst wird die eingebaute
+// Fassung einmalig nach "Application Support/Space X" geschrieben und von dort
+// geoeffnet. So funktioniert der Eintrag auch ohne Installer.
+void LCRMSAudioProcessorEditor::openManual()
+{
+    const juce::String fileName ("SpaceX Manual (EN).pdf");
+
+    const juce::File installed =
+       #if JUCE_MAC
+        juce::File ("/Library/Audio/Plug-Ins/Documentation/SpaceX").getChildFile (fileName);
+       #else
+        juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory)
+            .getChildFile ("SpaceX").getChildFile (fileName);
+       #endif
+    if (installed.existsAsFile())
+    {
+        installed.startAsProcess();
+        return;
+    }
+
+    auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("SpaceX");
+    dir.createDirectory();
+    auto pdf = dir.getChildFile (fileName);
+    // Nur schreiben, wenn die Datei fehlt oder aus einer aelteren Version
+    // stammt - sonst kostet jeder Klick unnoetig 4 MB Schreibarbeit.
+    if (! pdf.existsAsFile() || pdf.getSize() != (juce::int64) SpaceXManualData::SpaceXManual_EN_pdfSize)
+        pdf.replaceWithData (SpaceXManualData::SpaceXManual_EN_pdf,
+                             (size_t) SpaceXManualData::SpaceXManual_EN_pdfSize);
+    if (pdf.existsAsFile())
+        pdf.startAsProcess();
+}
+
+void LCRMSAudioProcessorEditor::saveCurrentStateAsDefault()
+{
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    {
+        // Ohne View-Einstellungen: dafuer ist "Save as Default" im View-Panel da.
+        auto tree = processor.apvts.copyState();
+        auto vs = tree.getChildWithName ("ViewSettings");
+        if (vs.isValid())
+            tree.removeChild (vs, nullptr);
+        if (auto xml = tree.createXml())
+            props.setValue ("defaultPluginState", xml->toString());
+    }
+    props.saveIfNeeded();
+    currentPresetName = "Default";
+    // Der aktuelle Zustand IST ab jetzt der Default - Signatur direkt von ihm
+    // nehmen, sonst bleibt der Stern stehen (User-Bug).
+    presetSignature = computePresetSignature();
+    presetDirty = false;
+    refreshPresetNameDisplay();
+}
+
+void LCRMSAudioProcessorEditor::writePreset (const juce::String& name)
+{
+    if (name.isEmpty())
+        return;
+    auto tree = processor.apvts.copyState();
+    // Der Klang-Save nimmt KEINE View-Einstellungen mit - aber wenn die
+    // Datei schon welche hat (View-Panel "Save"), bleiben sie erhalten.
+    {
+        auto vs = tree.getChildWithName ("ViewSettings");
+        if (vs.isValid())
+            tree.removeChild (vs, nullptr);
+        const auto f = presetFile (name);
+        if (f.existsAsFile())
+            if (auto oldXml = juce::XmlDocument::parse (f))
+            {
+                auto oldTree = juce::ValueTree::fromXml (*oldXml);
+                auto oldVs = oldTree.getChildWithName ("ViewSettings");
+                if (oldVs.isValid())
+                    tree.appendChild (oldVs.createCopy(), nullptr);
+            }
+    }
+    if (auto xml = tree.createXml())
+        presetFile (name).replaceWithText (xml->toString());
+
+    currentPresetName = name;
+    presetSignature = computePresetSignature();
+    presetDirty = false;
+    refreshPresetNameDisplay();
+}
+
+void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
+{
+    // "Default" darf jetzt auch hier ueberschrieben werden (User: "so dass
+    // beide Wege gehen") - im Menue gibt es denselben Befehl weiterhin.
+    const juce::String prefill = prefillCurrent ? currentPresetName : juce::String();
+
+    presetNameDialog = std::make_unique<juce::AlertWindow> ("Save Preset",
+                                                              "Preset name:",
+                                                              juce::MessageBoxIconType::NoIcon);
+    presetNameDialog->addTextEditor ("name", prefill, "Preset name");
+    if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    {
+        juce::String name;
+        if (result == 1 && presetNameDialog != nullptr)
+            name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
+        presetNameDialog.reset();
+
+        if (name.isEmpty())
+            return;
+        if (isDefaultPresetName (name))
+        {
+            // Beide Wege fuehren zum selben Ziel (User).
+            juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+                "Overwrite Default",
+                "Overwrite the built-in Default with the current settings?",
+                nullptr,
+                juce::ModalCallbackFunction::create ([this] (int okResult)
+                {
+                    if (okResult != 0)
+                        saveCurrentStateAsDefault();
+                }));
+            return;
+        }
+
+        if (presetFile (name).existsAsFile())
+        {
+            juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+                "Overwrite Preset",
+                "Preset \"" + name + "\" already exists. Overwrite it?",
+                nullptr,
+                juce::ModalCallbackFunction::create ([this, name] (int okResult)
+                {
+                    if (okResult != 0)
+                        writePreset (name);
+                }));
+            return;
+        }
+        writePreset (name);
+    }), false);
+}
+
+// Umbenennen: nur der Name, nie die Einstellungen (User-Vorgabe: "wenn
+// Settings veraendert wurden sollen diese hierbei NICHT mit gespeichert
+// werden!"). Die Datei wird umbenannt, der Inhalt bleibt exakt gleich - ein
+// eventueller Stern am Namen bleibt deshalb auch stehen.
+void LCRMSAudioProcessorEditor::promptRenamePreset()
+{
+    if (currentPresetName.isEmpty() || isDefaultPresetName (currentPresetName))
+        return;
+    const juce::String oldName = currentPresetName;
+
+    presetNameDialog = std::make_unique<juce::AlertWindow> ("Rename Preset",
+                                                              "New name:",
+                                                              juce::MessageBoxIconType::NoIcon);
+    presetNameDialog->addTextEditor ("name", oldName, "Preset name");
+    if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    presetNameDialog->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, oldName] (int result)
+    {
+        juce::String name;
+        if (result == 1 && presetNameDialog != nullptr)
+            name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
+        presetNameDialog.reset();
+
+        if (name.isEmpty() || name == oldName || isDefaultPresetName (name))
+            return;
+        if (presetFile (name).existsAsFile())
+        {
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                "Rename Preset", "A preset named \"" + name + "\" already exists.");
+            return;
+        }
+        if (presetFile (oldName).moveFileTo (presetFile (name)))
+        {
+            currentPresetName = name;
+            refreshPresetNameDisplay();
+        }
+    }), false);
+}
+
+void LCRMSAudioProcessorEditor::loadPreset (const juce::String& name)
+{
+    auto tree = presetTree (name);
+    if (! tree.isValid())
+        return;
+    suppressGalaxyAutoArm = true;
+    struct Unsuppress { bool& f; ~Unsuppress() { f = false; } } unsuppress { suppressGalaxyAutoArm };
+
+    // Galaxy bleibt scharf, wenn es vorher scharf war (nur in EINE Richtung;
+    // Ausschalten bleibt manuell) - vermeidet den Latenz-Interrupt.
+    const bool galaxyWasArmed =
+        processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
+
+    // Gesperrte Regler ueberleben den Preset-Wechsel (Rechtsklick auf Mix/Vol).
+    auto* mixParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX);
+    const float mixBefore = mixParam != nullptr ? mixParam->getValue() : 1.0f;
+    const bool  keepMix   = isMixLocked();
+    auto* volParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM);
+    const float volBefore = volParam != nullptr ? volParam->getValue() : 0.5f;
+    const bool  keepVol   = isVolLocked();
+
+    processor.apvts.replaceState (tree);
+    if (keepMix && mixParam != nullptr)
+        mixParam->setValueNotifyingHost (mixBefore);
+    if (keepVol && volParam != nullptr)
+        volParam->setValueNotifyingHost (volBefore);
+
+    // View-Einstellungen sind Preset-UNABHAENGIG (User): replaceState hat
+    // das Kind verworfen, die aktuellen Werte werden wieder angehaengt.
+    storeViewSettingsInState();
+
+    // Ein Preset bringt seinen Galaxy-Zustand IMMER mit (User): ohne ihn
+    // klingt das Preset nicht so, wie es gespeichert wurde. Der fruehere
+    // Menuepunkt "Presets Switch Galaxy On/Off" ist deshalb entfallen - er
+    // konnte nur dafuer sorgen, dass ein Preset anders klingt als beim
+    // Speichern. Latenz aendert sich hier also bewusst.
+    juce::ignoreUnused (galaxyWasArmed);
+
+    currentPresetName = name;
+    presetSignature = computePresetSignature();
+    presetDirty = false;
+    refreshPresetNameDisplay();
+}
+
+void LCRMSAudioProcessorEditor::stepPreset (int direction)
+{
+    const auto names = getPresetNames();
+    if (names.isEmpty())
+        return;
+    int index = names.indexOf (currentPresetName, true);
+    if (index < 0)
+        index = (direction > 0) ? -1 : 0;
+    index = (index + direction + names.size() * 2) % names.size();
+    loadPreset (names[index]);
+}
+
+// Pruefsumme des LIVE-Zustands - ueber denselben Baum-Weg wie die A/B-Slots,
+// damit beide Vergleiche dieselbe Gewichtung benutzen.
+float LCRMSAudioProcessorEditor::computePresetSignature() const
+{
+    return signatureOfTree (processor.apvts.copyState());
+}
+
+float LCRMSAudioProcessorEditor::signatureOfTree (const juce::ValueTree& tree)
+{
+    float sum = 0.0f;
+    int index = 1;
+    for (int i = 0; i < tree.getNumChildren(); ++i)
+    {
+        auto child = tree.getChild (i);
+        if (child.hasType ("PARAM"))
+            sum += (float) child.getProperty ("value", 0.0f) * (float) index * 0.3719f;
+        ++index;
+    }
+    return sum;
+}
+
+void LCRMSAudioProcessorEditor::refreshPresetNameDisplay()
+{
+    juce::String text = currentPresetName.isEmpty() ? juce::String (kDefaultPresetName) : currentPresetName;
+    if (presetDirty)
+        text += " *";
+    if (presetNameButton.getButtonText() != text)
+        presetNameButton.setButtonText (text);
+    presetNameButton.getProperties().set ("presetNameEmpty", false);
+    presetDeleteButton.setEnabled (currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName));
+}
+
+void LCRMSAudioProcessorEditor::deletePreset (const juce::String& name)
+{
+    if (isDefaultPresetName (name))
+        return;
+    presetFile (name).deleteFile();
+    if (currentPresetName.equalsIgnoreCase (name))
+    {
+        // Nach dem Loeschen steht man auf "Default" - aber ohne den Zustand
+        // anzufassen: der Klang bleibt, nur die Herkunft ist weg.
+        currentPresetName = kDefaultPresetName;
+        presetSignature = signatureOfTree (defaultPresetTree());
+        presetDirty = std::abs (computePresetSignature() - presetSignature) > 1.0e-5f;
+    }
+    refreshPresetNameDisplay();
+}
+
+// Mod-Icon (Sinuswelle): einfacher An/Aus-Toggle-Button wie Power-Icon,
+// schreibt aber einen der drei ID_*_MOD-Parameter statt eines Section-On.
+void LCRMSAudioProcessorEditor::setupModButton (juce::TextButton& button, const juce::String& paramId,
+                                                 std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& attachment)
+{
+    button.setClickingTogglesState (true);
+    button.getProperties().set ("modIcon", true);
+    button.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (button);
+    attachment = std::make_unique<ButtonAttachment> (processor.apvts, paramId, button);
+}
+
+LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
+    : juce::AudioProcessorEditor (&p), processor (p), goniometer (p),
+      volInputMeter (p.currentInputLevel), volOutputMeter (p.currentOutputLevel),
+      undoHistory (p.undoHistory), undoIndex (p.undoIndex)
+{
+    setLookAndFeel (&lookAndFeel);
+
+    addAndMakeVisible (content);
+
+    // Logo als Klickflaeche fuer den manuellen GUI-Bypass (kein Text/Icon,
+    // rein zum Klicken - siehe "invisibleHit" in CustomLookAndFeel).
+    logoButton.getProperties().set ("invisibleHit", true);
+    logoButton.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (logoButton);
+    logoButton.onClick = [this] { toggleUiBypass(); };
+
+    // --- Globale Buttons (oben rechts, User-Idee "Globale Buttons") --------
+    // Reset: reine Aktion, kein eigener Zustand - setzt ALLE Parameter auf
+    // ihren Default-Wert zurueck (inkl. Solo, Mod-Icons, Section-On/Off).
+    globalResetButton.setClickingTogglesState (false);
+    globalResetButton.setWantsKeyboardFocus (false);
+    // Gleiche feste Schriftgroesse wie die Parameter-Labels (User-Feedback:
+    // "alle Schriften in der Global-Zeile sollen so gross sein wie Expand,
+    // Boost usw.").
+    // Reset jetzt als Icon (User-Idee: "Kreis mit Pfeil Icon ... vielleicht
+    // in Rot") - siehe drawResetIcon() im LookAndFeel. Der Text "RESET" ist
+    // damit weg; das Icon sitzt in der Preset-Zeile neben dem Speichern-Icon.
+    globalResetButton.getProperties().set ("resetIcon", true);
+    globalResetButton.setTooltip ("Reset all parameters to default");
+    content.addAndMakeVisible (globalResetButton);
+    globalResetButton.onClick = [this]
+    {
+        // ID_GALAXY_ACTIVATE bewusst AUSGENOMMEN (User-Info: "Der Button
+        // Reset soll den neuen globalen Galaxy-Button nicht resetten.") -
+        // schaltet die Latenz/Engine, ein versehentliches Zuruecksetzen
+        // waere ein unerwarteter Host-Interrupt bzw. wuerde die Sektion
+        // ungefragt wieder deaktivieren. Per Pointer-Vergleich statt
+        // getParameterID() (nicht Teil der Basisklasse AudioProcessorParameter
+        // in dieser JUCE-Version).
+        auto* galaxyActivateParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE);
+        auto* mixLockedParam = isMixLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX) : nullptr;
+        auto* volLockedParam = isVolLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM) : nullptr;
+        for (auto* param : processor.getParameters())
+            if (param != nullptr && param != galaxyActivateParam && param != mixLockedParam
+                && param != volLockedParam && param != processor.getBypassParameter())
+                param->setValueNotifyingHost (param->getDefaultValue());
+    };
+
+    // "ACTIVATE GALAXY": globaler, echter APVTS-Parameter - schaltet NUR
+    // die STFT-Engine/Latenz (siehe DSP-Kommentar zu ID_GALAXY_ACTIVATE).
+    // Bewusst simpler Toggle mit der "globalBtn"-Textoptik (hell = an,
+    // gedimmt = aus) statt einer eigenen Zeichenroutine.
+    globalGalaxyActivateButton.setClickingTogglesState (true);
+    globalGalaxyActivateButton.setWantsKeyboardFocus (false);
+    globalGalaxyActivateButton.getProperties().set ("globalBtn", true);
+    // "galaxyBtn": eigener, deutlich auffaelligerer Glow-Hintergrund wenn
+    // aktiv (User-Wunsch: "Galaxy muss DEUTLICH auffaelliger sein wenn
+    // aktiv"), siehe CustomLookAndFeel::drawGalaxyButtonBackground().
+    globalGalaxyActivateButton.getProperties().set ("galaxyBtn", true);
+    content.addAndMakeVisible (globalGalaxyActivateButton);
+    globalGalaxyActivateAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_GALAXY_ACTIVATE, globalGalaxyActivateButton);
+    // Neu (User-Wunsch): globales Galaxy AUSschalten schaltet auch die
+    // Galaxy/LCR-Sektion aus. Die Gegenrichtung bleibt unveraendert: die
+    // Sektion einzuschalten aktiviert Global Galaxy automatisch mit (siehe
+    // activateGalaxyIfNeeded()), aber die Sektion auszuschalten laesst
+    // Global Galaxy bewusst an (User-Bestaetigung "beim Ausschalten muss es
+    // dann an bleiben").
+    // Nachtrag (User-Feedback: "wenn Section Galaxy on ist und ich danach
+    // global galaxy deaktiviere und wieder aktiviere soll section galaxy auch
+    // wieder on sein"). Richtig - der globale Schalter soll die Engine
+    // schlafen legen, nicht die Einstellung darunter vergessen. Sonst muss man
+    // nach jedem Latenz-Aus/An die Sektion von Hand wieder suchen, obwohl man
+    // sie nie ausgeschaltet hat.
+    //
+    // Deshalb wird beim AUSschalten gemerkt, wie die Sektion stand, und beim
+    // Wiedereinschalten genau dieser Zustand hergestellt. Wer die Sektion in
+    // der Zwischenzeit bewusst ausgeschaltet gelassen hat, bekommt sie auch
+    // nicht zurueck - gemerkt wird der Stand im Moment des Abschaltens.
+    globalGalaxyActivateButton.onClick = [this]
+    {
+        auto* lcrParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_LCR_ENABLED);
+        if (lcrParam == nullptr)
+            return;
+
+        // onClick feuert NACH dem Umschalten - getToggleState() ist also
+        // bereits der neue Zustand.
+        if (! globalGalaxyActivateButton.getToggleState())
+        {
+            galaxySectionWasOnBeforeDeactivate = lcrParam->getValue() > 0.5f;
+            lcrParam->setValueNotifyingHost (0.0f);
+        }
+        else if (galaxySectionWasOnBeforeDeactivate && lcrParam->getValue() < 0.5f)
+        {
+            lcrParam->setValueNotifyingHost (1.0f);
+        }
+    };
+
+    // "BREATHE": reine Aktion - schaltet in allen 5 Mod-Sektionen den
+    // Mod-Toggle an und wuerfelt die Tiefe-Regler neu (User-Idee: "Leben
+    // in das Plugin einhauchen").
+    globalBreatheButton.setClickingTogglesState (false);
+    globalBreatheButton.setWantsKeyboardFocus (false);
+    // "breatheIcon": vereinheitlichter Icon+Text-Stil wie Mod On/Off/BYP/
+    // Mutate (User-Feedback: "Jeder der 3 Buttons sieht anders aus") - ein
+    // staendig sanft pulsierender Kreis statt des alten Glow-Pillen-
+    // Hintergrunds, siehe CustomLookAndFeel::drawBreatheContent().
+    globalBreatheButton.getProperties().set ("breatheIcon", true);
+    content.addAndMakeVisible (globalBreatheButton);
+    globalBreatheButton.onClick = [this]
+    {
+        // Kleiner Strich im Icon wechselt bei jedem Klick die Position
+        // (User-Wunsch: "Jedes Mal, wenn man auf das Icon klickt veraendert
+        // sich die Position des Striches") - 8 feste Positionen im Kreis,
+        // wie ein Regler-Zeiger, siehe drawBreatheContent().
+        auto& props = globalBreatheButton.getProperties();
+        // Zufaellige statt reihum durchlaufender Position (User-Wunsch:
+        // "Randomize Regler Icon soll random Positionen erhalten - momentan
+        // dreht er sich im Uhrzeigersinn"). Der alte "+1"-Schritt liess den
+        // Zeiger bei wiederholtem Klicken sauber im Kreis wandern, was nach
+        // einem geordneten Ablauf aussah statt nach Zufall - genau das
+        // Gegenteil der Aussage des Buttons. Der jeweils aktuelle Wert wird
+        // ausgeschlossen, damit ein Klick NIE wirkungslos aussieht.
+        const int currentState = (int) props.getWithDefault ("breatheStrokeState", 0);
+        int next = juce::Random::getSystemRandom().nextInt (7); // 0..6
+        if (next >= currentState) ++next;                       // aktuellen Wert ueberspringen -> 0..7 ohne current
+        props.set ("breatheStrokeState", next);
+
+        juce::Random& rng = juce::Random::getSystemRandom();
+        // Section-Lock (User-Wunsch): eine gesperrte Sektion wird von
+        // Breathe komplett uebersprungen (weder Mod an, noch Tiefe neu
+        // gewuerfelt).
+        auto breatheOne = [&] (int soloSectionId, const juce::String& modId, const juce::String& depthId)
+        {
+            if (processor.isSectionLocked (soloSectionId))
+                return;
+            if (auto* modParam = processor.apvts.getParameter (modId))
+                modParam->setValueNotifyingHost (1.0f);
+            if (auto* depthParam = processor.apvts.getParameter (depthId))
+                depthParam->setValueNotifyingHost (juce::jmap (rng.nextFloat(), 0.10f, 1.0f));
+        };
+        breatheOne (LCRMSAudioProcessor::SOLO_TIMEWARP,   LCRMSAudioProcessor::ID_TIMEWARP_MOD,   LCRMSAudioProcessor::ID_TIMEWARP_DEPTH);
+        breatheOne (LCRMSAudioProcessor::SOLO_DIMENSION,  LCRMSAudioProcessor::ID_DIMENSION_MOD,  LCRMSAudioProcessor::ID_DIMENSION_DEPTH);
+        breatheOne (LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::ID_HYPERDRIVE_MOD, LCRMSAudioProcessor::ID_HYPERDRIVE_DEPTH);
+        breatheOne (LCRMSAudioProcessor::SOLO_GALAXY,     LCRMSAudioProcessor::ID_GALAXY_MOD,     LCRMSAudioProcessor::ID_GALAXY_DEPTH);
+        breatheOne (LCRMSAudioProcessor::SOLO_POSITION,   LCRMSAudioProcessor::ID_POSITION_MOD,   LCRMSAudioProcessor::ID_POSITION_DEPTH);
+    };
+
+    // "SAVE": vorher nur Fenstergroesse (User-Feedback: "Save hat keine
+    // Funktion. Wie sollen wir das loesen?") - oeffnet jetzt einen Namens-
+    // Dialog und speichert den KOMPLETTEN aktuellen Plugin-Zustand als
+    // benanntes Preset (siehe promptAndSaveNewPreset()). Fenstergroesse als
+    // Standard laesst sich weiterhin ueber das Hamburger-Menue setzen
+    // ("Save window size as default").
+    globalSaveSizeButton.setClickingTogglesState (false);
+    globalSaveSizeButton.setWantsKeyboardFocus (false);
+    // Speichern jetzt als Disketten-Icon (User-Idee) - siehe drawSaveIcon().
+    globalSaveSizeButton.getProperties().set ("saveIcon", true);
+    globalSaveSizeButton.setTooltip ("Save preset");
+    content.addAndMakeVisible (globalSaveSizeButton);
+    globalSaveSizeButton.onClick = [this] { promptAndSaveNewPreset(); };
+
+    // Der frueher hier aufgebaute "LOAD"-Button ist ENTFALLEN (User: "Wenn
+    // der Preset Name da steht kann Load weg - ist ja redundant"). Seine
+    // Belegung (Linksklick = laden, Rechtsklick = loeschen) ist unveraendert
+    // auf das Preset-Namensfeld gewandert, siehe presetNameButton.
+    // Auch das Popup haengt jetzt am Namensfeld statt am LOAD-Button.
+
+    // "CHAOS": wuerfelt wirklich ALLE Regler/Mods neu (User-Wunsch), per
+    // Exclusion-Liste (Pointer-Vergleich, wie schon bei RESET) ausgenommen:
+    // Vol Trim, Mono Check + dessen Dry-Vergleich, sowie die beiden echten
+    // globalen APVTS-Schalter (Activate Galaxy, globaler Mod-Bypass). Solo
+    // bleibt ebenfalls unangetastet (siehe Kommentar im Header). Gegen die
+    // vom User befuerchteten "Vol Jumps": der Processor duckt den Output
+    // kurz, waehrend die neuen Werte einlaufen (siehe chaosTriggerRequested).
+    globalChaosButton.setClickingTogglesState (false);
+    globalChaosButton.setWantsKeyboardFocus (false);
+    // "mutateIcon": vereinheitlichter Icon+Text-Stil (Wuerfel-Icon), siehe
+    // CustomLookAndFeel::drawMutateContent() - ersetzt die alte reine
+    // "globalBtn"-Textoptik (User-Feedback: "Jeder der 3 Buttons sieht
+    // anders aus").
+    globalChaosButton.getProperties().set ("mutateIcon", true);
+    content.addAndMakeVisible (globalChaosButton);
+    globalChaosButton.onClick  = [this] { runMutate (false); };
+
+    // Zweite Mutate-Taste: identische Logik, darf aber zusaetzlich Sektionen
+    // ausschalten (User-Idee). Eigenes Icon mit zwei grauen Kaestchen, siehe
+    // CustomLookAndFeel::drawMutateContent().
+    globalChaosSectionsButton.setClickingTogglesState (false);
+    globalChaosSectionsButton.setWantsKeyboardFocus (false);
+    globalChaosSectionsButton.getProperties().set ("mutateIcon", true);
+    globalChaosSectionsButton.getProperties().set ("mutateSectionsIcon", true);
+    content.addAndMakeVisible (globalChaosSectionsButton);
+    globalChaosSectionsButton.onClick = [this] { runMutate (true); };
+
+    // Globaler Mod-Bypass: echter APVTS-Parameter (automatisierbar, Teil des
+    // gespeicherten Zustands), schaltet alle 3 LFO-Modulationen gemeinsam
+    // stumm, ohne die einzelnen Mod-Icons zu veraendern (siehe DSP).
+    globalModBypassButton.setClickingTogglesState (true);
+    globalModBypassButton.setWantsKeyboardFocus (false);
+    globalModBypassButton.getProperties().set ("modBypassIcon", true);
+    content.addAndMakeVisible (globalModBypassButton);
+    globalModBypassAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS, globalModBypassButton);
+
+    // "BYP": neuer globaler Bypass-Button (User-Wunsch: "BYP Button links
+    // von Chaos/Mutate") - schaltet denselben rein GUI-seitigen Bypass wie
+    // der bestehende Logo-Klick (siehe logoButton.onClick oben,
+    // processor.uiBypassed), damit beide Wege synchron bleiben. Kein eigener
+    // APVTS-Parameter, daher kein ButtonAttachment - der Toggle-Status wird
+    // stattdessen in timerCallback() aus processor.uiBypassed nachgezogen.
+    globalBypassButton.setClickingTogglesState (false);
+    globalBypassButton.setWantsKeyboardFocus (false);
+    globalBypassButton.getProperties().set ("bypassToggleIcon", true);
+    content.addAndMakeVisible (globalBypassButton);
+    // Bug-Fix (User-Feedback: "BYP Bug. Mache es einfach genau so wie wenn
+    // man auf das Space X Logo klickt.") - ruft jetzt DIESELBE Funktion wie
+    // der Logo-Klick auf (toggleUiBypass()), statt den Bypass-Zustand separat
+    // (ohne das noetige content.repaint() fuer den Abdunkel-Schleier) zu
+    // setzen - vorher blieb der visuelle Bypass-Effekt beim Klick auf BYP
+    // teils bis zum naechsten ohnehin faelligen Repaint verzoegert/aus.
+    globalBypassButton.onClick = [this] { toggleUiBypass(); };
+
+    // A/B: reiner GUI-Snapshot-Vergleich (nicht Teil des gespeicherten
+    // Plugin-Zustands) - Klick sichert den aktuellen (noch aktiven) Zustand
+    // in seinen Slot und laedt den jeweils anderen Slot. "A/B" steht immer
+    // auf dem Button (User-Feedback), nur der aktive Buchstabe leuchtet.
+    globalABButton.setClickingTogglesState (false);
+    globalABButton.setWantsKeyboardFocus (false);
+    globalABButton.getProperties().set ("abIcon", true);
+    globalABButton.getProperties().set ("abIsA", true);
+    content.addAndMakeVisible (globalABButton);
+    abSlotA = processor.apvts.copyState();
+    abSlotB = processor.apvts.copyState();
+    globalABButton.onClick = [this]
+    {
+        (abCurrentIsA ? abSlotA : abSlotB) = processor.apvts.copyState();
+        abCurrentIsA = ! abCurrentIsA;
+        auto* mixParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX);
+        const float mixBefore = mixParam != nullptr ? mixParam->getValue() : 1.0f;
+        processor.apvts.replaceState (abCurrentIsA ? abSlotA : abSlotB);
+        if (isMixLocked() && mixParam != nullptr)
+            mixParam->setValueNotifyingHost (mixBefore);
+        storeViewSettingsInState();   // View gehoert nicht zu A/B
+        globalABButton.getProperties().set ("abIsA", abCurrentIsA);
+        globalABButton.repaint();
+        abCopyButton.getProperties().set ("abCopyToRight", abCurrentIsA);
+        abCopyButton.repaint();
+    };
+
+    // ===== COPY (neben A/B) =====
+    // User-Wunsch: "Copy muss leuchten wenn A != B ist und ueberträgt alle
+    // Einstellungen des Plugins auf den nicht-ausgewaehlten Buchstaben ...
+    // Copy erlischt wenn A = B."
+    //
+    // Icon: ein Pfeil, der in die KOPIERRICHTUNG zeigt (A aktiv -> nach
+    // rechts zu B; B aktiv -> nach links zu A). Bewusst kein Doppelpfeil:
+    // ein Doppelpfeil sagt "tauschen", Copy tauscht aber nicht, es
+    // ueberschreibt eine Seite mit der anderen. Der einfache Pfeil sagt
+    // genau das - und weil er die Richtung wechselt, sieht man ausserdem
+    // ohne Nachdenken, WELCHER Slot gleich ueberschrieben wird.
+    abCopyButton.setClickingTogglesState (false);
+    abCopyButton.setWantsKeyboardFocus (false);
+    abCopyButton.getProperties().set ("abCopyIcon", true);
+    abCopyButton.setTooltip ("Copy current state to the other A/B slot");
+    content.addAndMakeVisible (abCopyButton);
+    abCopyButton.onClick = [this]
+    {
+        // Der aktive Slot ist per Definition der Live-Zustand. Der andere
+        // bekommt eine Kopie davon - ab jetzt sind beide gleich, das Icon
+        // erlischt beim naechsten Tick von selbst.
+        (abCurrentIsA ? abSlotB : abSlotA) = processor.apvts.copyState();
+    };
+
+    // --- LCR --------------------------------------------------------------
+    setupPowerButton (lcrPowerButton, LCRMSAudioProcessor::ID_LCR_ENABLED, lcrAttachment, LCRMSAudioProcessor::SOLO_GALAXY);
+    // Eigene, sonst nirgends im Plugin verwendete Akzentfarbe (Blau) statt
+    // des gemeinsamen Tuerkis/Lila-Wechsels der anderen 5 Sektionen - Galaxy
+    // ist strukturell besonders (verursacht als einzige Sektion Latenz),
+    // soll sich daher optisch klar abheben (User-Feedback), waehrend die
+    // uebrigen Sektionen ihre bunte Abwechslung behalten.
+    styleTitle (lcrTitleLabel, "GALAXY", juce::Colour (0xff4fa8ff));
+    setupClickableTitle (lcrTitleLabel, LCRMSAudioProcessor::ID_LCR_ENABLED, LCRMSAudioProcessor::SOLO_GALAXY);
+    content.addAndMakeVisible (lcrTitleLabel);
+    setupSoloButton (lcrSoloButton, LCRMSAudioProcessor::SOLO_GALAXY);
+    setupLockButton (lcrLockButton, LCRMSAudioProcessor::SOLO_GALAXY);
+
+    styleRotary (gravitySlider, false);
+    gravitySlider.getProperties().set ("centerOut", true);
+    content.addAndMakeVisible (gravitySlider);
+    styleLabel (gravityLabel, "Gravity");
+    content.addAndMakeVisible (gravityLabel);
+    gravityAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_SENS, gravitySlider);
+    // Reset auf Default-Wert per Cmd-Klick statt JUCE-Standard (Alt/Option-
+    // Klick) - User-Feedback, gilt einheitlich fuer alle Regler im Plugin.
+    // Muss NACH dem Attachment gesetzt werden, da SliderAttachment selbst
+    // intern schon setDoubleClickReturnValue() mit dem Alt-Modifier aufruft.
+    gravitySlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+
+    orbitSlider.setSliderStyle (juce::Slider::LinearVertical);
+    orbitSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    orbitSlider.getProperties().set ("focusStyle", true);
+    content.addAndMakeVisible (orbitSlider);
+    styleLabel (orbitLabel, "Orbit");
+    content.addAndMakeVisible (orbitLabel);
+    focusAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_BLEND, orbitSlider);
+    orbitSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // Galaxy-Mod (Gravity + Orbit) - genau dasselbe Prinzip wie bei Timewarp/
+    // Dimension/Hyperdrive (User-Feedback).
+    setupModButton (galaxyModButton, LCRMSAudioProcessor::ID_GALAXY_MOD, galaxyModAttachment);
+    styleRotary (galaxyModDepthSlider, false);
+    content.addAndMakeVisible (galaxyModDepthSlider);
+    galaxyDepthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_GALAXY_DEPTH, galaxyModDepthSlider);
+    wireModAutoEnable (galaxyModDepthSlider, galaxyModButton, LCRMSAudioProcessor::ID_GALAXY_MOD);
+    galaxyModDepthSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+
+    // --- Drift (Haas + Bend) ------------------------------------------------
+    setupPowerButton (driftPowerButton, LCRMSAudioProcessor::ID_DRIFT_ON, driftOnAttachment, LCRMSAudioProcessor::SOLO_TIMEWARP);
+    // "Timewarp" statt "Drift" als Header, damit sich Header und Regler-Label
+    // ("Drift") nicht mehr wiederholen.
+    styleTitle (driftTitleLabel, "TIMEWARP", juce::Colour (0xffb968ff));
+    setupClickableTitle (driftTitleLabel, LCRMSAudioProcessor::ID_DRIFT_ON, LCRMSAudioProcessor::SOLO_TIMEWARP);
+    content.addAndMakeVisible (driftTitleLabel);
+    setupSoloButton (driftSoloButton, LCRMSAudioProcessor::SOLO_TIMEWARP);
+    setupLockButton (driftLockButton, LCRMSAudioProcessor::SOLO_TIMEWARP);
+    setupModButton (driftModButton, LCRMSAudioProcessor::ID_TIMEWARP_MOD, timewarpModAttachment);
+    styleRotary (driftModDepthSlider, false);
+    content.addAndMakeVisible (driftModDepthSlider);
+    timewarpDepthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_TIMEWARP_DEPTH, driftModDepthSlider);
+    wireModAutoEnable (driftModDepthSlider, driftModButton, LCRMSAudioProcessor::ID_TIMEWARP_MOD);
+    driftModDepthSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+
+    styleRotary (driftSlider, false);
+    driftSlider.getProperties().set ("centerOut", true);
+    content.addAndMakeVisible (driftSlider);
+    styleLabel (driftLabel, "Drift");
+    content.addAndMakeVisible (driftLabel);
+    driftAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_DRIFT, driftSlider);
+    driftSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // "Balance": kleines Icon direkt neben dem Drift-Label (User-Feedback,
+    // Fiedler Audio Splat als Referenz genannt) - automatische Gain-
+    // Kompensation fuer den Haas-Praezedenzeffekt, siehe DSP.
+    // Filter-Bypass-Icons (User, Runde 26): Galaxy und Dimension arbeiten
+    // standardmaessig innerhalb des Filters; ein Klick nimmt die Sektion
+    // wieder heraus. Analog zum Balance-Icon in Timewarp aufgebaut.
+    for (auto* b : { &galaxyFilterButton, &dimFilterButton, &posFilterButton })
+    {
+        b->setClickingTogglesState (true);
+        b->setWantsKeyboardFocus (false);
+        b->getProperties().set ("filterIcon", true);
+        content.addAndMakeVisible (*b);
+    }
+    galaxyFilterAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_GALAXY, galaxyFilterButton);
+    dimFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_DIM,    dimFilterButton);
+    posFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_VIS,    posFilterButton);
+
+    driftBalanceButton.setClickingTogglesState (true);
+    driftBalanceButton.setWantsKeyboardFocus (false);
+    driftBalanceButton.getProperties().set ("balanceIcon", true);
+    content.addAndMakeVisible (driftBalanceButton);
+    driftBalanceAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_TIMEWARP_BALANCE, driftBalanceButton);
+
+    // Bend: Eventide-MicroPitch-artiger Mini-Detune-Regler (0-10 Cent,
+    // L runter / R rauf), gehoert mit ins Drift-Frame.
+    styleRotary (bendSlider, false);
+    content.addAndMakeVisible (bendSlider);
+    styleLabel (bendLabel, "Shift");
+    content.addAndMakeVisible (bendLabel);
+    bendAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_BEND, bendSlider);
+    bendSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // --- Polarity -----------------------------------------------------------
+    setupPowerButton (polPowerButton, LCRMSAudioProcessor::ID_POL_ON, polOnAttachment, LCRMSAudioProcessor::SOLO_POLARITY);
+    // Zurueck zu "Polarity" (User-Feedback) - "Flip" war zu kurz/unklar.
+    styleTitle (polTitleLabel, "POLARITY", juce::Colour (0xffb968ff));
+    setupClickableTitle (polTitleLabel, LCRMSAudioProcessor::ID_POL_ON, LCRMSAudioProcessor::SOLO_POLARITY);
+    content.addAndMakeVisible (polTitleLabel);
+    setupSoloButton (polSoloButton, LCRMSAudioProcessor::SOLO_POLARITY);
+    setupLockButton (polLockButton, LCRMSAudioProcessor::SOLO_POLARITY);
+
+    polLButton.setClickingTogglesState (true);
+    polRButton.setClickingTogglesState (true);
+    // User: "Polarity L/R und 1-4 brauchen nicht so einen visuellen Fokus" -
+    // der An-Rahmen ist hier minimal duenner als bei den uebrigen Knoepfen
+    // (Pop behaelt seinen Comic-Rahmen, siehe drawButtonBackground).
+    polLButton.getProperties().set ("thinOnFrame", true);
+    polRButton.getProperties().set ("thinOnFrame", true);
+    content.addAndMakeVisible (polLButton);
+    content.addAndMakeVisible (polRButton);
+    polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
+    polRAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_R, polRButton);
+
+    // Link-Button: keine eigene Parameter-Bindung (reine Aktion) - schaltet
+    // L UND R gemeinsam um. Logik (User-Feedback): ist aktuell KEINER von
+    // beiden an, schaltet Klick beide AN; ist mindestens einer an, schaltet
+    // Klick beide AUS.
+    polLinkButton.setClickingTogglesState (false);
+    polLinkButton.getProperties().set ("linkIcon", true);
+    polLinkButton.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (polLinkButton);
+    polLinkButton.onClick = [this]
+    {
+        auto* pl = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
+        auto* pr = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
+        if (pl == nullptr || pr == nullptr) return;
+        const bool anyOn = pl->getValue() > 0.5f || pr->getValue() > 0.5f;
+        const float target = anyOn ? 0.0f : 1.0f;
+        pl->setValueNotifyingHost (target);
+        pr->setValueNotifyingHost (target);
+    };
+
+    // 4 kleine Radio-Buttons waehlen, an welcher Stelle im Signalfluss die
+    // Polarity greift (1=nach LCR, 2=nach Haas, 3=nach Mid/Side [Default],
+    // 4=nach Auto-Pan/Flow). Kein Choice-ButtonAttachment in JUCE verfuegbar,
+    // daher manuell verdrahtet: Klick schreibt den Parameter, timerCallback
+    // haelt die Buttons mit dem aktuellen Parameterwert synchron (Presets/Automation).
+    juce::TextButton* polPosButtons[4] = { &polPos1Button, &polPos2Button, &polPos3Button, &polPos4Button };
+    for (int idx = 0; idx < 4; ++idx)
+    {
+        auto* btn = polPosButtons[idx];
+        btn->setClickingTogglesState (true);
+        btn->getProperties().set ("thinOnFrame", true);
+        btn->setRadioGroupId (4242, juce::dontSendNotification);
+        content.addAndMakeVisible (*btn);
+        btn->onClick = [this, idx]
+        {
+            if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
+                param->setValueNotifyingHost ((float) idx / 3.0f);
+        };
+    }
+
+    // --- Mid/Side (Width/Boost) ----------------------------------------------
+    setupPowerButton (widthBoostPowerButton, LCRMSAudioProcessor::ID_WIDTHBOOST_ON, widthBoostOnAttachment, LCRMSAudioProcessor::SOLO_DIMENSION);
+    // "Dimension" statt "Size" - vermeidet die Wiederholung von "Width" und
+    // gibt "Size" als Reglername frei (Regler heisst jetzt "Size" statt
+    // "Width", da "Width" jetzt vom globalen Width-Regler in der neuen
+    // Position-Sektion belegt wird).
+    styleTitle (widthBoostTitleLabel, "DIMENSION", juce::Colour (0xff5be3c7));
+    setupClickableTitle (widthBoostTitleLabel, LCRMSAudioProcessor::ID_WIDTHBOOST_ON, LCRMSAudioProcessor::SOLO_DIMENSION);
+    content.addAndMakeVisible (widthBoostTitleLabel);
+    setupSoloButton (widthBoostSoloButton, LCRMSAudioProcessor::SOLO_DIMENSION);
+    setupLockButton (widthBoostLockButton, LCRMSAudioProcessor::SOLO_DIMENSION);
+    setupModButton (dimensionModButton, LCRMSAudioProcessor::ID_DIMENSION_MOD, dimensionModAttachment);
+    styleRotary (dimensionModDepthSlider, false);
+    content.addAndMakeVisible (dimensionModDepthSlider);
+    dimensionDepthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_DIMENSION_DEPTH, dimensionModDepthSlider);
+    wireModAutoEnable (dimensionModDepthSlider, dimensionModButton, LCRMSAudioProcessor::ID_DIMENSION_MOD);
+    dimensionModDepthSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+
+    styleRotary (sideWidthSlider, false);
+    sideWidthSlider.getProperties().set ("centerOut", true);
+    styleRotary (sideBoostSlider, false);
+    content.addAndMakeVisible (sideWidthSlider);
+    content.addAndMakeVisible (sideBoostSlider);
+    // Umbenannt von "Expand" zu "Size" (User-Feedback: Regler startet bei
+    // 12 Uhr/Default und kann auch verkleinern, "Expand" klingt nach
+    // reinem Vergroessern; "Width" ist unten bei Position schon vergeben).
+    // Nur der GUI-Text aendert sich, der Regler selbst (Parameter-ID,
+    // Verhalten, automatisierbarer Host-Name "Width") bleibt unveraendert.
+    styleLabel (sideWidthLabel, "Size");
+    styleLabel (sideBoostLabel, "Boost");
+    content.addAndMakeVisible (sideWidthLabel);
+    content.addAndMakeVisible (sideBoostLabel);
+    sideWidthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SIDE_WIDTH, sideWidthSlider);
+    sideBoostAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SIDE_BOOST, sideBoostSlider);
+    sideWidthSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
+    sideBoostSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // --- Auto-Pan ("Flow") -----------------------------------------------------
+    setupPowerButton (flowPowerButton, LCRMSAudioProcessor::ID_FLOW_ON, flowOnAttachment, LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    styleTitle (flowTitleLabel, "HYPERDRIVE", juce::Colour (0xffb968ff));
+    setupClickableTitle (flowTitleLabel, LCRMSAudioProcessor::ID_FLOW_ON, LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    setupSoloButton (flowSoloButton, LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    setupLockButton (flowLockButton, LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    setupModButton (hyperdriveModButton, LCRMSAudioProcessor::ID_HYPERDRIVE_MOD, hyperdriveModAttachment);
+    styleRotary (hyperdriveModDepthSlider, false);
+    content.addAndMakeVisible (hyperdriveModDepthSlider);
+    hyperdriveDepthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_HYPERDRIVE_DEPTH, hyperdriveModDepthSlider);
+    wireModAutoEnable (hyperdriveModDepthSlider, hyperdriveModButton, LCRMSAudioProcessor::ID_HYPERDRIVE_MOD);
+    hyperdriveModDepthSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+    content.addAndMakeVisible (flowTitleLabel);
+
+    styleRotary (movementSlider, false);
+    // Eigener Ring: waechst symmetrisch von 12 Uhr aus nach links/rechts
+    // (zeigt die Breite des Auto-Pan-Schwenks), plus leuchtender Punkt fuer
+    // die aktuelle Live-Position (siehe timerCallback).
+    movementSlider.getProperties().set ("movementRing", true);
+    content.addAndMakeVisible (movementSlider);
+    // Header ist jetzt "HYPERDRIVE", der Regler kann daher wieder "Flow"
+    // heissen (keine Ueberschneidung mehr mit dem Sektionsnamen).
+    styleLabel (movementLabel, "Flow");
+    content.addAndMakeVisible (movementLabel);
+    movementAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MOVEMENT, movementSlider);
+    movementSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // Sinus -> geglaetteter Puls (hart links/rechts, leicht gesmoothed).
+    pulseButton.setClickingTogglesState (true);
+    content.addAndMakeVisible (pulseButton);
+    pulseAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PULSE, pulseButton);
+
+    styleRotary (speedRateSlider, false);
+    content.addAndMakeVisible (speedRateSlider);
+    styleLabel (speedLabel, "Speed");
+    content.addAndMakeVisible (speedLabel);
+    speedRateAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_RATE, speedRateSlider);
+    speedRateSlider.setDoubleClickReturnValue (true, 0.25, juce::ModifierKeys::commandModifier);
+
+    syncButton.setClickingTogglesState (true);
+    content.addAndMakeVisible (syncButton);
+    syncAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_SYNC, syncButton);
+
+    speedBox.addItemList ({ "1/16", "1/8", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars", "8 Bars" }, 1);
+    content.addAndMakeVisible (speedBox);
+    speedAttachment = std::make_unique<ComboAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED, speedBox);
+
+    // --- Position (neue Sektion, ganz am Ende der Kette) ---------------------
+    setupPowerButton (posPowerButton, LCRMSAudioProcessor::ID_POS_ON, posOnAttachment, LCRMSAudioProcessor::SOLO_POSITION);
+    setupSoloButton (posSoloButton, LCRMSAudioProcessor::SOLO_POSITION);
+    setupLockButton (posLockButton, LCRMSAudioProcessor::SOLO_POSITION);
+    // "VISION" statt "POSITION" (User: "Position wirkt etwas technisch im
+    // Vergleich zu allen anderen Sections"). Stimmt - Galaxy, Timewarp,
+    // Hyperdrive sind Bilder, Position ist ein Fachwort. Tilt/Elevate/
+    // Distance sind Blickwinkel-Begriffe, "Vision" trifft das.
+    styleTitle (posTitleLabel, "VISION", juce::Colour (0xff5be3c7));
+    setupClickableTitle (posTitleLabel, LCRMSAudioProcessor::ID_POS_ON, LCRMSAudioProcessor::SOLO_POSITION);
+    content.addAndMakeVisible (posTitleLabel);
+
+    // Position-Mod: EIN Tiefe-Regler wirkt auf alle 4 Regler dieser Sektion
+    // (Offset/Width/Distance/Elevate), gleiches Prinzip wie ueberall sonst
+    // (User-Feedback: "Einfluss auf alle Regler").
+    setupModButton (positionModButton, LCRMSAudioProcessor::ID_POSITION_MOD, positionModAttachment);
+    styleRotary (positionModDepthSlider, false);
+    content.addAndMakeVisible (positionModDepthSlider);
+    positionDepthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POSITION_DEPTH, positionModDepthSlider);
+    wireModAutoEnable (positionModDepthSlider, positionModButton, LCRMSAudioProcessor::ID_POSITION_MOD);
+    positionModDepthSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+
+    // --- RAY (Stereo-Phaser, unten rechts neben Position) --------------------
+    // Die knappste Sektion im Plugin, absichtlich: Staerke-Icon, Speed, Pair.
+    // Solo/Lock/klickbarer Titel wie ueberall, damit sie sich wie eine
+    // vollwertige Sektion verhaelt (Mutate, Solo, Lock, Rahmen).
+    setupPowerButton (rayPowerButton, LCRMSAudioProcessor::ID_RAY_ON, rayOnAttachment, LCRMSAudioProcessor::SOLO_RAY);
+    setupSoloButton (raySoloButton, LCRMSAudioProcessor::SOLO_RAY);
+    setupLockButton (rayLockButton, LCRMSAudioProcessor::SOLO_RAY);
+    // "RAYE" (User: "RAY sieht zu klein aus ... Vielleicht RAYE? Ja lass RAYE
+    // machen!") - Parameter-IDs bleiben "ray*", nur der sichtbare Name.
+    styleTitle (rayTitleLabel, "RAYE", juce::Colour (0xffffc247));
+    setupClickableTitle (rayTitleLabel, LCRMSAudioProcessor::ID_RAY_ON, LCRMSAudioProcessor::SOLO_RAY);
+    content.addAndMakeVisible (rayTitleLabel);
+
+    // 3-Klick-Icon fuer die Staerke (User: "ein Icon, das man dreimal klicken
+    // kann"). Kein ButtonAttachment - der Klick schaltet den Choice-Parameter
+    // selbst weiter (1 -> 2 -> 3 -> 1); die Anzeige wird in timerCallback()
+    // aus dem Parameter nachgezogen, damit Automation/Presets stimmen.
+    // Ist die Sektion aus, schaltet der erste Klick sie ein statt die Stufe
+    // weiterzudrehen - ein Klick auf ein ausgegrautes Icon soll etwas
+    // Hoerbares tun.
+    rayStrengthButton.setClickingTogglesState (false);
+    rayStrengthButton.setWantsKeyboardFocus (false);
+    rayStrengthButton.getProperties().set ("rayStrengthIcon", true);
+    rayStrengthButton.getProperties().set ("rayLevel", 0);
+    content.addAndMakeVisible (rayStrengthButton);
+    rayStrengthButton.onClick = [this]
+    {
+        auto* onP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_ON);
+        auto* stP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_STRENGTH);
+        if (onP == nullptr || stP == nullptr)
+            return;
+
+        // Vier Klicks im Kreis (User: "ray 4 mal klicken -> einmal off?"):
+        // aus -> leicht -> mittel -> stark -> aus. Der Power-Schalter der
+        // Sektion bleibt davon unabhaengig nutzbar.
+        // Vier Stufen im Kreis: Off -> Light -> Medium -> Strong -> Off. Die
+        // SEKTION bleibt dabei an (User-Korrektur) - "Off" ist eine Stufe des
+        // Effekts, kein Ausschalten der Sektion. Ist die Sektion aus, schaltet
+        // der Klick sie ein und startet bei Light.
+        // Sektion aus: bleibt aus, nur die Stufe wird weitergeschaltet (User:
+        // "bei den anderen Sektionen ist es ja genauso").
+        const int current = juce::jlimit (0, 3, (int) std::round (stP->convertFrom0to1 (stP->getValue())));
+        stP->setValueNotifyingHost (stP->convertTo0to1 ((float) ((current + 1) % 4)));
+    };
+
+    styleRotary (rayRateSlider, false);
+    content.addAndMakeVisible (rayRateSlider);
+    styleLabel (rayRateLabel, "Speed");
+    content.addAndMakeVisible (rayRateLabel);
+    rayRateAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_RATE, rayRateSlider);
+    rayRateSlider.setDoubleClickReturnValue (true, 0.15, juce::ModifierKeys::commandModifier);
+
+    // "Pair": koppelt den Phaser-LFO an den Hyperdrive-LFO (inkl. dessen
+    // Sync). Gestaltet wie der Sync-Button in Hyperdrive - dieselbe Art von
+    // Entscheidung ("wer bestimmt das Tempo?"), also dieselbe Form.
+    rayPairButton.setClickingTogglesState (true);
+    rayPairButton.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (rayPairButton);
+    rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
+
+    // Mono-Check ist ein reines Monitoring-Utility (kein eigener Solo-
+    // Kandidat) - sitzt als 5. "Regler"-Slot unten in der Reglerzeile, nicht
+    // mehr oben im Header (User-Feedback: "Soll unten zu den Reglern rein").
+    monoCheckButton.setClickingTogglesState (true);
+    monoCheckButton.getProperties().set ("monoIcon", true);
+    monoCheckButton.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (monoCheckButton);
+    monoCheckAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MONO_CHECK, monoCheckButton);
+    styleLabel (monoCheckLabel, "Mono");
+    content.addAndMakeVisible (monoCheckLabel);
+    styleLabel (monoDryLabel, "Dry");
+    content.addAndMakeVisible (monoDryLabel);
+    // Footer-Schriften weniger leuchtend (User: "wirkt viel heller als z.B.
+    // Size oder Boost") - dieselbe gedaempfte Farbe wie die Regler-Labels.
+    for (auto* l : { &monoCheckLabel, &monoDryLabel, &volLabel, &inputMeterLabel, &outputMeterLabel })
+    {
+        l->setColour (juce::Label::textColourId, juce::Colour (0xffb5b9c2));
+        l->setMinimumHorizontalScale (1.0f);   // Footer: nie stauchen (breit genug ausgelegt)
+    }
+    // Klickbar, aber ohne Hand-Cursor (User). Der Editor bekommt die Klicks
+    // ueber den content-weiten Maus-Listener (siehe View-Panel).
+
+    // ===== PRISM =====
+    // On/Off benutzt dasselbe Power-Ring-Icon wie die Sektions-Bypass-Schalter,
+    // damit sofort klar ist, dass es ein Ein/Aus ist und kein Regler.
+    // Rechtsklick sperrt/entsperrt (User-Idee statt des Menuepunkts).
+    {
+        juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+        mixSlider.getProperties().set ("knobLocked", p.getBoolValue ("lockMix", false));
+        volSlider.getProperties().set ("knobLocked", p.getBoolValue ("lockVol", false));
+    }
+    mixSlider.onRightClick = [this] { toggleKnobLock ("lockMix", mixSlider); };
+    volSlider.onRightClick = [this] { toggleKnobLock ("lockVol", volSlider); };
+
+    // WING: drei Stufen, ein Klick weiter. Sitzt neben dem Ein/Aus-Knopf in
+    // der Focus-Leiste, weil die Neigung fuer alle Sektionen gilt (User).
+    wingButton.setClickingTogglesState (false);
+    wingButton.setWantsKeyboardFocus (false);
+    wingButton.getProperties().set ("wingIcon", true);
+    wingButton.getProperties().set ("noPlate", true);
+    content.addAndMakeVisible (wingButton);
+    wingButton.onClick = [this]
+    {
+        if (auto* p = processor.apvts.getParameter (LCRMSAudioProcessor::ID_WING))
+        {
+            const int cur = (int) std::round (p->convertFrom0to1 (p->getValue()));
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) ((cur + 1) % 3)));
+        }
+    };
+
+    prismOnButton.setClickingTogglesState (true);
+    prismOnButton.setWantsKeyboardFocus (false);
+    // Eigenes Prisma-Symbol statt des Bypass-Icons (User-Feedback: "Das Icon
+    // fuer Prism ist nicht gut, sieht aus wie das Bypass Icon") - siehe
+    // drawPrismIcon() im LookAndFeel.
+    // Kein Prisma-Symbol und kein "PRISM"-Schriftzug mehr (User: "Der Name
+    // PRISM klingt gut, aber macht da keinen Sinn und wirft Fragen auf.
+    // Einfach einen On/Off Button ... verschmolzen mit dem Frequenzmeter").
+    // Der Knopf ist jetzt das normale Power-Icon und sitzt IN der Leiste
+    // (siehe PrismBandComponent::setLeftInset).
+    // Gleiches Symbol wie die Focus-Knoepfe in den Sektionen (User) - nur
+    // mit direkter Polaritaet: an = Focus wirkt.
+    prismOnButton.getProperties().set ("filterIcon", true);
+    prismOnButton.getProperties().set ("focusDirect", true);
+    // Er sitzt bereits in der Kachel der Focus-Leiste - eine zweite Flaeche
+    // darum waere ein Kasten im Kasten (User).
+    prismOnButton.getProperties().set ("noPlate", true);
+    prismOnButton.getProperties().set ("powerColour", (int) 0xff8a6ab8);   // gedaempftes Lila (User: "dezenter")
+    content.addAndMakeVisible (prismBand);
+    content.addAndMakeVisible (prismOnButton);   // NACH der Leiste -> liegt darueber
+    prismOnAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_ON, prismOnButton);
+    prismLabel.setVisible (false);
+    {
+        juce::PropertiesFile pp (LCRMSAudioProcessor::appPropertiesOptions());
+        prismBand.setClickJumps (pp.getBoolValue ("prismClickJumps", false));
+        prismBand.setShowHz (pp.getBoolValue ("showFocusHz", false));
+    }
+
+    // A/B-Dry-Vergleich: eigener Bool-Parameter + Attachment wie ueblich,
+    // zusaetzlich per onClick/timerCallback an Mono-Check gekoppelt (kann
+    // nicht "alleine" an sein - User-Feedback).
+    monoDryButton.setClickingTogglesState (true);
+    monoDryButton.getProperties().set ("bypassIcon", true);
+    monoDryButton.setWantsKeyboardFocus (false);
+    content.addAndMakeVisible (monoDryButton);
+    monoDryAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MONO_DRY, monoDryButton);
+    // Schaltet man Mono-Check aus, geht der Dry-Vergleich automatisch mit
+    // aus - er soll nie unsichtbar "an" im Hintergrund bleiben.
+    monoCheckButton.onClick = [this]
+    {
+        if (! monoCheckButton.getToggleState())
+            if (auto* monoDryParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_DRY))
+                monoDryParam->setValueNotifyingHost (0.0f);
+    };
+
+    // VOL: ganz simpler Trim-Regler, sitzt mittig ueber dem Mono-Icon (in dem
+    // Freiraum, den Mono ohnehin frei laesst, weil es - anders als die
+    // anderen Sektionen - keinen eigenen Header/Power-Button braucht).
+    // Bewusst ohne Textbox/Wertanzeige (User-Feedback: "Ohne Werte"). Runder
+    // Regler statt horizontalem Fader (User-Feedback: passt optisch besser
+    // zu den restlichen Reglern).
+    styleRotary (volSlider, false);
+    volSlider.getProperties().set ("centerOut", true);
+    content.addAndMakeVisible (volSlider);
+    styleLabel (volLabel, "Vol");
+    content.addAndMakeVisible (volLabel);
+    volAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_VOL_TRIM, volSlider);
+    volSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+    // MIX (User-Frage "Gesamter Mix Regler?"): bearbeitet gegen Original,
+    // latenzgleich, Polarity-Flip wird aufs Original uebernommen (siehe
+    // ID_MIX im Processor).
+    styleRotary (mixSlider, false);
+    content.addAndMakeVisible (mixSlider);
+    styleLabel (mixLabel, "Mix");
+    mixLabel.setColour (juce::Label::textColourId, juce::Colour (0xffb5b9c2));
+    mixLabel.setMinimumHorizontalScale (1.0f);
+    content.addAndMakeVisible (mixLabel);
+    mixAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MIX, mixSlider);
+    mixSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
+    content.addAndMakeVisible (volInputMeter);
+    content.addAndMakeVisible (volOutputMeter);
+    // IN/OUT benutzen jetzt EXAKT dieselbe Schrift wie alle anderen
+    // Parameter-Beschriftungen (User-Feedback: "Die Schrift bei IN/OUT Meter
+    // passt nicht zum Rest. Soll gleich sein.") - die vorherige Sonderloesung
+    // mit 9pt war noetig, weil die Label-Hoehe an die Balkenhoehe gekoppelt
+    // war; das ist im neuen Footer-Layout behoben (Zeilenhoehe = Label-Hoehe).
+    // Nur die Ausrichtung weicht bewusst ab: linksbuendig, weil die
+    // Beschriftung hier NEBEN dem Balken steht und nicht darunter.
+    styleLabel (inputMeterLabel, "IN");
+    styleLabel (outputMeterLabel, "OUT");
+    inputMeterLabel.setJustificationType (juce::Justification::centredLeft);
+    outputMeterLabel.setJustificationType (juce::Justification::centredLeft);
+    content.addAndMakeVisible (inputMeterLabel);
+    content.addAndMakeVisible (outputMeterLabel);
+
+    styleRotary (offsetSlider, false);
+    offsetSlider.getProperties().set ("centerOut", true);
+    content.addAndMakeVisible (offsetSlider);
+    styleLabel (offsetLabel, "Tilt"); // vorher "Offset" (User-Wunsch), Parameter-ID unveraendert
+    content.addAndMakeVisible (offsetLabel);
+    offsetAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POS_OFFSET, offsetSlider);
+    offsetSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    styleRotary (posWidthSlider, false);
+    posWidthSlider.getProperties().set ("centerOut", true);
+    content.addAndMakeVisible (posWidthSlider);
+    styleLabel (posWidthLabel, "Width");
+    content.addAndMakeVisible (posWidthLabel);
+    posWidthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POS_WIDTH, posWidthSlider);
+    posWidthSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
+
+    styleRotary (distanceSlider, false);
+    content.addAndMakeVisible (distanceSlider);
+    styleLabel (distanceLabel, "Distance");
+    content.addAndMakeVisible (distanceLabel);
+    distanceAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POS_DISTANCE, distanceSlider);
+    distanceSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    styleRotary (elevateSlider, false);
+    content.addAndMakeVisible (elevateSlider);
+    styleLabel (elevateLabel, "Elevate");
+    content.addAndMakeVisible (elevateLabel);
+    elevateAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POS_ELEVATE, elevateSlider);
+    elevateSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    content.addAndMakeVisible (goniometer);
+    content.addAndMakeVisible (correlationMeter);
+
+    // Preset-/Hamburger-Menue (User-Idee): Text statt eigenem Icon haelt es
+    // simpel - drei kurze horizontale Striche als "Hamburger"-Symbol.
+    presetMenuButton.setButtonText ({});
+    presetMenuButton.setClickingTogglesState (false);
+    presetMenuButton.setWantsKeyboardFocus (false);
+    presetMenuButton.getProperties().set ("settingsIcon", true);
+    // "bigGlobalIcon": deutlich groessere Schrift NUR fuer das Hamburger-
+    // Symbol (User-Wunsch: "Hamburger Menu Icon deutlich groesser") - alle
+    // anderen globalBtn-Texte bleiben bei globalRowFont().
+    presetMenuButton.getProperties().set ("bigGlobalIcon", true);
+    content.addAndMakeVisible (presetMenuButton);
+    presetMenuButton.onClick = [this] { showPresetMenu(); };
+
+    // ===== PRESET-SCHRITTPFEILE =====
+    // User-Wunsch: "kleine Preset Arrows L R". Sie benutzen dasselbe
+    // Pfeil-Icon wie Undo/Redo (Eigenschaft "arrowIcon"), aber in der
+    // schlichten Chevron-Variante ("chevronArrow") - ein voll ausgebauter
+    // Undo-Bogen waere hier die falsche Aussage: die Pfeile machen nichts
+    // rueckgaengig, sie blaettern.
+    for (auto* b : { &presetPrevButton, &presetNextButton })
+    {
+        b->setClickingTogglesState (false);
+        b->setWantsKeyboardFocus (false);
+        b->getProperties().set ("arrowIcon", true);
+        b->getProperties().set ("chevronArrow", true);
+        content.addAndMakeVisible (*b);
+    }
+    presetPrevButton.getProperties().set ("arrowForward", false);
+    presetNextButton.getProperties().set ("arrowForward", true);
+    presetPrevButton.setTooltip ("Previous preset");
+    presetNextButton.setTooltip ("Next preset");
+    presetPrevButton.onClick = [this] { stepPreset (-1); };
+    presetNextButton.onClick = [this] { stepPreset (+1); };
+
+    // ===== PRESET-NAMENSFELD =====
+    // Die eigentliche Antwort auf "wo bin ich gerade?". Klick darauf oeffnet
+    // dieselbe Liste wie LOAD - ein Namensfeld, das man nicht anklicken kann,
+    // waere eine verschenkte Flaeche.
+    presetNameButton.setClickingTogglesState (false);
+    presetNameButton.setWantsKeyboardFocus (false);
+    presetNameButton.getProperties().set ("presetNameField", true);
+    content.addAndMakeVisible (presetNameButton);
+    // Linksklick = Preset-Liste, Rechtsklick = Loeschen-Liste - exakt die
+    // Belegung, die vorher auf dem LOAD-Button lag. Der LOAD-Button selbst
+    // ist damit entfallen (User: "Wenn der Preset Name da steht kann Load weg
+    // - ist ja redundant"). Richtig: ein Namensfeld, das die Liste oeffnet,
+    // erledigt beides, und genau so macht es auch Pro-Q - dort gibt es
+    // ebenfalls keinen Load-Knopf, sondern nur den Namen zwischen zwei
+    // Pfeilen.
+    presetNameButton.onClick = [this]
+    {
+        showLoadPresetPopup (juce::ModifierKeys::currentModifiers.isPopupMenu());
+    };
+    // Papierkorb: loescht das aktuell geladene Preset (mit Rueckfrage).
+    // Bewusst NICHT die Liste oeffnen - dafuer gibt es den Rechtsklick auf
+    // den Namen. Ein Papierkorb-Icon verspricht "das hier weg", nicht
+    // "suche dir etwas zum Wegwerfen aus".
+    presetDeleteButton.setClickingTogglesState (false);
+    presetDeleteButton.setWantsKeyboardFocus (false);
+    presetDeleteButton.getProperties().set ("trashIcon", true);
+    presetDeleteButton.setTooltip ("Delete current preset");
+    content.addAndMakeVisible (presetDeleteButton);
+    presetDeleteButton.onClick = [this]
+    {
+        if (currentPresetName.isEmpty())
+            return;
+        const juce::String name = currentPresetName;
+        juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+            "Delete Preset", "Delete preset \"" + name + "\"?",
+            nullptr,
+            juce::ModalCallbackFunction::create ([this, name] (int okResult)
+            {
+                if (okResult != 0)
+                {
+                    deletePreset (name);
+                    refreshPresetNameDisplay();
+                }
+            }));
+    };
+
+    // ===== VIEW-PANEL + ZAHNRAD =====
+    // Das Zahnrad sitzt IM Sternenfeld (oben rechts), halbtransparent, und
+    // klappt das Panel direkt darunter auf. Die Einstellungen gehoeren zum
+    // Feld, also sitzt ihr Schalter auch dort - nicht im globalen Menue.
+    viewGearButton.setClickingTogglesState (true);
+    viewGearButton.setWantsKeyboardFocus (false);
+    viewGearButton.getProperties().set ("gearIcon", true);
+    viewGearButton.setTooltip ("Starfield view settings");
+    content.addAndMakeVisible (viewGearButton);
+
+    // "?" ganz unten links: schaltet die Hinweiszeile darunter an und aus
+    // (User). Ersetzt den Menue-Eintrag als taeglichen Weg dorthin - der
+    // Eintrag bleibt trotzdem, damit beides denselben Schalter bedient.
+    helpButton.getProperties().set ("helpIcon", true);
+    helpButton.setClickingTogglesState (true);
+    helpButton.setWantsKeyboardFocus (false);
+    helpButton.setTooltip ("Help: show a short explanation for whatever the mouse is over");
+    {
+        juce::PropertiesFile hp (LCRMSAudioProcessor::appPropertiesOptions());
+        helpButton.setToggleState (hp.getBoolValue ("hoverHints", false), juce::dontSendNotification);
+    }
+    helpButton.onClick = [this]
+    {
+        juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
+        wp.setValue ("hoverHints", helpButton.getToggleState());
+        wp.saveIfNeeded();
+        currentHint.clear();
+        repaint();
+    };
+    content.addAndMakeVisible (helpButton);
+    content.addChildComponent (viewPanel);   // erst sichtbar per Zahnrad
+    content.addChildComponent (settingsBackdrop);
+    settingsBackdrop.onClick = [this] { closeSettingsPanel(); };
+    content.addChildComponent (settingsPanel);
+    settingsPanel.onAction = [this] (int id) { handleSettingsAction (id); };
+    settingsPanel.onClose  = [this] { closeSettingsPanel(); };
+    content.addMouseListener (this, true);   // Klicks auf Titel-/Footer-Labels (mouseUp)
+    // Aenderungen wirken sofort und leben im Plugin-Zustand (DAW-Session);
+    // erst "Make Default" schreibt sie als Startwerte, "Reset" holt die
+    // Startwerte zurueck.
+    viewPanel.onChange      = [this] { applyViewSettings (false); };
+    viewPanel.onReset       = [this] { applyVisualsVisibility(); };                    // gespeicherter Standard
+    viewPanel.onSave        = [this] { applyViewSettings (true); closeViewPanel(); };   // als Standard speichern
+    viewPanel.onSaveOnly    = [this] { applyViewSettings (false); closeViewPanel(); };  // nur uebernehmen und schliessen (User)
+    viewPanel.onClose       = [this] { closeViewPanel(); };
+    viewPanel.onCancel      = [this]
+    {
+        // Aenderungen seit dem Oeffnen verwerfen.
+        if (viewPanelSnapshot.isValid())
+        {
+            juce::ValueTree wrap ("tmp");
+            wrap.appendChild (viewPanelSnapshot.createCopy(), nullptr);
+            applyViewSettingsFromTree (wrap);
+        }
+        closeViewPanel();
+    };
+
+    // Klick ins Sternenfeld: Goniometer-Farbe weiterschalten (Blau, Gruen,
+    // Violett, Gold), der fuenfte Klick schaltet die Spur aus, der sechste
+    // beginnt wieder bei Blau.
+    goniometer.onFieldClick = [this] (int action) { cycleGonioColourFromField (action); };
+
+    // ===== Kategorie-Chips (Mutate-Profile) links ueber dem Sternenfeld =====
+    {
+        static const char* const catNames[6] = { "Drums", "Vocals", "Backings", "Plucked", "Keys", "Pads" };
+        // Die Hinweise sagen, WAS unter die Kategorie faellt - "Plucked" allein
+        // beantwortet die Frage nicht (User).
+        static const char* const catHints[6] = {
+            "Drums: drums and percussion. No time offsets, no polarity flips - the hits stay where they are",
+            "Vocals: lead vocals. Careful width, the centre stays intact",
+            "Backings: backing vocals and ad-libs. The widest of the six",
+            "Plucked: guitars, plucks and fast synths - anything with a sharp attack",
+            "Keys: keys, synths and organs - sustained, but still articulate",
+            "Pads: pads and anything slow with little or no attack. Slow movement, more RAYE"
+        };
+        for (int i = 0; i < 6; ++i)
+        {
+            categoryBtn[i].setButtonText (catNames[i]);
+            categoryBtn[i].getProperties().set ("chipBtn", true);
+            categoryBtn[i].setWantsKeyboardFocus (false);
+            categoryBtn[i].setTooltip (juce::String ("Smart profile ") + catHints[i] + ". Click again to switch off");
+            content.addAndMakeVisible (categoryBtn[i]);
+            categoryBtn[i].onClick = [this, i] { setMutateCategory (mutateCategory() == i + 1 ? 0 : i + 1); };
+        }
+        setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
+        showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
+        keepSoloWhenSectionOff = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("keepSoloWhenSectionOff", true);
+    }
+    viewGearButton.onClick = [this]
+    {
+        const bool open = viewGearButton.getToggleState();
+        if (open)
+        {
+            viewPanelSnapshot = viewSettingsTree();   // fuer Cancel
+            viewPanel.setAlpha (1.0f);
+            viewPanel.toFront (false);
+            juce::Desktop::getInstance().getAnimator().fadeIn (&viewPanel, 140);   // kurzer Fade-in (User)
+        }
+        else
+            closeViewPanel();
+        content.repaint();
+    };
+
+    // Beim Oeffnen steht das Plugin auf "Default" (User-Wunsch). Ob der
+    // Host einen abweichenden Zustand mitgebracht hat, zeigt der Stern: die
+    // Pruefsumme wird gegen das Default-Preset gerechnet, nicht gegen den
+    // Live-Zustand.
+    migrateLegacyPresets();
+    currentPresetName = "Default";
+    presetSignature = signatureOfTree (defaultPresetTree());
+    presetDirty = std::abs (computePresetSignature() - presetSignature) > 1.0e-5f;
+    refreshPresetNameDisplay();
+
+    // Goniometer/Star-Visuals: keine eigenen Buttons mehr in der globalen
+    // Zeile (User-Wunsch, 2. Anlauf) - Kontrolle laeuft jetzt komplett
+    // ueber die beiden neuen Live-Eintraege im Hamburger-Menue (siehe
+    // showPresetMenu()).
+    // Hat der Host einen Zustand mit View-Einstellungen mitgebracht (DAW-
+    // Session), gelten diese statt der Startwerte. Vorher sichern, weil
+    // applyVisualsVisibility() selbst schon ein (eigenes) Kind anhaengt.
+    const auto hostView = processor.apvts.state.getChildWithName ("ViewSettings").createCopy();
+    applyVisualsVisibility();
+    applyHoverHints();
+    if (hostView.isValid())
+    {
+        juce::ValueTree wrap ("tmp");
+        wrap.appendChild (hostView, nullptr);
+        applyViewSettingsFromTree (wrap);
+    }
+
+    // Undo/Redo (User-Wunsch: "Je ein Pfeil Icon, Position rechts von
+    // Reset") - Icon-Buttons, keine eigene Umrandung (drawArrowIcon()
+    // zeichnet direkt, siehe CustomLookAndFeel).
+    for (auto* btn : { &undoButton, &redoButton })
+    {
+        btn->setClickingTogglesState (false);
+        btn->setWantsKeyboardFocus (false);
+        content.addAndMakeVisible (*btn);
+    }
+    undoButton.getProperties().set ("arrowIcon", true);
+    undoButton.getProperties().set ("arrowDirection", "left");
+    redoButton.getProperties().set ("arrowIcon", true);
+    redoButton.getProperties().set ("arrowDirection", "right");
+    undoButton.onClick = [this] { performUndo(); };
+    redoButton.onClick = [this] { performRedo(); };
+
+    // Erster Snapshot = Ausgangszustand beim Fenster-Oeffnen, damit man
+    // immer dahin zurueck-undoen kann. Danach reagiert stateChangeListener
+    // auf jede weitere Aenderung am APVTS-State-Baum (Parameter UND
+    // Section-Lock-Properties, beide liegen auf demselben Baum).
+    pushUndoSnapshotNow();
+    stateChangeListener = std::make_unique<StateChangeListener> (*this);
+    processor.apvts.state.addListener (stateChangeListener.get());
+    updateUndoRedoButtonStates();
+
+    // "Show Modulation" (Menu-Item, User-Wunsch) - Startwert aus dem
+    // gespeicherten App-weiten Standard.
+    {
+        juce::PropertiesFile modVisProps (LCRMSAudioProcessor::appPropertiesOptions());
+        modulationVisualsEnabled = ! modVisProps.getBoolValue ("modulationVisualsDisabled", false);
+    }
+
+    // Initialen Zustand der Polarity-Positions-Buttons setzen (z.B. beim
+    // Laden eines Presets, das nicht den Default-Wert hat).
+    {
+        const int initialPos = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+        polPosButtons[initialPos]->setToggleState (true, juce::dontSendNotification);
+    }
+
+    setResizable (true, true);
+    // Feste Seitenverhaeltnis-Sperre: die gesamte GUI wird beim Resizen
+    // gleichmaessig skaliert (siehe layoutContent/paintContent + Transform
+    // in resized()), statt nur mehr Leerraum zu zeigen.
+    setResizeLimits (juce::roundToInt (kDesignW * 0.7f), juce::roundToInt (kDesignH * 0.7f),
+                      juce::roundToInt (kDesignW * 1.6f), juce::roundToInt (kDesignH * 1.6f));
+    if (auto* constrainer = getConstrainer())
+        constrainer->setFixedAspectRatio ((double) kDesignW / (double) kDesignH);
+
+    // Zuletzt per "SAVE"-Button gemerkte Fenstergroesse wiederherstellen,
+    // falls vorhanden und innerhalb der Resize-Grenzen - sonst normale
+    // Design-Groesse (User-Feedback: "Save size state als Button oben
+    // global").
+    {
+        juce::PropertiesFile savedProps (LCRMSAudioProcessor::appPropertiesOptions());
+        const int savedW = savedProps.getIntValue ("windowWidth", 0);
+        const int savedH = savedProps.getIntValue ("windowHeight", 0);
+        const int minW = juce::roundToInt (kDesignW * 0.7f), maxW = juce::roundToInt (kDesignW * 1.6f);
+        const int minH = juce::roundToInt (kDesignH * 0.7f), maxH = juce::roundToInt (kDesignH * 1.6f);
+        if (savedW >= minW && savedW <= maxW && savedH >= minH && savedH <= maxH)
+            setSize (savedW, savedH);
+        else
+            setSize (kDesignW, kDesignH);
+    }
+
+    startTimerHz (20);
+}
+
+LCRMSAudioProcessorEditor::~LCRMSAudioProcessorEditor()
+{
+    if (stateChangeListener != nullptr)
+        processor.apvts.state.removeListener (stateChangeListener.get());
+    setLookAndFeel (nullptr);
+    stopTimer();
+}
+
+// Undo/Redo-Snapshot-Stack (User-Wunsch: "Je ein Pfeil Icon, Position
+// rechts von Reset"). Ein Snapshot ist der komplette serialisierte APVTS-
+// State-Baum (deckt automatisch auch die Section-Lock-Properties mit ab,
+// da beide auf demselben Baum liegen - siehe isSectionLocked()/
+// setSectionLocked()). Rueckwaertiges Abschneiden bei einem neuen Schritt
+// nach einem Undo (klassisches Undo/Redo-Verhalten: ein neuer Schritt
+// verwirft die verworfene "Zukunft").
+void LCRMSAudioProcessorEditor::pushUndoSnapshotNow()
+{
+    juce::MemoryBlock block;
+    {
+        juce::MemoryOutputStream stream (block, false);
+        processor.apvts.state.writeToStream (stream);
+    }
+    // Kein Duplikat anhaengen, falls sich seit dem letzten Snapshot gar
+    // nichts geaendert hat (z.B. Klick ohne tatsaechliche Wertaenderung).
+    if (undoIndex >= 0 && undoIndex < undoHistory.size() && undoHistory[undoIndex] == block)
+        return;
+
+    if (undoIndex < undoHistory.size() - 1)
+        undoHistory.removeRange (undoIndex + 1, undoHistory.size() - undoIndex - 1);
+
+    undoHistory.add (std::move (block));
+    ++undoIndex;
+
+    // Historie deckeln (User-Absicherung gegen unbegrenztes Speicherwachstum
+    // bei langen Sessions) - aeltestes Element faellt hinten raus.
+    constexpr int kMaxUndoSteps = 60;
+    if (undoHistory.size() > kMaxUndoSteps)
+    {
+        undoHistory.remove (0);
+        --undoIndex;
+    }
+    updateUndoRedoButtonStates();
+}
+
+// Wird bei JEDER Aenderung am APVTS-State-Baum aufgerufen (siehe
+// StateChangeListener) - ein Regler-Drag loest dutzende Einzelereignisse
+// aus, soll aber nur EINEN Undo-Schritt erzeugen. Daher hier nur ein
+// Zaehler-Reset; der eigentliche Snapshot passiert erst in timerCallback(),
+// nachdem eine kurze Weile (siehe kUndoDebounceFrames) nichts mehr passiert
+// ist.
+void LCRMSAudioProcessorEditor::scheduleUndoSnapshot()
+{
+    if (undoRedoInProgress)
+        return; // Aenderung stammt aus performUndo()/performRedo() selbst - kein neuer Schritt.
+    constexpr int kUndoDebounceFrames = 8; // ~400ms bei 20Hz
+    undoDebounceFramesLeft = kUndoDebounceFrames;
+}
+
+void LCRMSAudioProcessorEditor::performUndo()
+{
+    if (undoIndex <= 0)
+        return;
+    --undoIndex;
+    undoRedoInProgress = true;
+    if (auto tree = juce::ValueTree::readFromData (undoHistory[undoIndex].getData(), undoHistory[undoIndex].getSize());
+        tree.isValid())
+        processor.apvts.replaceState (tree);
+    storeViewSettingsInState();   // View gehoert nicht zu Undo/Redo
+    undoRedoInProgress = false;
+    updateUndoRedoButtonStates();
+}
+
+void LCRMSAudioProcessorEditor::performRedo()
+{
+    if (undoIndex < 0 || undoIndex >= undoHistory.size() - 1)
+        return;
+    ++undoIndex;
+    undoRedoInProgress = true;
+    if (auto tree = juce::ValueTree::readFromData (undoHistory[undoIndex].getData(), undoHistory[undoIndex].getSize());
+        tree.isValid())
+        processor.apvts.replaceState (tree);
+    storeViewSettingsInState();   // View gehoert nicht zu Undo/Redo
+    undoRedoInProgress = false;
+    updateUndoRedoButtonStates();
+}
+
+void LCRMSAudioProcessorEditor::updateUndoRedoButtonStates()
+{
+    undoButton.setEnabled (undoIndex > 0);
+    redoButton.setEnabled (undoIndex >= 0 && undoIndex < undoHistory.size() - 1);
+    undoButton.repaint();
+    redoButton.repaint();
+}
+
+juce::Font LCRMSAudioProcessorEditor::sectionTitleFont() { return titleFont(); }
+juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
+
+void LCRMSAudioProcessorEditor::timerCallback()
+{
+    updateHintBar();
+    bool needsRepaint = false;
+
+    // Aktueller Solo-Status zuerst ermitteln - wird gebraucht, um ALLE nicht
+    // soloten Sektionen visuell wie "aus" darzustellen (User-Feedback:
+    // "Wenn eine Section Solo ist, dann muessen die anderen alle ausgegraut
+    // sein so wie wenn sie off sind"). Die Formel hier ist bewusst identisch
+    // zu der in PluginProcessor::processBlock() verwendeten, damit die GUI
+    // exakt zeigt, was tatsaechlich verarbeitet wird.
+    const int currentSolo = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+    const bool soloActive = currentSolo != LCRMSAudioProcessor::SOLO_NONE;
+
+    // Solo + Sektion aus ist ein Zustand, den niemand absichtlich sucht: die
+    // solierte Sektion ist stumm, alle anderen auch. Schaltet man die solierte
+    // Sektion aus, geht Solo daher automatisch mit aus (User). Wer die Sektion
+    // im Solo als A/B an- und abschalten will, setzt im Menue
+    // "Keep Solo When Section Is Off".
+    if (soloActive && ! keepSoloWhenSectionOff)
+    {
+        struct SoloPair { int solo; const char* id; };
+        static const SoloPair soloMap[] = {
+            { LCRMSAudioProcessor::SOLO_GALAXY,     LCRMSAudioProcessor::ID_LCR_ENABLED },
+            { LCRMSAudioProcessor::SOLO_POLARITY,   LCRMSAudioProcessor::ID_POL_ON },
+            { LCRMSAudioProcessor::SOLO_TIMEWARP,   LCRMSAudioProcessor::ID_DRIFT_ON },
+            { LCRMSAudioProcessor::SOLO_DIMENSION,  LCRMSAudioProcessor::ID_WIDTHBOOST_ON },
+            { LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::ID_FLOW_ON },
+            { LCRMSAudioProcessor::SOLO_POSITION,   LCRMSAudioProcessor::ID_POS_ON },
+            { LCRMSAudioProcessor::SOLO_RAY,        LCRMSAudioProcessor::ID_RAY_ON }
+        };
+        for (const auto& p : soloMap)
+            if (p.solo == currentSolo
+                && processor.apvts.getRawParameterValue (p.id)->load() <= 0.5f)
+            {
+                if (auto* sp = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
+                    sp->setValueNotifyingHost (sp->convertTo0to1 ((float) LCRMSAudioProcessor::SOLO_NONE));
+                break;
+            }
+    }
+
+    auto syncFrameOn = [&] (bool& frameFlag, const char* paramId, int soloValue) -> bool
+    {
+        const bool rawOn = processor.apvts.getRawParameterValue (paramId)->load() > 0.5f;
+        const bool effectiveOn = rawOn && (! soloActive || currentSolo == soloValue);
+        if (frameFlag != effectiveOn) { frameFlag = effectiveOn; needsRepaint = true; }
+        return effectiveOn;
+    };
+
+    // Wichtig: Die Power-Icons schalten nur die DSP-Verarbeitung stumm/aktiv,
+    // NICHT die Bedienbarkeit der Regler - alle Parameter bleiben auch bei
+    // ausgeschalteter Section einstellbar (z.B. um in Ruhe vorzubereiten,
+    // was passiert, sobald man die Section wieder einschaltet). Die Boxen
+    // werden trotzdem sichtbar ausgegraut (siehe paintContent/drawGroup),
+    // und zusaetzlich verlieren alle Regler/Buttons der Section ihre Farbe
+    // (Component-Property "sectionOff", ausgewertet in CustomLookAndFeel) -
+    // bedienbar bleiben sie trotzdem. Ist irgendwo Solo aktiv, gilt "aus"
+    // fuer alle Sektionen ausser der soloten (siehe syncFrameOn oben).
+    const bool isLcrOn        = syncFrameOn (lcrFrameOn, LCRMSAudioProcessor::ID_LCR_ENABLED, LCRMSAudioProcessor::SOLO_GALAXY);
+    const bool isDriftOn      = syncFrameOn (driftFrameOn, LCRMSAudioProcessor::ID_DRIFT_ON, LCRMSAudioProcessor::SOLO_TIMEWARP);
+    const bool isPolOn        = syncFrameOn (polFrameOn, LCRMSAudioProcessor::ID_POL_ON, LCRMSAudioProcessor::SOLO_POLARITY);
+    const bool isWidthBoostOn = syncFrameOn (widthBoostFrameOn, LCRMSAudioProcessor::ID_WIDTHBOOST_ON, LCRMSAudioProcessor::SOLO_DIMENSION);
+    const bool isFlowOn       = syncFrameOn (flowFrameOn, LCRMSAudioProcessor::ID_FLOW_ON, LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    const bool isPosOn        = syncFrameOn (posFrameOn, LCRMSAudioProcessor::ID_POS_ON, LCRMSAudioProcessor::SOLO_POSITION);
+    const bool isRayOn        = syncFrameOn (rayFrameOn, LCRMSAudioProcessor::ID_RAY_ON, LCRMSAudioProcessor::SOLO_RAY);
+    // Pair-Kopplung: Speed/Sync/Bars in Hyperdrive bleiben aktiv gezeichnet,
+    // solange RAYE laeuft und gekoppelt ist (siehe Block weiter unten).
+    const bool rayPairedForHyper = isRayOn
+        && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_PAIR)->load() > 0.5f;
+
+    // Logo-Klick-Bypass: ALLE Regler bekommen zusaetzlich zum grauen
+    // Overlay (siehe paintContent) exakt dieselbe graue "Aus"-Farbgebung wie
+    // eine einzeln ausgeschaltete Sektion (User-Feedback: "Farben sollen so
+    // sein wie wenn die Sektions off sind", vorher wurde nur abgedunkelt).
+    const bool uiBypassed = processor.isBypassedNow();   // Logo-Klick ODER Host-Bypass
+    // Fuer die Tiefe-Regler UND Mod-Icons gebraucht (siehe unten): global
+    // stummgeschaltete Modulation soll dieselbe graue Farbe erzwingen wie
+    // wenn die Sektion selbst aus waere (User-Feedback: "Global Mod off
+    // sollte auch die Mod Icons und Mod Regler farblich wieder grau
+    // machen. Logisch.").
+    const bool globalModBypassForColour = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS)->load() > 0.5f;
+    // Bug-Fix: das reine Setzen der Component-Property loeste bisher KEIN
+    // Repaint aus (JUCE-Properties sind nur Metadaten, kein Trigger fuer
+    // Neuzeichnen) - dadurch blieb ein Regler nach dem Umschalten von Bypass
+    // so lange in seiner ALTEN Farbe stehen, bis irgendein ANDERER Grund
+    // (z.B. Maus-Hover-Highlight bei Buttons) zufaellig einen Repaint
+    // ausgeloest hat. Jetzt wird bei jeder tatsaechlichen Aenderung explizit
+    // reagiert (spart unnoetige Repaints, wenn sich nichts geaendert hat).
+    auto setSectionOff = [uiBypassed] (juce::Component& c, bool sectionIsOn)
+    {
+        const bool newOff = uiBypassed || ! sectionIsOn;
+        const bool oldOff = c.getProperties().getWithDefault ("sectionOff", false);
+        if (oldOff != newOff)
+        {
+            c.getProperties().set ("sectionOff", newOff);
+            c.repaint();
+        }
+    };
+    setSectionOff (gravitySlider, isLcrOn);
+    setSectionOff (orbitSlider, isLcrOn);
+    setSectionOff (driftSlider, isDriftOn);
+    setSectionOff (bendSlider, isDriftOn);
+    setSectionOff (driftBalanceButton, isDriftOn);
+    setSectionOff (galaxyFilterButton, isLcrOn);
+    setSectionOff (dimFilterButton, isWidthBoostOn);
+    setSectionOff (posFilterButton, isPosOn);
+    // Der Wing-Knopf zeichnet sich aus einer Property - die muss dem Parameter
+    // folgen, damit Presets, A/B und Undo ihn mitnehmen.
+    {
+        const int wm = (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_WING)->load());
+        if ((int) wingButton.getProperties().getWithDefault ("wingMode", 0) != wm)
+        {
+            wingButton.getProperties().set ("wingMode", wm);
+            wingButton.repaint();
+        }
+    }
+    // Nehmen Galaxy, Dimension UND Vision den Focus heraus, wirkt die Leiste
+    // gerade auf nichts. Sie wird dann sichtbar gedimmt - aber NICHT automatisch
+    // abgeschaltet (User-Idee, bewusst nicht umgesetzt: ein Parameter, den man
+    // nicht selbst angefasst hat, soll sich auch nicht selbst umlegen).
+    prismBand.setAllBypassed (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_GALAXY)->load() > 0.5f
+                           && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_DIM)->load()    > 0.5f
+                           && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_VIS)->load()    > 0.5f);
+    setSectionOff (polLButton, isPolOn);
+    setSectionOff (polRButton, isPolOn);
+    setSectionOff (polLinkButton, isPolOn);
+    setSectionOff (polPos1Button, isPolOn);
+    setSectionOff (polPos2Button, isPolOn);
+    setSectionOff (polPos3Button, isPolOn);
+    setSectionOff (polPos4Button, isPolOn);
+    setSectionOff (sideWidthSlider, isWidthBoostOn);
+    setSectionOff (sideBoostSlider, isWidthBoostOn);
+    setSectionOff (movementSlider, isFlowOn);
+    setSectionOff (pulseButton, isFlowOn);
+    setSectionOff (speedRateSlider, isFlowOn || rayPairedForHyper);
+    setSectionOff (syncButton, isFlowOn || rayPairedForHyper);
+    setSectionOff (speedBox, isFlowOn || rayPairedForHyper);
+    setSectionOff (offsetSlider, isPosOn);
+    setSectionOff (posWidthSlider, isPosOn);
+    setSectionOff (distanceSlider, isPosOn);
+    setSectionOff (elevateSlider, isPosOn);
+    setSectionOff (rayStrengthButton, isRayOn);
+    setSectionOff (rayPairButton, isRayOn);
+    // Regler-Beschriftungen: bei Sektion aus deutlich dunkler (User: "hilft
+    // nochmal zu sehen, dass die Section off ist"). Farbe aus der Off-
+    // Fuellfarbe der Sektion abgeleitet (siehe labelOffColour()).
+    {
+        // Moon (User): der Text INNERHALB der Sektionen bekommt den Ton, den
+        // bisher die Sektionstitel hatten - ganz leicht waermer als das
+        // bisherige neutrale Grau; die Titel selbst werden dafuer blaeulich.
+        const juce::Colour labelOn = isMoonTheme()
+                                   ? themePalette().frameMain.brighter (0.25f).interpolatedWith (themePalette().knob, 0.35f)
+                                   : juce::Colour (0xffbec3cb);   // etwas weg vom Weiss (User: Augen)
+        const juce::Colour labelOff (labelOffColour());
+        auto setLabelOff = [&] (juce::Label& l, bool sectionIsOn)
+        {
+            const juce::Colour want = (uiBypassed || ! sectionIsOn) ? labelOff : labelOn;
+            if (l.findColour (juce::Label::textColourId) != want)
+                l.setColour (juce::Label::textColourId, want);
+        };
+        setLabelOff (gravityLabel,   isLcrOn);
+        setLabelOff (orbitLabel,     isLcrOn);
+        setLabelOff (driftLabel,     isDriftOn);
+        setLabelOff (bendLabel,      isDriftOn);
+        setLabelOff (sideWidthLabel, isWidthBoostOn);
+        setLabelOff (sideBoostLabel, isWidthBoostOn);
+        setLabelOff (movementLabel,  isFlowOn);
+        setLabelOff (speedLabel,     isFlowOn || rayPairedForHyper);
+        setLabelOff (offsetLabel,    isPosOn);
+        setLabelOff (posWidthLabel,  isPosOn);
+        setLabelOff (distanceLabel,  isPosOn);
+        setLabelOff (elevateLabel,   isPosOn);
+        setLabelOff (rayRateLabel,   isRayOn);
+    }
+    // Speed ist bei Pair inaktiv - dann diktiert Hyperdrive die Rate.
+    {
+        const bool rayPaired = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_PAIR)->load() > 0.5f;
+        setSectionOff (rayRateSlider, isRayOn && ! rayPaired);
+
+        // ===== PAIR SICHTBAR MACHEN =====
+        // User: "wenn pair an ist soll visuell klar sein, dass ray an
+        // hyperdrive gekoppelt ist -> und auch wenn hyperdrive section off
+        // ist soll speed bzw. sync + bars leuchtend bleiben solange pair an
+        // ist". Umgesetzt mit der Gold-Variante: der Pair-Knopf leuchtet
+        // gold, und Speed/Sync/Bars in Hyperdrive bekommen dieselbe goldene
+        // Markierung (Eigenschaft "pairedGold", ausgewertet im LookAndFeel)
+        // und bleiben aktiv gezeichnet, solange Pair an ist - denn sie
+        // WIRKEN dann ja weiter, nur eben auf RAYE.
+        const bool pairLive = isRayOn && rayPaired;
+        // Gold nur dort, wo das Tempo gerade WIRKLICH herkommt (User: "entweder
+        // speed ODER Sync/Bars - nicht beides"): mit Sync leuchten Sync und
+        // Bars, ohne Sync der Speed-Regler.
+        const bool hyperSync = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
+        struct GoldTarget { juce::Component* c; bool on; };
+        const GoldTarget targets[] = {
+            { &rayPairButton,  pairLive },
+            { &speedRateSlider, pairLive && ! hyperSync },
+            { &syncButton,      pairLive &&   hyperSync },
+            { &speedBox,        pairLive &&   hyperSync },
+        };
+        for (const auto& t : targets)
+        {
+            const bool was = t.c->getProperties().getWithDefault ("pairedGold", false);
+            if (was != t.on) { t.c->getProperties().set ("pairedGold", t.on); t.c->repaint(); }
+        }
+        // Polarity-Marker (siehe paintContent) nachziehen, wenn Position oder
+        // Sektionszustand wechseln.
+        {
+            const int polPosNow = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+            if (polPosNow != lastPolPosShown) { lastPolPosShown = polPosNow; content.repaint(); }
+        }
+        if (pairGoldFrameOn != pairLive || pairGoldSync != hyperSync)
+        {
+            pairGoldFrameOn = pairLive;
+            pairGoldSync = hyperSync;
+            content.repaint();
+        }
+        // Stufe des Staerke-Icons aus dem Parameter nachziehen.
+        const int lvl = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_STRENGTH)->load()));
+        if ((int) rayStrengthButton.getProperties().getWithDefault ("rayLevel", 0) != lvl)
+        {
+            rayStrengthButton.getProperties().set ("rayLevel", lvl);
+            rayStrengthButton.repaint();
+        }
+    }
+    // Mod-Icons: farbig nur, wenn die Sektion an ist UND Modulation nicht
+    // global stummgeschaltet ist (das eigene An/Aus des Icons selbst wird
+    // schon in CustomLookAndFeel::drawModIcon ueber button.getToggleState()
+    // beruecksichtigt).
+    setSectionOff (driftModButton, isDriftOn && ! globalModBypassForColour);
+    setSectionOff (dimensionModButton, isWidthBoostOn && ! globalModBypassForColour);
+    setSectionOff (hyperdriveModButton, isFlowOn && ! globalModBypassForColour);
+    setSectionOff (galaxyModButton, isLcrOn && ! globalModBypassForColour);
+    setSectionOff (positionModButton, isPosOn && ! globalModBypassForColour);
+    // Tiefe-Regler: zusaetzlich zur Sektion und globalem Mod-Bypass jetzt
+    // auch vom EIGENEN Mod-Icon-Toggle abhaengig - grau, solange die
+    // Modulation fuer diese Sektion nicht eingeschaltet ist, farbig sobald
+    // sie es ist (User-Feedback: "Wenn Mod Icon nicht aktiv sollte der
+    // Regler daneben grau sein. Nur farbig wenn aktiv. Aber weiterhin
+    // einstellbar." - bleibt ueber setSectionOff bedienbar, nur die Farbe
+    // aendert sich).
+    setSectionOff (driftModDepthSlider, isDriftOn && ! globalModBypassForColour && driftModButton.getToggleState());
+    setSectionOff (dimensionModDepthSlider, isWidthBoostOn && ! globalModBypassForColour && dimensionModButton.getToggleState());
+    setSectionOff (hyperdriveModDepthSlider, isFlowOn && ! globalModBypassForColour && hyperdriveModButton.getToggleState());
+    setSectionOff (galaxyModDepthSlider, isLcrOn && ! globalModBypassForColour && galaxyModButton.getToggleState());
+    setSectionOff (positionModDepthSlider, isPosOn && ! globalModBypassForColour && positionModButton.getToggleState());
+    // VOL, Mono-Check und Mono-Dry sind keiner "Sektion" zugeordnet, sollen
+    // bei Bypass aber genauso ausgegraut werden wie alle anderen Regler (bei
+    // Bypass hat Mono-Check ohnehin keine Wirkung mehr, siehe DSP).
+    setSectionOff (volSlider, ! uiBypassed);
+    setSectionOff (mixSlider, ! uiBypassed);
+    setSectionOff (monoCheckButton, ! uiBypassed);
+    setSectionOff (monoDryButton, ! uiBypassed);
+    // Power- und Solo-Icons zeigten bisher NUR ihren eigenen Toggle-Status -
+    // bei Bypass blieb eine eingeschaltete Sektion daher weiterhin farbig
+    // leuchtend, obwohl der Rest der Sektion ausgegraut wurde (User-
+    // gemeldeter Bug). Die eigentliche An/Aus-Logik jeder Sektion soll sich
+    // NICHT aendern (kommt weiterhin aus dem jeweiligen Toggle-Status) -
+    // hier zaehlt daher ausschliesslich Bypass, "sectionIsOn" ist bewusst
+    // immer true.
+    setSectionOff (lcrPowerButton,        true);
+    setSectionOff (lcrSoloButton,         true);
+    setSectionOff (driftPowerButton,      true);
+    setSectionOff (driftSoloButton,       true);
+    setSectionOff (polPowerButton,        true);
+    setSectionOff (polSoloButton,         true);
+    setSectionOff (widthBoostPowerButton, true);
+    setSectionOff (widthBoostSoloButton,  true);
+    setSectionOff (flowPowerButton,       true);
+    setSectionOff (flowSoloButton,        true);
+    setSectionOff (posPowerButton,        true);
+    setSectionOff (posSoloButton,         true);
+
+    // Sektions-Titel: etwas dunkler/blasser (45% Deckkraft der Akzentfarbe),
+    // wenn die Sektion aus ist oder gerade bypasst wird - User-Feedback: "bin
+    // die Farbe an sich gut, aber vielleicht bisschen dunkler/blasser".
+    // Aus-Zustand deutlich staerker als frueher (0,45 Alpha reichte nicht -
+    // User: "der Section Name ist zwischen on und off noch zu aehnlich in
+    // Intensitaet und Helligkeit"). Der Titel rutscht jetzt farblich weit in
+    // Richtung der Off-Fuellfarbe der Sektion, bleibt aber lesbar. Pop
+    // behaelt sein bisheriges Verhalten.
+    auto applyTitleDim = [] (juce::Label& label, juce::Colour fullColour, bool isOn)
+    {
+        const juce::Colour offCol = isComicTheme()
+                                  ? fullColour.withAlpha (0.34f)   // Pop: bei Aus dunkler (User)
+                                  : sectionOffFill().interpolatedWith (fullColour, 0.34f).brighter (0.22f).withAlpha (0.88f);
+        juce::Colour want = isOn ? fullColour : offCol;
+        // Hover-Feedback auf dem Sektionsnamen (User: der Name ist klickbar,
+        // hatte aber als einziges Element keinerlei Rueckmeldung). Laeuft hier
+        // mit, weil diese Funktion ohnehin bei jedem Timer-Tick durchlaeuft -
+        // sonst wuerde applyTitleDim die Hover-Farbe sofort wieder ueberschreiben.
+        if (label.isMouseOver (true))
+            want = want.brighter (0.40f).withAlpha (1.0f);
+        if (label.findColour (juce::Label::textColourId) != want)
+            label.setColour (juce::Label::textColourId, want);
+    };
+    // Titelfarben: Pop bunt wie bisher, sonst aus der Theme-Palette (eine
+    // Familie, User: "section header zu viele unterschiedliche Farben").
+    {
+        const auto pal = themePalette();
+        const bool pop = isComicTheme();
+        // Moon (User): Titel von Galaxy bis Vision leicht blaeulich, damit sie
+        // sich - aehnlich wie eingeschaltete Polarity-Knoepfe - dezent vom
+        // Rest abheben. Flat: minimal staerker abgehoben als bisher.
+        // Sci-Fi: eigene Titelfarbe je Variante (siehe ThemePalette::title).
+        const juce::Colour tWarm = pal.frameMain.brighter (0.25f).interpolatedWith (pal.knob, 0.35f);   // an: Hauch Akzent (User)
+        const juce::Colour tMain = pop ? juce::Colour (0xffb968ff)
+                                 : isSciFiTheme() ? pal.titleColour()
+                                 : isMoonTheme()  ? tWarm.interpolatedWith (juce::Colour (0xff9fc4ff), 0.45f)
+                                 : isFlatTheme()  ? tWarm.brighter (0.16f).interpolatedWith (juce::Colour (0xffbcd0e8), 0.22f)
+                                                  : tWarm;
+        const juce::Colour tGrn  = tMain;
+        applyTitleDim (lcrTitleLabel,        pop ? pal.frameGalaxy : tMain, isLcrOn && ! uiBypassed);   // Galaxy: kein eigener Titelton mehr (User: hat den Glow)
+        applyTitleDim (driftTitleLabel,      tMain,           isDriftOn && ! uiBypassed);
+        applyTitleDim (polTitleLabel,        tMain,           isPolOn && ! uiBypassed);
+        applyTitleDim (widthBoostTitleLabel, tGrn,            isWidthBoostOn && ! uiBypassed);
+        applyTitleDim (flowTitleLabel,       tMain,           isFlowOn && ! uiBypassed);
+        applyTitleDim (posTitleLabel,        tGrn,            isPosOn && ! uiBypassed);
+        applyTitleDim (rayTitleLabel,        pal.frameRaye,   isRayOn && ! uiBypassed);
+    }
+
+    // Live-Mod-Anzeige auf den 5 modulierbaren Reglern (Drift, Shift,
+    // Expand, Boost, Speed) - zeigt per beweglichem Punkt (siehe
+    // CustomLookAndFeel::drawRotarySlider, "modLiveActive"/"modLiveValue")
+    // die tatsaechlich gerade modulierte Position, waehrend der normale
+    // Zeiger weiter die eingestellte Reglerposition zeigt (User-Feedback:
+    // "auch visuell sichtbar wie bei Flow Autopan", "bei allen gleich").
+    {
+        // Globaler Mod-Bypass mit einrechnen, sonst wuerde der Live-Punkt auf
+        // den Reglern weiter "aktiv" anzeigen, obwohl die Modulation gerade
+        // komplett stummgeschaltet ist (siehe DSP: ID_GLOBAL_MOD_BYPASS).
+        const bool globalModBypassRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS)->load() > 0.5f;
+        const bool timewarpModOnRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_TIMEWARP_MOD)->load()   > 0.5f && ! globalModBypassRaw;
+        const bool dimensionModOnRaw  = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_DIMENSION_MOD)->load()  > 0.5f && ! globalModBypassRaw;
+        const bool hyperdriveModOnRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_HYPERDRIVE_MOD)->load() > 0.5f && ! globalModBypassRaw;
+        const bool galaxyModOnRaw     = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_MOD)->load()     > 0.5f && ! globalModBypassRaw;
+        const bool positionModOnRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POSITION_MOD)->load()   > 0.5f && ! globalModBypassRaw;
+        const bool syncOnRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
+
+        const float driftPctRaw  = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_DRIFT)->load();
+        const float bendCtRaw    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BEND)->load();
+        const float widthPctRaw  = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SIDE_WIDTH)->load();
+        const float boostDbRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SIDE_BOOST)->load();
+        const float sensPctRaw       = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_SENS)->load();
+        const float blendPctRaw      = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_BLEND)->load();
+        const float offsetPctRaw     = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POS_OFFSET)->load();
+        const float posWidthPctRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POS_WIDTH)->load();
+        const float distancePctRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POS_DISTANCE)->load();
+        const float elevatePctRaw    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POS_ELEVATE)->load();
+
+        // "Show Modulation"-Menue-Schalter (User-Wunsch) - schaltet die
+        // beweglichen Live-Anzeigen komplett ab, unabhaengig vom eigentlichen
+        // Modulationsstatus.
+        auto applyLive = [this] (juce::Slider& slider, bool active, float liveValue)
+        {
+            active = active && modulationVisualsEnabled;
+            const bool wasActive = slider.getProperties().getWithDefault ("modLiveActive", false);
+            slider.getProperties().set ("modLiveActive", active);
+            if (active)
+            {
+                const float t = (float) slider.getNormalisableRange().convertTo0to1 (liveValue);
+                slider.getProperties().set ("modLiveValue", juce::jlimit (0.0f, 1.0f, t));
+                slider.repaint();
+            }
+            else if (wasActive)
+            {
+                slider.repaint(); // einmalig, damit der Live-Punkt sauber verschwindet
+            }
+        };
+
+        applyLive (driftSlider, isDriftOn && timewarpModOnRaw && std::abs (driftPctRaw) > 0.001f,
+                   processor.currentDriftLivePercent.load (std::memory_order_relaxed));
+        applyLive (bendSlider, isDriftOn && timewarpModOnRaw && std::abs (bendCtRaw) > 0.001f,
+                   processor.currentBendLiveCt.load (std::memory_order_relaxed));
+        applyLive (sideWidthSlider, isWidthBoostOn && dimensionModOnRaw && std::abs (widthPctRaw - 100.0f) > 0.05f,
+                   processor.currentExpandLivePercent.load (std::memory_order_relaxed));
+        applyLive (sideBoostSlider, isWidthBoostOn && dimensionModOnRaw && std::abs (boostDbRaw) > 0.01f,
+                   processor.currentBoostLiveDb.load (std::memory_order_relaxed));
+        applyLive (speedRateSlider, isFlowOn && hyperdriveModOnRaw && ! syncOnRaw,
+                   processor.currentSpeedLiveHz.load (std::memory_order_relaxed));
+        applyLive (gravitySlider, isLcrOn && galaxyModOnRaw && std::abs (sensPctRaw - 50.0f) > 0.05f,
+                   processor.currentGravityLivePercent.load (std::memory_order_relaxed));
+        // Anders als bei den anderen Reglern kein Abweichungs-Gate mehr - Orbit
+        // moduliert jetzt auch exakt auf Default sichtbar (siehe DSP), soll
+        // also auch dort schon die Live-Linie zeigen.
+        juce::ignoreUnused (blendPctRaw);
+        applyLive (orbitSlider, isLcrOn && galaxyModOnRaw,
+                   processor.currentOrbitLivePercent.load (std::memory_order_relaxed));
+        applyLive (offsetSlider, isPosOn && positionModOnRaw && std::abs (offsetPctRaw) > 0.05f,
+                   processor.currentOffsetLivePercent.load (std::memory_order_relaxed));
+        applyLive (posWidthSlider, isPosOn && positionModOnRaw && std::abs (posWidthPctRaw - 100.0f) > 0.05f,
+                   processor.currentPosWidthLivePercent.load (std::memory_order_relaxed));
+        applyLive (distanceSlider, isPosOn && positionModOnRaw && distancePctRaw > 0.05f,
+                   processor.currentDistanceLivePercent.load (std::memory_order_relaxed));
+        applyLive (elevateSlider, isPosOn && positionModOnRaw && std::abs (elevatePctRaw) > 0.05f,
+                   processor.currentElevateLivePercent.load (std::memory_order_relaxed));
+    }
+
+    // Solo-Icons mit dem gemeinsamen Choice-Parameter synchron halten -
+    // exklusiv, nur das aktuell aktive Solo-Icon leuchtet.
+    {
+        struct SoloEntry { juce::TextButton* button; int value; };
+        SoloEntry soloEntries[] = {
+            { &lcrSoloButton,        LCRMSAudioProcessor::SOLO_GALAXY },
+            { &driftSoloButton,      LCRMSAudioProcessor::SOLO_TIMEWARP },
+            { &polSoloButton,        LCRMSAudioProcessor::SOLO_POLARITY },
+            { &widthBoostSoloButton, LCRMSAudioProcessor::SOLO_DIMENSION },
+            { &flowSoloButton,       LCRMSAudioProcessor::SOLO_HYPERDRIVE },
+            { &posSoloButton,        LCRMSAudioProcessor::SOLO_POSITION },
+            { &raySoloButton,        LCRMSAudioProcessor::SOLO_RAY },
+        };
+        for (auto& entry : soloEntries)
+        {
+            const bool shouldBeOn = (entry.value == currentSolo);
+            if (entry.button->getToggleState() != shouldBeOn)
+            {
+                entry.button->setToggleState (shouldBeOn, juce::dontSendNotification);
+                entry.button->repaint();
+            }
+        }
+    }
+
+    // Korrelationsmesser mit dem aktuellen Wert aus dem Audio-Thread fuettern.
+    correlationMeter.setCorrelation (processor.currentCorrelation.load (std::memory_order_relaxed));
+
+    const bool isSyncOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
+    speedRateSlider.setEnabled (! isSyncOn);
+    // Bar-Auswahl bleibt jetzt auch bei ausgeschaltetem Sync waehlbar (User-
+    // Feedback: "Bar Section soll auswaehlbar sein auch wenn Sync off
+    // ist.") - nur die "glowActive"-Hervorhebung unten zeigt weiterhin an,
+    // ob Sync gerade tatsaechlich wirkt.
+    speedBox.setEnabled (true);
+
+    // Hyperdrive-Mod bleibt jetzt auch bei aktivem Bar-Sync bedienbar
+    // (User-Feedback: "trotzdem an gehen, wirkt sich dann eben nur auf Flow
+    // aus") - moduliert bei Sync intern nur noch Movement/Flow, nicht mehr
+    // Speed (siehe DSP), daher hier keine Deaktivierung mehr noetig.
+
+    const bool wasGlow = speedBox.getProperties().getWithDefault ("glowActive", false);
+    if (wasGlow != isSyncOn)
+    {
+        speedBox.getProperties().set ("glowActive", isSyncOn);
+        speedBox.repaint();
+    }
+
+    // Text der Bar-Auswahl ("1 Bar", "2 Bars", ...) dimmen, wenn Sync aus
+    // ist (User-Feedback: "nicht zu hell von der Schrift wenn Sync off ist,
+    // damit man direkt sieht 'ach, Sync ist off'") - unabhaengig vom
+    // bestehenden Glow-Rahmen oben, der nur den Rand betrifft.
+    speedBox.setColour (juce::ComboBox::textColourId,
+                         isSyncOn ? juce::Colours::white : juce::Colour (0xff6a6e78));
+
+    // Polarity-Positions-Buttons mit dem aktuellen Parameterwert synchron
+    // halten (z.B. nach Preset-Wechsel oder Host-Automation).
+    {
+        juce::TextButton* polPosButtons[4] = { &polPos1Button, &polPos2Button, &polPos3Button, &polPos4Button };
+        const int currentPos = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+        for (int idx = 0; idx < 4; ++idx)
+        {
+            const bool shouldBeOn = (idx == currentPos);
+            if (polPosButtons[idx]->getToggleState() != shouldBeOn)
+                polPosButtons[idx]->setToggleState (shouldBeOn, juce::dontSendNotification);
+        }
+    }
+
+    // Live-Position fuer den Flow-Ring (leuchtender Punkt) aktualisieren.
+    {
+        const float livePos = processor.currentPanPos.load (std::memory_order_relaxed);
+        movementSlider.getProperties().set ("movementLivePos", livePos);
+        movementSlider.repaint();
+    }
+
+    // Mono-Check-Icon kontinuierlich neu zeichnen, solange es aktiv ist -
+    // fuer das sanfte Puls-Blinken (siehe CustomLookAndFeel::drawMonoIcon).
+    // 20Hz reicht fuer einen ruhigen, weichen Puls voellig aus und kostet
+    // praktisch nichts (nur ein einzelner kleiner Button).
+    if (monoCheckButton.getToggleState())
+        monoCheckButton.repaint();
+
+    // Mono-Dry-Button: nur bedienbar, waehrend Mono-Check selbst an ist
+    // (User-Feedback: "soll nicht alleine gehen"); und wie das Bypass-Icon
+    // gedimmt, solange er inaktiv/deaktiviert ist.
+    {
+        const bool monoOn = monoCheckButton.getToggleState();
+        if (monoDryButton.isEnabled() != monoOn)
+        {
+            monoDryButton.setEnabled (monoOn);
+            monoDryButton.repaint();
+            // Das neue eigene "DRY"-Label mitdimmen, damit Icon und
+            // Beschriftung nicht auseinanderlaufen.
+            monoDryLabel.setAlpha (monoOn ? 1.0f : 0.35f);
+        }
+        if (monoDryButton.getToggleState())
+            monoDryButton.repaint();
+    }
+
+    // Solo-Icons sollen wie Mono-/Mod-Icon sanft blinken, solange aktiv
+    // (User-Feedback). Zusaetzlich soll der GESAMTE Rahmen der soloten
+    // Sektion mitblinken, nicht nur der Button (User-Feedback) - dafuer
+    // reicht ein Repaint von content, solange irgendein Solo aktiv ist
+    // (drawGroup() berechnet die Puls-Alpha selbst, siehe paintContent()).
+    {
+        juce::TextButton* soloButtons[6] = { &lcrSoloButton, &driftSoloButton, &polSoloButton,
+                                              &widthBoostSoloButton, &flowSoloButton, &posSoloButton };
+        for (auto* b : soloButtons)
+            if (b->getToggleState())
+                b->repaint();
+        if (soloActive)
+            content.repaint();
+    }
+
+    // Mod-Icons ebenso kontinuierlich neu zeichnen, solange sie aktiv sind
+    // (sanftes Puls-Alpha, siehe CustomLookAndFeel::drawModIcon).
+    if (driftModButton.getToggleState())      driftModButton.repaint();
+    if (dimensionModButton.getToggleState())  dimensionModButton.repaint();
+    if (hyperdriveModButton.getToggleState() && hyperdriveModButton.isEnabled())
+        hyperdriveModButton.repaint();
+    if (galaxyModButton.getToggleState())     galaxyModButton.repaint();
+    if (positionModButton.getToggleState())   positionModButton.repaint();
+
+    // Globaler Mod-Bypass (Sinuswelle pulsiert nur, solange Mod global
+    // laeuft) und Galaxy-Button (Glow pulsiert, solange aktiv) - gleiches
+    // Prinzip wie die Mod-Icons oben. Breathe "atmet" dagegen IMMER, egal
+    // ob gerade geklickt wurde oder nicht (reine Aktion, kein Zustand).
+    if (! globalModBypassButton.getToggleState())
+        globalModBypassButton.repaint();
+    if (globalGalaxyActivateButton.getToggleState())
+        globalGalaxyActivateButton.repaint();
+    globalBreatheButton.repaint();
+    // Mutate pulsiert ebenfalls staendig (siehe drawMutateContent) - beide
+    // Varianten, sonst wuerde die zweite Taste nach einem Klick auf ihrem
+    // alten Farbzustand stehen bleiben.
+    globalChaosButton.repaint();
+    globalChaosSectionsButton.repaint();
+
+    // PRISM-Leiste: Aktiv-Zustand nachfuehren und neu zeichnen, wenn sich die
+    // Bandgrenzen geaendert haben (z.B. per Automation oder Preset-Wechsel -
+    // beim Ziehen zeichnet die Komponente sich selbst neu).
+    {
+        const bool prismOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_ON)->load() > 0.5f;
+        prismBand.setActive (prismOn);
+        const float lo = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_LO)->load();
+        const float hi = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PRISM_HI)->load();
+        if (std::abs (lo - lastPrismLo) > 0.5f || std::abs (hi - lastPrismHi) > 0.5f)
+        {
+            lastPrismLo = lo;
+            lastPrismHi = hi;
+            prismBand.repaint();
+        }
+    }
+
+    // Preset-Anzeige: alle 10 Frames (also rund 3x pro Sekunde) pruefen, ob
+    // sich seit dem Laden/Speichern etwas geaendert hat. Schnell genug, dass
+    // der Stern gefuehlt sofort erscheint, und selten genug, dass die rund 40
+    // Parameterabfragen nicht auffallen.
+    // Hidden Egg, zweiter Ausloeser: einmal pro Fenster nach etwa acht
+    // Minuten Betrieb - fuer alle, die Mutate nie benutzen.
+    if (! eggFiredOnOpen && ++eggOpenTicks >= 30 * 60 * 8)
+    {
+        eggFiredOnOpen = true;
+        goniometer.triggerEasterEgg();
+    }
+
+    // Alle 3 Frames (10x/s): der Copy-Pfeil soll schon WAEHREND des Drehens
+    // aufleuchten, nicht erst beim Loslassen (User).
+    if (++presetDirtyTick >= 3)
+    {
+        presetDirtyTick = 0;
+        // Hat ein fremder replaceState() (Host-Recall, verzoegerter Default)
+        // das View-Kind verworfen, wieder anhaengen - sonst fehlt es beim
+        // naechsten Speichern der Session.
+        if (! processor.apvts.state.getChildWithName ("ViewSettings").isValid())
+            storeViewSettingsInState();
+        const bool dirtyNow = std::abs (computePresetSignature() - presetSignature) > 1.0e-5f;
+        if (dirtyNow != presetDirty)
+        {
+            presetDirty = dirtyNow;
+            refreshPresetNameDisplay();
+        }
+
+        // Copy leuchtet nur, wenn der Live-Zustand vom anderen A/B-Slot
+        // abweicht - sonst gibt es nichts zu kopieren.
+        const auto& other = abCurrentIsA ? abSlotB : abSlotA;
+        const bool litNow = std::abs (signatureOfTree (processor.apvts.copyState()) - signatureOfTree (other)) > 1.0e-4f;
+        if (litNow != abCopyLit)
+        {
+            abCopyLit = litNow;
+            abCopyButton.getProperties().set ("abCopyLit", litNow);
+            abCopyButton.repaint();
+        }
+        // Richtung des Pfeils folgt dem aktiven Buchstaben.
+        abCopyButton.getProperties().set ("abCopyToRight", abCurrentIsA);
+    }
+
+    // BYP: kein eigenes ButtonAttachment (siehe Konstruktor-Kommentar) - der
+    // sichtbare Toggle-Status wird hier aus dem GUI-seitigen Bypass
+    // (processor.uiBypassed, auch per Logo-Klick schaltbar) nachgezogen,
+    // damit beide Wege synchron aussehen.
+    {
+        const bool bypassedNow = processor.uiBypassed.load (std::memory_order_relaxed);
+        if (globalBypassButton.getToggleState() != bypassedNow)
+        {
+            globalBypassButton.setToggleState (bypassedNow, juce::dontSendNotification);
+            globalBypassButton.repaint();
+        }
+    }
+
+    // Undo/Redo-Snapshot-Entprellung (siehe scheduleUndoSnapshot()): erst
+    // wenn seit der letzten Aenderung kUndoDebounceFrames Frames lang
+    // NICHTS mehr passiert ist, gilt die "Geste" als abgeschlossen und
+    // landet als EIN Schritt in der Historie.
+    if (undoDebounceFramesLeft > 0)
+    {
+        if (--undoDebounceFramesLeft == 0)
+            pushUndoSnapshotNow();
+    }
+
+    if (needsRepaint)
+        content.repaint();
+}
+
+void LCRMSAudioProcessorEditor::drawLogo (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    // Einfaches, modernes Icon: leuchtender Ring mit gekreuzter Achse -
+    // angelehnt an das "Space"-Thema, ohne aufwendige Assets. Per Klick
+    // schaltbarer GUI-Bypass: im bypassten Zustand wird das Logo neutral
+    // grau statt farbig gezeichnet, als klare visuelle Rueckmeldung.
+    const bool bypassed = processor.uiBypassed.load (std::memory_order_relaxed);
+    auto ringCol  = bypassed ? juce::Colour (0xff6a6e78) : lookAndFeel.accent;
+    auto glowCol  = bypassed ? juce::Colour (0xff6a6e78) : lookAndFeel.glowAccent;
+
+    auto centre = area.getCentre();
+    float r = area.getHeight() * 0.5f * 0.72f;
+
+    if (! bypassed)
+    {
+        for (int layer = 3; layer >= 1; --layer)
+        {
+            float rr = r * (1.0f + 0.35f * (float) layer);
+            g.setColour (glowCol.withAlpha (0.05f * (float) (4 - layer)));
+            g.fillEllipse (centre.x - rr, centre.y - rr, rr * 2.0f, rr * 2.0f);
+        }
+    }
+
+    juce::Path ring;
+    ring.addEllipse (centre.x - r, centre.y - r, r * 2.0f, r * 2.0f);
+    g.setColour (ringCol);
+    g.strokePath (ring, juce::PathStrokeType (2.0f));
+
+    juce::Path cross;
+    float d = r * 0.62f;
+    cross.startNewSubPath (centre.x - d, centre.y - d * 0.5f);
+    cross.lineTo (centre.x + d, centre.y + d * 0.5f);
+    cross.startNewSubPath (centre.x - d, centre.y + d * 0.5f);
+    cross.lineTo (centre.x + d, centre.y - d * 0.5f);
+    g.setColour (bypassed ? juce::Colour (0xffaaadb5) : juce::Colours::white);
+    g.strokePath (cross, juce::PathStrokeType (2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    g.setColour (glowCol);
+    g.fillEllipse (centre.x - 2.5f, centre.y - 2.5f, 5.0f, 5.0f);
+}
+
+void LCRMSAudioProcessorEditor::paint (juce::Graphics& g)
+{
+    // Nur ein flacher Hintergrund - der eigentliche Inhalt zeichnet sich in
+    // paintContent() auf der skalierten content-Komponente. Falls das
+    // Seitenverhaeltnis mal nicht exakt passt, ist der Rand hier gedeckt.
+    g.fillAll (juce::Colour (0xff0e0f13));
+}
+
+void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
+{
+    g.fillAll (juce::Colour (0xff0e0f13));
+
+    auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
+    g.setColour (themePalette().plate);
+    g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+    drawThemePlate (g, bounds.reduced (8.0f), 10.0f);   // Wasserfarbe/Comic: Textur ueber der Platte
+
+    // Titelzeile jetzt mit demselben aeusseren Randabstand wie der Rest der
+    // GUI (kOuterMargin) statt bei (0,0) zu kleben - vorher wirkte der Logo-
+    // Bereich im Vergleich zu allen anderen Elementen zu eng am Rand
+    // platziert (User-Feedback "sieht nicht gut aus, Randabstand").
+    auto titleBar = juce::Rectangle<int> (kOuterMargin, kOuterMargin, kDesignW - kOuterMargin * 2, kTitleBarH);
+    // Pop: der Kopf bekommt denselben Kasten wie der Footer - ohne ihn wirkt
+    // er "draufgesetzt" (User). MUSS vor dem Logo gezeichnet werden, sonst
+    // liegt der Kasten darueber.
+    if (isComicTheme())
+    {
+        auto hb = juce::Rectangle<int> (kOuterMargin, kOuterMargin,
+                                        kDesignW - kOuterMargin * 2, kTitleBarH).expanded (6, 6).toFloat();
+        g.setColour (comicInk());
+        g.fillRoundedRectangle (hb.translated (4.0f, 4.0f), 12.0f);
+        g.setColour (juce::Colour (0xff2a2450));
+        g.fillRoundedRectangle (hb, 12.0f);
+        g.setColour (comicInk());
+        g.drawRoundedRectangle (hb, 12.0f, 3.0f);
+    }
+
+    auto logoArea = titleBar.removeFromLeft (kTitleBarH).reduced (5).toFloat();
+    drawLogo (g, logoArea);
+
+    // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
+    // Claim-Untertitel wirkte "amateurhaft" (User-Feedback) und wurde
+    // entfernt.
+    // Etwas mehr Luft zwischen Logo und Wortmarke (User-Wunsch).
+    auto textArea = titleBar.reduced (8, 0).withTrimmedLeft (10);
+    constexpr int titleLineH = 30;
+    // Nicht mehr mittig zentriert, sondern auf die zwei Zeilen des rechten
+    // Blocks ausgerichtet: Wortmarke auf Hoehe der Aktionszeile, Slogan auf
+    // Hoehe der Preset-Zeile (siehe layoutContent(), kRowH/kRowGap).
+    textArea.removeFromTop (6);
+    textArea.removeFromBottom (5);
+
+    auto titleLine = textArea.removeFromTop (titleLineH);
+    // ===== WORTMARK =====
+    // User-Wunsch: "Logo Space X und Slogan noch ein bisschen interessanter -
+    // das Logo an sich ist gut, aber ich denke da geht noch ein bisschen
+    // mehr. Ich will es aber nicht komplett in einen anderen Style."
+    //
+    // Deshalb bewusst KEIN neuer Stil: gleiche Schrift, gleiche Groesse,
+    // gleiche Position. Nur drei Feinheiten, die einen flachen Schriftzug in
+    // einen gesetzten verwandeln:
+    //
+    // 1) Ein weicher Schein dahinter (dieselbe Farbe wie die Akzente im
+    //    Feld). Dadurch sitzt die Wortmark nicht mehr "auf" dem Hintergrund,
+    //    sondern leuchtet aus ihm heraus - dasselbe Prinzip, das die aktiven
+    //    Buttons schon benutzen, hier nur sehr viel schwaecher dosiert.
+    // 2) Ein senkrechter Verlauf von Weiss nach kuehlem Grau. Reines Weiss
+    //    ueber die ganze Hoehe ist der haeufigste Grund, warum ein Logo
+    //    "gedruckt" statt beleuchtet wirkt.
+    // 3) "X" in der Akzentfarbe. Der eine hervorgehobene Buchstabe ist das,
+    //    was aus einem Schriftzug eine Marke macht - und er greift genau die
+    //    Farbe auf, die im Sternenfeld darunter ohnehin dominiert.
+    {
+        // Wortmarke insgesamt etwas groesser (User), und das "X" als eigene,
+        // deutlich groessere Type gesetzt: rund ein Drittel groesser, dafuer
+        // naeher an "SPACE" herangerueckt und an derselben Grundlinienmitte
+        // ausgerichtet - so liest es sich als eine Marke, nicht als zwei Woerter.
+        const juce::Font markFont = juce::Font (juce::FontOptions (27.0f, juce::Font::bold))
+                                        .withExtraKerningFactor (0.08f);
+        const juce::Font xFont    = juce::Font (juce::FontOptions (48.0f, juce::Font::bold))
+                                        .withExtraKerningFactor (0.0f);
+        g.setFont (markFont);
+
+        const juce::String wordSpace ("SPACE");
+        const juce::String wordX ("X");
+        const int spaceW = juce::GlyphArrangement::getStringWidthInt (markFont, wordSpace);
+
+        auto markLine = titleLine;
+
+        // (1) Schein - komplett entfernt (User: "Glow komplett entfernen").
+
+        // (2) "SPACE" mit senkrechtem Verlauf
+        juce::ColourGradient markGrad (juce::Colours::white, 0.0f, (float) markLine.getY(),
+                                        juce::Colour (0xffb9c2d0), 0.0f, (float) markLine.getBottom(), false);
+        g.setGradientFill (markGrad);
+        g.drawText (wordSpace, markLine, juce::Justification::centredLeft);
+
+        // (3) "X" in der Akzentfarbe, groesser und mit knappem Abstand.
+        g.setFont (xFont);
+        // Deutlich groesser und so nah heran, dass es leicht unter das "E"
+        // schiebt (User: "kann sogar ueberlappen") - das X ist die Marke,
+        // nicht der zweite Teil eines Wortes. expanded() gibt der grossen
+        // Type die Hoehe, die die Titelzeile allein nicht hergibt.
+        auto xLine = markLine.withTrimmedLeft (spaceW + 1).expanded (0, 14);
+        juce::ColourGradient xGrad (juce::Colour (0xff7ef0ff), 0.0f, (float) xLine.getY(),
+                                     juce::Colour (0xff9a7bff), 0.0f, (float) xLine.getBottom(), false);
+        g.setGradientFill (xGrad);
+        g.drawText (wordX, xLine, juce::Justification::centredLeft);
+    }
+
+    // Slogan unter dem Logo (User-Wunsch: "Unter dem Logo ist noch Platz ...
+    // hier Slogan 'Spatial Imaging Manipulation'") - nutzt den Freiraum
+    // zwischen der Wortmark und der unteren Kante der Titelzeile. Glossy
+    // Blau/Tuerkis/Lila-Farbverlauf statt einer flachen Farbe (User-Wunsch:
+    // "Mischung aus den Farben blau, tuerkis, lila, modern, glossy"). Rein
+    // statisch (kein Timer/Animation) - bleibt CPU-guenstig.
+    auto sloganLine = textArea;
+    if (sloganLine.getHeight() > 4)
+    {
+        juce::ColourGradient sloganGrad (juce::Colour (0xff5be3ff), (float) sloganLine.getX(), (float) sloganLine.getCentreY(),
+                                          juce::Colour (0xffb26bff), (float) sloganLine.getRight(), (float) sloganLine.getCentreY(), false);
+        sloganGrad.addColour (0.5, juce::Colour (0xff33d6c0));
+
+        // Groesser gesetzt (User-Feedback: "Slogan Schrift groesser") und ohne
+        // den Auftakt-Punkt ("Slogan darunter ohne das Icon"). Der Punkt war
+        // als Satzdetail gedacht, hat aber eine zweite, konkurrierende Form
+        // neben das Logo gestellt - und das Logo links ist bereits ein Kreis.
+        //
+        // Die Breite dafuer ist jetzt da: die globale Button-Zeile rechts ist
+        // durch den Auszug der Preset-Bedienung (siehe Preset-Leiste) von rund
+        // 690px auf rund 410px geschrumpft.
+        const juce::Font sloganFont = juce::Font (juce::FontOptions (13.8f, juce::Font::bold))
+                                          .withExtraKerningFactor (0.20f);
+        g.setFont (sloganFont);
+        g.setGradientFill (sloganGrad);
+        // Slogan aus Pauls Auswahl. "Spatial Intelligence" transportiert das
+        // "smart" ohne das Wort selbst zu benutzen - damit kollidiert es nicht
+        // mit den Smart-Knoepfen im Header, und es kollidiert auch nicht mit
+        // den Sektionsnamen (Dimension). Aendern ist eine Zeile.
+        g.drawText ("SPATIAL INTELLIGENCE", sloganLine, juce::Justification::centredLeft);
+    }
+
+    // Kleine vertikale Trennstriche in der globalen Button-Zeile (User-
+    // Wunsch: neue Reihenfolge mit Gruppen-Trennern), Positionen kommen aus
+    // layoutContent().
+    g.setColour (juce::Colours::white.withAlpha (0.14f));
+    for (auto x : globalRowSeparatorX)
+        g.drawLine ((float) x, (float) globalRowSeparatorTop, (float) x, (float) globalRowSeparatorBottom, 1.0f);
+
+    // Trennstriche der zweiten Titelzeile (Preset-Zeile) - gleiche Optik
+    // wie in der ersten, damit die beiden Zeilen als EIN Block gelesen werden.
+    for (auto x : presetRowSeparatorX)
+        g.drawLine ((float) x, (float) presetRowSeparatorTop, (float) x, (float) presetRowSeparatorBottom, 1.0f);
+
+    // Dezente Gruppierungs-Rahmen: zeigen zusammengehoerige Regler, ohne
+    // dominant zu wirken. Wenn die Sektion per Power-Icon deaktiviert ist,
+    // wird der GESAMTE Kasten (nicht nur die einzelnen Regler) ausgegraut,
+    // damit sofort klar ist, dass die Sektion gerade nicht wirkt.
+    // "blink" = true fuer die aktuell solote Sektion - blendet dieselbe
+    // sanfte Puls-Alpha wie die Icons (Solo/Mono/Mod) auch auf die
+    // Fuell-/Linienfarbe des GESAMTEN Rahmens ein (User-Feedback: "soll der
+    // ganze Rahmen blinken, nicht nur der Button").
+    auto drawGroup = [&] (juce::Rectangle<int> r, juce::Colour c, bool on, bool blink, float strokeWidth = 2.8f)
+    {
+        if (r.isEmpty()) return;
+        auto rf = r.toFloat().reduced (3.0f);
+        auto col = on ? c : juce::Colour (0xff545862);
+        // Sehr dezenter Aussen-Glow NUR bei eingeschalteter Sektion (User:
+        // "noch eine simple Loesung: minimal mehr Glow, wenn section=on").
+        // Pop hat seinen eigenen Look und bleibt aussen vor.
+        auto onGlow = [&] (float corner)
+        {
+            if (! on || isComicTheme()) return;
+            for (int layer = 3; layer >= 1; --layer)
+            {
+                const float expand = 1.5f + 2.5f * (float) layer;
+                g.setColour (c.withAlpha (0.026f * (float) (4 - layer)));
+                g.drawRoundedRectangle (rf.expanded (expand), corner + expand, 2.0f);
+            }
+        };
+        // Deckkraft der Fuellflaeche bei aktiver Sektion reduziert (vorher
+        // 0.07f wirkte durch die satten Akzentfarben zu praesent/deckend -
+        // User-Feedback). Die Rahmenlinie selbst (lineA) bleibt unveraendert.
+        float pulse = 1.0f;
+        if (blink)
+        {
+            const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            constexpr double periodSeconds = 2.2;
+            pulse = 0.55f + 0.45f * (float) (0.5 + 0.5 * std::sin (juce::MathConstants<double>::twoPi * t / periodSeconds));
+        }
+        // Frameless (User: "eine ganz leichte Trennung, subtil, aber ohne harte
+        // Frames"): keine Kaesten, keine Linien - nur ein minimaler
+        // Helligkeitsversatz der EINGESCHALTETEN Sektion gegenueber der Platte
+        // und eine hauchduenne Lichtkante oben. Das Auge gruppiert trotzdem,
+        // aber nichts davon zieht Aufmerksamkeit auf sich.
+        // Outline (User-Idee): die Umkehrung von Flat - ein leichter Rahmen,
+        // aber praktisch keine Fuellung (rund 2 % Unterschied zur UI).
+        if (layoutOutline())
+        {
+            if (on)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.020f * pulse));
+                g.fillRoundedRectangle (rf, 10.0f);
+            }
+            g.setColour (col.withAlpha ((on ? 0.38f : 0.10f) * pulse));
+            g.drawRoundedRectangle (rf, 10.0f, on ? 1.4f : 1.0f);
+            return;
+        }
+        if (layoutFrameless())
+        {
+            if (on)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.020f * pulse));
+                g.fillRoundedRectangle (rf, 12.0f);
+                juce::ColourGradient top (juce::Colours::white.withAlpha (0.034f * pulse), rf.getCentreX(), rf.getY(),
+                                          juce::Colours::white.withAlpha (0.0f),           rf.getCentreX(), rf.getY() + rf.getHeight() * 0.55f, false);
+                g.setGradientFill (top);
+                g.fillRoundedRectangle (rf, 12.0f);
+            }
+            return;
+        }
+
+        // ---- Theme-Varianten der Sektionsflaeche ----
+        if (usesWashSections())
+        {
+            // Dark-Night-Stil (User: "sieht so geil aus" - auch fuer Modern und
+            // Day & Night): sehr dunkle Flaeche ohne Korn, weicher Farbhauch der
+            // Sektion oben links, keine harte Rahmenlinie - nur ein 1-px-
+            // Schimmer plus zwei weiche Saum-Striche. Farben je Theme: washFill().
+            const auto wf = washFill();
+            // Aus-Sektion: KEINE Fuellung mehr - die Platte scheint unveraendert
+            // durch (User: "exakt dieselbe Farbe wie die UI an der Stelle").
+            onGlow (10.0f);
+            if (on)
+            {
+                g.setColour (wf.on.withAlpha (wf.aOn));
+                g.fillRoundedRectangle (rf, 10.0f);
+            }
+            if (on)
+            {
+                juce::ColourGradient wash (col.withAlpha (0.14f * pulse), rf.getX() + rf.getWidth() * 0.15f, rf.getY(),
+                                           col.withAlpha (0.0f), rf.getX() + rf.getWidth() * 0.15f + rf.getWidth() * 0.75f, rf.getY(), true);
+                g.setGradientFill (wash);
+                g.fillRoundedRectangle (rf, 10.0f);
+            }
+            // Aus: nur noch ein minimaler Rand, damit man sieht, DASS dort eine
+            // Sektion liegt - sonst nichts (User).
+            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.030f));
+            g.drawRoundedRectangle (rf, 10.0f, 1.0f);
+            // Moon (User: "Kontrast zwischen on und off ist zu gering, und die
+            // UI ist schon dunkel genug"): der Rahmen der EINGESCHALTETEN
+            // Sektion bekommt zusaetzlich einen klaren Zug Akzentfarbe - das
+            // ist der einzige Hebel, der uebrig bleibt, ohne alles abzudunkeln.
+            if (isMoonTheme() && on)
+            {
+                g.setColour (col.withAlpha (0.34f * pulse));
+                g.drawRoundedRectangle (rf, 10.0f, 1.3f);
+            }
+            if (on)
+            {
+                g.setColour (col.withAlpha (0.05f * pulse));
+                g.drawRoundedRectangle (rf.expanded (1.0f), 11.0f, 1.5f);
+                g.drawRoundedRectangle (rf.expanded (2.0f), 12.0f, 1.5f);
+            }
+            return;
+        }
+        if (false)
+        {
+            g.setColour ((on ? juce::Colour (0xff1e2230) : juce::Colour (0xff0b0d14)).withAlpha (on ? 0.66f : 0.92f));
+            g.fillRoundedRectangle (rf, 10.0f);
+            {
+                juce::ColourGradient light (juce::Colours::white.withAlpha (on ? 0.045f : 0.012f), rf.getX(), rf.getY(),
+                                            juce::Colours::black.withAlpha (0.06f), rf.getRight(), rf.getBottom(), false);
+                g.setGradientFill (light);
+                g.fillRoundedRectangle (rf, 10.0f);
+            }
+            g.setColour (col.withAlpha ((on ? 0.05f : 0.02f) * pulse));
+            g.fillRoundedRectangle (rf, 10.0f);
+            if (grainTile.isValid())
+            {
+                g.saveState();
+                juce::Path clip; clip.addRoundedRectangle (rf, 10.0f);
+                g.reduceClipRegion (clip);
+                g.setTiledImageFill (grainTile, 0, 0, 1.0f);
+                g.fillRect (rf);
+                g.restoreState();
+            }
+            // Rahmen: weicher Kontrast, Verlauf oben-links heller, mit Korn.
+            {
+                const float wFrame = strokeWidth * 0.8f + 1.5f;   // 1-2 px dicker, damit die Textur im Rahmen sichtbar wird (User)
+                juce::ColourGradient edge (col.withAlpha ((on ? 0.36f : 0.07f) * pulse), rf.getX(), rf.getY(),
+                                           col.withAlpha ((on ? 0.22f : 0.04f) * pulse), rf.getRight(), rf.getBottom(), false);
+                g.setGradientFill (edge);
+                g.drawRoundedRectangle (rf, 10.0f, wFrame);
+                if (grainTile.isValid())
+                {
+                    juce::Path frame; frame.addRoundedRectangle (rf, 10.0f);
+                    juce::Path stroked;
+                    juce::PathStrokeType (wFrame).createStrokedPath (stroked, frame);
+                    g.saveState();
+                    g.reduceClipRegion (stroked);
+                    g.setTiledImageFill (grainTile, 0, 0, 1.0f);
+                    g.fillRect (rf.expanded (3.0f));
+                    g.restoreState();
+                }
+            }
+            return;
+        }
+        if (isComicTheme())
+        {
+            // Konturen, Versatz-Schatten, satte Flaeche in Sektionsfarbe.
+            g.setColour (comicInk());
+            g.fillRoundedRectangle (rf.translated (5.0f, 5.0f), 12.0f);
+            g.setColour ((on ? juce::Colour (0xff1e1a3a) : juce::Colour (0xff14112a)).interpolatedWith (col, (on ? 0.34f : 0.05f) * pulse));   // aus: dunkler, kaum Farbe (User)
+            g.fillRoundedRectangle (rf, 12.0f);
+            g.setColour (comicInk());
+            g.drawRoundedRectangle (rf, 12.0f, 3.0f);
+            return;
+        }
+        if (usesFlatPanels())
+        {
+            // Sci-Fi / Moon: ruhige, gefuellte Flaeche (aus dem "subtil"-
+            // Mockup, User), Rahmen nur als feiner Schimmer - "weniger ist mehr".
+            // Sci-Fi / Flat: ruhige, gefuellte Flaeche, Rahmen als feiner
+            // Schimmer. Der Aus-Zustand ist jetzt deutlich dunkler und der
+            // Rahmen dort fast weg (User: bei Flat war on/off am schwersten
+            // zu unterscheiden); dafuer bekommt die EINGESCHALTETE Sektion
+            // einen kraeftigeren Rahmen und einen Hauch Glow.
+            const juce::Colour surf (themeSurface());
+            if (on && r != groupLcrArea) onGlow (10.0f);   // Galaxy hat seinen eigenen Glow
+            // Aus-Sektion ohne Fuellung; Sci-Fi Dark verzichtet auch im
+            // An-Zustand darauf (User-Idee: "quasi nur ein Frame, innen die
+            // UI-Farbe").
+            if (on)
+            {
+                // Sci-Fi: halbe Deckkraft - genau zwischen der frueheren
+                // gefuellten Variante (0.62) und "gar keine Fuellung" der
+                // Dark-Variante. Die beiden sind ein Theme geworden (User).
+                g.setColour (surf.withAlpha (isSciFiTheme() ? 0.34f : 0.62f));
+                g.fillRoundedRectangle (rf, 10.0f);
+            }
+            g.setColour (col.withAlpha ((on ? 0.42f : 0.10f) * pulse));
+            g.drawRoundedRectangle (rf, 10.0f, on ? 1.6f : 1.0f);
+            return;
+        }
+        const float lineA = (on ? 0.45f : 0.10f) * pulse;   // aus: nur ein minimaler Rand (User)
+        onGlow (10.0f);
+        if (on)
+        {
+            g.setColour (col.withAlpha (0.035f * pulse));
+            g.fillRoundedRectangle (rf, 10.0f);
+        }
+        g.setColour (col.withAlpha (lineA));
+        // Nochmal einen Tick dicker (2.4 -> 2.8f, User-Feedback: "alle
+        // Rahmen leicht dicker, aber nicht viel"); die beiden linken
+        // Rahmen (Galaxy/Timewarp) bekommen ueber strokeWidth nochmal einen
+        // Tick mehr (User-Feedback: "Links beide Rahmen dicker").
+        g.drawRoundedRectangle (rf, 10.0f, strokeWidth);
+    };
+
+    // Aktuell solote Sektion (falls vorhanden) bekommt statt ihrer normalen
+    // Sektionsfarbe einen auffaelligeren Amber-Rahmen (dieselbe Akzentfarbe
+    // wie das aktive Solo-Icon selbst) - macht auf einen Blick sichtbar,
+    // welche Sektion gerade solot (und damit dauerhaft an ist).
+    const int soloState = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+    const juce::Colour soloAmber (0xffffb648);
+    auto groupColour = [&] (int soloValue, juce::Colour normalCol)
+    {
+        return soloState == soloValue ? soloAmber : normalCol;
+    };
+
+    // Sektionsfarben: Pop behaelt seine bunten Rahmen, alle anderen Themes
+    // eine Familie aus der Theme-Palette (Galaxy und RAYE bleiben eigen).
+    const auto pal = themePalette();
+    const bool perSection = isComicTheme();
+    const juce::Colour cPurple = perSection ? juce::Colour (0xffb968ff) : pal.frameMain;
+    const juce::Colour cGreen  = perSection ? juce::Colour (0xff5be3c7) : pal.frameMain;
+    const juce::Colour cGalaxy = perSection ? pal.frameGalaxy : pal.frameMain;   // Galaxy ohne eigenen Rahmenton (User: hat den Glow)
+    drawGroup (groupLcrArea,        groupColour (LCRMSAudioProcessor::SOLO_GALAXY,     cGalaxy),         lcrFrameOn,        soloState == LCRMSAudioProcessor::SOLO_GALAXY, 3.4f);
+    drawGroup (groupDriftArea,      groupColour (LCRMSAudioProcessor::SOLO_TIMEWARP,   cPurple),         driftFrameOn,      soloState == LCRMSAudioProcessor::SOLO_TIMEWARP, 3.4f);
+    drawGroup (groupPolArea,        groupColour (LCRMSAudioProcessor::SOLO_POLARITY,   cPurple),         polFrameOn,        soloState == LCRMSAudioProcessor::SOLO_POLARITY);
+    drawGroup (groupWidthBoostArea, groupColour (LCRMSAudioProcessor::SOLO_DIMENSION,  cGreen),          widthBoostFrameOn, soloState == LCRMSAudioProcessor::SOLO_DIMENSION);
+    drawGroup (groupFlowArea,       groupColour (LCRMSAudioProcessor::SOLO_HYPERDRIVE, cPurple),         flowFrameOn,       soloState == LCRMSAudioProcessor::SOLO_HYPERDRIVE);
+    drawGroup (groupPosArea,        groupColour (LCRMSAudioProcessor::SOLO_POSITION,   cGreen),          posFrameOn,        soloState == LCRMSAudioProcessor::SOLO_POSITION);
+    drawGroup (groupRayArea,        groupColour (LCRMSAudioProcessor::SOLO_RAY,        pal.frameRaye),   rayFrameOn,        soloState == LCRMSAudioProcessor::SOLO_RAY);
+
+    // Pop: Footer in zwei Kaesten wie die Sektionen (Meter..Vol, PRISM) -
+    // sonst wirkt er "draufgesetzt" (User).
+    if (isComicTheme())
+    {
+        auto boxOf = [] (std::initializer_list<juce::Component*> cs)
+        {
+            juce::Rectangle<int> u;
+            for (auto* c : cs) u = u.isEmpty() ? c->getBounds() : u.getUnion (c->getBounds());
+            return u.expanded (10, 8);
+        };
+        auto drawBox = [&] (juce::Rectangle<int> b)
+        {
+            if (b.isEmpty()) return;
+            auto rf = b.toFloat();
+            g.setColour (comicInk());
+            g.fillRoundedRectangle (rf.translated (4.0f, 4.0f), 12.0f);
+            g.setColour (juce::Colour (0xff2a2450));
+            g.fillRoundedRectangle (rf, 12.0f);
+            g.setColour (comicInk());
+            g.drawRoundedRectangle (rf, 12.0f, 3.0f);
+        };
+        // Ein Kasten um alle Footer-Elemente inkl. Beschriftungen und IN/OUT-
+        // Meter (User: "lieber einen Kasten, alle Labels drinnen").
+        drawBox (boxOf ({ &volInputMeter, &volOutputMeter, &inputMeterLabel, &outputMeterLabel,
+                          &monoCheckButton, &monoCheckLabel, &monoDryButton, &monoDryLabel,
+                          &mixSlider, &mixLabel, &volSlider, &volLabel, &prismOnButton, &prismBand }));
+        // Das "?" unten links bekommt einen eigenen kleinen Kasten. Er darf
+        // den Rahmen darueber ueberlappen - das sieht in Pop absichtlich so
+        // aus (User).
+        drawBox (helpButton.getBounds().expanded (5, 4));
+    }
+
+    // RAYE-Pair: goldene Klammer um Speed/Sync/Bars in Hyperdrive - die
+    // sichtbare Bruecke zwischen den beiden Sektionen, solange die Kopplung
+    // aktiv ist.
+    // (Die frueheren goldenen Rahmen um Speed bzw. Sync/Bars sind entfernt -
+    //  User: nur noch die Elemente selbst markieren.)
+
+    // ===== POLARITY-POSITION SICHTBAR MACHEN =====
+    // Ein kleiner leuchtender Punkt an der Stelle der Kette, an der der
+    // Flip gerade sitzt (User-Idee: "die Stelle wo 1-4 ist visuell
+    // darstellen ... zwischen den beiden Sections zwischen denen es wirkt").
+    // Kette: Galaxy -> Timewarp -> Dimension -> Hyperdrive -> Vision -> RAYE.
+    //   1 = vor Galaxy (linke Kante von Galaxy)
+    //   2 = nach Galaxy (Fuge Galaxy | Timewarp)
+    //   3 = nach Dimension (Fuge Dimension | Hyperdrive)
+    //   4 = nach Vision (Fuge Vision | RAYE)
+    if (polFrameOn && ! groupLcrArea.isEmpty())
+    {
+        const int pos = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+        juce::Point<float> m;
+        switch (pos)
+        {
+            case 0: m = { (float) groupLcrArea.getX() - 9.0f, (float) groupLcrArea.getCentreY() }; break;
+            case 1: m = { (float) groupLcrArea.getCentreX(), 0.5f * (float) (groupLcrArea.getBottom() + groupDriftArea.getY()) }; break;
+            case 2: m = { (float) groupWidthBoostArea.getCentreX(), 0.5f * (float) (groupWidthBoostArea.getBottom() + groupFlowArea.getY()) }; break;
+            default: m = { 0.5f * (float) (groupPosArea.getRight() + groupRayArea.getX()), (float) groupPosArea.getCentreY() }; break;
+        }
+        // Marker dezent in der Theme-Familie (User) - Pop behaelt sein Lila.
+        const juce::Colour polCol = isComicTheme() ? juce::Colour (0xffb968ff)
+                                                   : themePalette().frameMain.interpolatedWith (themePalette().knob, 0.30f);
+        for (int i = 3; i >= 1; --i)
+        {
+            const float r = 4.0f + (float) i * 3.0f;
+            g.setColour (polCol.withAlpha (0.06f * (float) (4 - i)));
+            g.fillEllipse (m.x - r, m.y - r, r * 2.0f, r * 2.0f);
+        }
+        g.setColour (polCol);
+        g.fillEllipse (m.x - 3.5f, m.y - 3.5f, 7.0f, 7.0f);
+        // kleines "+/-" als Flip-Zeichen
+        g.setColour (juce::Colour (0xff17191f));
+        g.fillRect (m.x - 2.0f, m.y - 0.6f, 4.0f, 1.2f);
+    }
+
+    // Galaxy visuell deutlicher abgesetzt (User-Wunsch: "Galaxy muss visuell
+    // besser getrennt sein. Ist ein starker Einfluss wegen Latenz.") - ein
+    // zusaetzlicher, sanft pulsierender Aussen-Glow um den gesamten Galaxy-
+    // Rahmen, aber NUR wenn "Activate Galaxy" (ID_GALAXY_ACTIVATE) auch
+    // wirklich an ist - genau dann faellt die Host-Latenz tatsaechlich an.
+    // Reiner Zusatz-Effekt zum normalen drawGroup()-Rahmen oben, keine
+    // Ersetzung. Nutzt dieselbe Zeit-basierte Sinus-Pulsierung wie der
+    // Solo-Blink (kein eigener Timer/Member noetig, bleibt CPU-guenstig).
+    if (! groupLcrArea.isEmpty())
+    {
+        // Der Glow zeigt die anfallende Latenz an - er darf aber nicht
+        // leuchten, wenn die Galaxy-Sektion selbst aus ist (User: "beim
+        // allen Themes: Glow bei Galaxy wenn off muss aus sein -
+        // irrefuehrend").
+        const bool galaxyEngineOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f
+                                 && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_ENABLED)->load() > 0.5f
+                                 && ! processor.uiBypassed.load()
+                                 && ! layoutFrameless();   // ohne Sektionskasten haette der Glow nichts, worum er liegen koennte
+        if (galaxyEngineOn)
+        {
+            // Konstant statt zeitgepulst (User-Bug: RAYE an/aus und Pair-Klick
+            // liessen den Galaxy-Glow "atmen" - paintContent zeichnet nur bei
+            // Klicks neu, die Sinusphase war dann jedes Mal eine andere).
+            const float pulse = 0.70f;
+            auto glowRect = groupLcrArea.toFloat().reduced (3.0f);
+            const juce::Colour glowCol (isComicTheme() ? juce::Colour (0xffffb648) : themePalette().frameRaye);   // Theme-Farbe (User); Pop Amber
+            for (int layer = 3; layer >= 1; --layer)
+            {
+                const float expand = 2.0f + 3.0f * (float) layer;
+                g.setColour (glowCol.withAlpha (0.05f * pulse * (float) (4 - layer)));
+                g.drawRoundedRectangle (glowRect.expanded (expand), 10.0f + expand, 2.0f);
+            }
+        }
+    }
+}
+
+// Bypass: halbtransparenter grauer Schleier ueber der GESAMTEN GUI (statt
+// jedes einzelne Element separat auszugrauen - guenstiger und optisch
+// konsistenter). Wird bewusst in paintOverChildren() gezeichnet (siehe
+// ContentComponent), NICHT hier oben in paintContent() - sonst laege der
+// Schleier UNTER den Kind-Komponenten (Regler, Goniometer, Korrelations-
+// messer) und wuerde von deren eigenem Zeichnen ueberdeckt (genau das war
+// der Bug: Goniometer + Korrelationsmesser blieben bei Bypass weiterhin
+// voll farbig). So liegt er wirklich ueber allem; nur der Logo-Klick-
+// bereich selbst bleibt normal bedienbar (Bypass wieder ausschalten
+// funktioniert weiterhin per Klick auf das Logo).
+// ===== THEME =====
+void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
+{
+    uiThemeIndex = juce::jlimit (0, kUiThemeCount - 1, theme);
+    // "Sci-Fi Dark" (6) gibt es nicht mehr - gespeicherte Einstellungen aus
+    // aelteren Versionen landen jetzt auf dem zusammengelegten Sci-Fi (3).
+    if (uiThemeIndex == 6) uiThemeIndex = 3;
+    uiThemeRef() = (UiTheme) uiThemeIndex;
+    {
+        const auto pal = themePalette();
+        lookAndFeel.accent     = pal.knob;   // Reglerwerte
+        lookAndFeel.glowAccent = pal.mod;    // Mod-Punkte / aktive Knoepfe
+    }
+    goniometer.setUiTheme (uiThemeIndex);
+    prismOnButton.getProperties().set ("powerColour", (int) (isComicTheme() ? 0xff8a6ab8u : themePalette().prism.getARGB()));
+    mixSlider.getProperties().set ("footerKnob", true);
+    volSlider.getProperties().set ("footerKnob", true);
+    {
+        const auto pal = themePalette();
+        if (isComicTheme()) viewPanel.setHeadColours (juce::Colour (0xffb968ff), juce::Colour (0xff5be3c7), juce::Colour (0xff6bb8ff));
+        else                viewPanel.setHeadColours (pal.knob, pal.knob.withAlpha (0.85f), pal.knob.withAlpha (0.85f));   // eine Farbe (User)
+    }
+    if (persist)
+    {
+        // Gonio-Farbe je Theme als Startwert (User: Modern Blau, Watercolor
+        // Gold, Comic Purple, Modern Purple Gruen) - bleibt danach frei waehlbar.
+        viewPanel.setGonioColourIndex (gonioColourForTheme (uiThemeIndex));
+        applyViewSettings (false);
+        juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+        props.setValue ("uiTheme4", uiThemeIndex);
+        props.saveIfNeeded();
+    }
+    // Alle Kinder neu zeichnen lassen (Regler/Knoepfe holen sich das Theme
+    // beim Zeichnen aus dem LookAndFeel).
+    content.sendLookAndFeelChange();
+    content.repaint();
+    repaint();
+}
+
+// Abgerundetes Rechteck mit leicht unregelmaessigem Rand (Wasserfarbe):
+// Punkte entlang des Umrisses werden entlang der Normalen um eine Summe
+// weniger Sinus-Wellen verschoben - deterministisch je Sektion (seed).
+juce::Path LCRMSAudioProcessorEditor::wobblyRoundedRect (juce::Rectangle<float> r, float corner, float amp, int seed)
+{
+    juce::Path base;
+    base.addRoundedRectangle (r, corner);
+    const float len = base.getLength();
+    const float step = 7.0f;
+    const float ph1 = (float) (seed % 97) * 0.13f, ph2 = (float) (seed % 41) * 0.31f, ph3 = (float) (seed % 23) * 0.57f;
+    juce::Path out;
+    bool started = false;
+    for (float d = 0.0f; d < len; d += step)
+    {
+        const auto p0 = base.getPointAlongPath (d);
+        const auto p1 = base.getPointAlongPath (juce::jmin (len - 0.01f, d + 1.0f));
+        auto t = p1 - p0;
+        const float tl = std::max (0.001f, std::hypot (t.x, t.y));
+        const juce::Point<float> n (-t.y / tl, t.x / tl);
+        const float w = amp * (0.55f * std::sin (d * 0.061f + ph1) + 0.30f * std::sin (d * 0.137f + ph2) + 0.15f * std::sin (d * 0.29f + ph3));
+        const auto p = p0 + n * w;
+        if (! started) { out.startNewSubPath (p); started = true; }
+        else            out.lineTo (p);
+    }
+    out.closeSubPath();
+    return out;
+}
+
+// Platten-Textur je Theme, einmal in ein Bild gebacken (kein CPU-Aufwand
+// pro Frame): Wasserfarbe = dunkle Flaeche mit weichen Nebula-Farbwolken und
+// feinem Korn; Comic = flache Flaeche mit Rasterpunkten.
+void LCRMSAudioProcessorEditor::drawThemePlate (juce::Graphics& g, juce::Rectangle<float> plate, float corner)
+{
+    // Flat und Sci-Fi bekommen eine reine Farbplatte ohne jede Textur -
+    // bei Flat ist genau das der Punkt des Themes (User).
+    if (isFlatTheme() || isSciFiTheme())
+        return;
+    const int w = (int) std::ceil (plate.getWidth()), h = (int) std::ceil (plate.getHeight());
+    if (themePlateFor != uiThemeIndex || themePlate.getWidth() != w || themePlate.getHeight() != h)
+    {
+        themePlate = juce::Image (juce::Image::ARGB, juce::jmax (1, w), juce::jmax (1, h), true);
+        juce::Graphics pg (themePlate);
+        const auto full = juce::Rectangle<float> (0, 0, (float) w, (float) h);
+        juce::Path clip; clip.addRoundedRectangle (full, corner);
+        pg.reduceClipRegion (clip);
+        if (isMoonTheme())
+        {
+            // Moon (User: "die GUI darf dezent was vom Mond haben" - beim
+            // Umbenennen von Flat auf Moon uebernommen und noch eine Spur
+            // zurueckgenommen): ein Hauch Mondlicht oben links und ein paar
+            // sehr blasse Krater unten rechts - transparent, kein Korn.
+            juce::ColourGradient light (juce::Colours::white.withAlpha (0.026f), (float) w * 0.10f, (float) h * 0.05f,
+                                        juce::Colours::white.withAlpha (0.0f),   (float) w * 0.10f + (float) w * 0.55f, (float) h * 0.05f, true);
+            pg.setGradientFill (light);
+            pg.fillAll();
+            juce::ColourGradient flow (juce::Colour (0xffd8d4cc).withAlpha (0.0f), (float) w * 0.55f, (float) h * 0.55f,
+                                       juce::Colour (0xffd8d4cc).withAlpha (0.022f), (float) w, (float) h, false);   // "fliessend", dezent (User)
+            pg.setGradientFill (flow);
+            pg.fillAll();
+            struct Crater { float fx, fy, fr; };
+            static const Crater craters[] = { { 0.86f, 0.80f, 0.075f }, { 0.74f, 0.92f, 0.045f }, { 0.94f, 0.96f, 0.032f }, { 0.08f, 0.90f, 0.038f } };
+            for (const auto& c : craters)
+            {
+                const float cx = c.fx * (float) w, cy = c.fy * (float) h, r = c.fr * (float) w;
+                juce::ColourGradient bowl (juce::Colours::black.withAlpha (0.072f), cx + r * 0.25f, cy + r * 0.25f,
+                                           juce::Colours::black.withAlpha (0.0f), cx + r * 0.25f + r, cy + r * 0.25f, true);
+                pg.setGradientFill (bowl);
+                pg.fillEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f);
+                pg.setColour (juce::Colours::white.withAlpha (0.032f));
+                pg.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.0f);
+                pg.setColour (juce::Colours::white.withAlpha (0.021f));   // Lichtkante oben links
+                juce::Path lit; lit.addCentredArc (cx, cy, r - 1.0f, r - 1.0f, 0.0f, -2.9f, -1.2f, true);
+                pg.strokePath (lit, juce::PathStrokeType (1.6f));
+            }
+        }
+        else if (isDayNightTheme())
+        {
+            // Day & Night (User: "Akzente, darf auch was Fliessendes sein, aber
+            // dezent"): warmer Lichthof oben links (Sonne), zwei sehr blasse
+            // Ringe, und unten ein weicher blauer Horizont-Hauch (Erde).
+            const float cx = (float) w * 0.06f, cy = (float) h * 0.04f;
+            juce::ColourGradient light (juce::Colour (0xfff5c96b).withAlpha (0.07f), cx, cy,
+                                        juce::Colour (0xfff5c96b).withAlpha (0.0f), cx + (float) w * 0.50f, cy, true);
+            pg.setGradientFill (light);
+            pg.fillAll();
+            for (int k = 0; k < 2; ++k)
+            {
+                const float rr = (float) w * (0.22f + 0.14f * (float) k);
+                pg.setColour (juce::Colour (0xfff5c96b).withAlpha (0.032f - 0.01f * (float) k));
+                pg.drawEllipse (cx - rr, cy - rr, rr * 2.0f, rr * 2.0f, 1.2f);
+            }
+            juce::ColourGradient horizon (juce::Colour (0xff6fc3ff).withAlpha (0.0f), 0.0f, (float) h * 0.62f,
+                                          juce::Colour (0xff6fc3ff).withAlpha (0.045f), 0.0f, (float) h, false);
+            pg.setGradientFill (horizon);
+            pg.fillAll();
+        }
+        else if (isWaterTheme())
+        {
+            const bool dark = true;   // nur noch Dark Night (User: Night geloescht)
+            pg.setColour (dark ? juce::Colour (0xff0c0e15) : juce::Colour (0xff10131c));
+            pg.fillAll();
+            auto blob = [&] (float fx, float fy, float fr, juce::Colour c, float a)
+            {
+                juce::ColourGradient grad (c.withAlpha (a), fx * (float) w, fy * (float) h,
+                                           c.withAlpha (0.0f), fx * (float) w + fr * (float) w, fy * (float) h, true);
+                pg.setGradientFill (grad);
+                pg.fillAll();
+            };
+            // Farbwolken nur als Hauch (User: "zu stark texturiert ... eher
+            // leicht texturiert, subtil, modern").
+            const float bm = dark ? 0.55f : 1.0f;   // Dark Night: Farbwolken halb so stark
+            blob (0.86f, 0.12f, 0.50f, juce::Colour (0xff506edc), 0.11f * bm);
+            blob (0.74f, 0.88f, 0.46f, juce::Colour (0xffbe6ec8), 0.08f * bm);
+            blob (0.18f, 0.55f, 0.42f, juce::Colour (0xff50a0c8), 0.07f * bm);
+            blob (0.30f, 0.05f, 0.30f, juce::Colour (0xff8a78d8), 0.06f * bm);
+            // Nebula-Foto ganz dezent hinter den Sektionen (rechte Haelfte),
+            // nach links bis zur Plugin-Mitte und oben/unten ausblendend (User).
+            if (auto neb = juce::ImageFileFormat::loadFrom (SpaceAssets::bg_nebula, (size_t) SpaceAssets::bg_nebulaSize); neb.isValid())
+            {
+                const int hw = w / 2;
+                juce::Image half (juce::Image::ARGB, juce::jmax (1, hw), juce::jmax (1, h), true);
+                {
+                    juce::Graphics hg (half);
+                    const float sc = juce::jmax ((float) hw / (float) neb.getWidth(), (float) h / (float) neb.getHeight());
+                    hg.drawImageTransformed (neb, juce::AffineTransform::scale (sc).translated (((float) hw - (float) neb.getWidth() * sc) * 0.5f, ((float) h - (float) neb.getHeight() * sc) * 0.5f));
+                }
+                juce::Image::BitmapData hb (half, juce::Image::BitmapData::readWrite);
+                for (int y = 0; y < hb.height; ++y)
+                {
+                    const float fy = (float) y / (float) juce::jmax (1, hb.height - 1);
+                    const float vy = juce::jlimit (0.0f, 1.0f, juce::jmin (fy / 0.25f, (1.0f - fy) / 0.25f));
+                    for (int x = 0; x < hb.width; ++x)
+                    {
+                        const float fx = (float) x / (float) juce::jmax (1, hb.width - 1);
+                        const float vx = juce::jlimit (0.0f, 1.0f, fx / 0.65f);           // links (Plugin-Mitte) = 0
+                        const float a  = (dark ? 0.05f : 0.10f) * vx * vy;                 // maximal 10 % (Dark Night 5 %)
+                        auto* px = hb.getPixelPointer (x, y);
+                        for (int c = 0; c < 4; ++c)
+                            px[c] = (juce::uint8) juce::jlimit (0, 255, (int) std::round ((float) px[c] * a));
+                    }
+                }
+                pg.drawImageAt (half, w - hw, 0);
+            }
+            if (dark)
+            {
+                // Dark Night (User): die UI besonders rechts unter den Sektionen
+                // dunkler werden lassen - weicher Verlauf von der Mitte nach rechts.
+                juce::ColourGradient shade (juce::Colours::black.withAlpha (0.0f), (float) w * 0.42f, 0.0f,
+                                            juce::Colours::black.withAlpha (0.42f), (float) w, 0.0f, false);
+                pg.setGradientFill (shade);
+                pg.fillAll();
+            }
+            // Feines Korn (Papier), halb so stark wie zuvor.
+            juce::Image::BitmapData bd (themePlate, juce::Image::BitmapData::readWrite);
+            juce::Random rnd (1234);
+            for (int y = 0; y < bd.height; ++y)
+                for (int x = 0; x < bd.width; ++x)
+                {
+                    auto* px = bd.getPixelPointer (x, y);   // BGRA (premultiplied)
+                    if (px[3] == 0) continue;
+                    const int n = rnd.nextInt (9) - 4;
+                    for (int c = 0; c < 3; ++c)
+                        px[c] = (juce::uint8) juce::jlimit (0, (int) px[3], (int) px[c] + n);
+                }
+            // Korn-Kachel fuer die Sektionsflaechen (wird gekachelt gefuellt).
+            grainTile = juce::Image (juce::Image::ARGB, 96, 96, true);
+            juce::Image::BitmapData gt (grainTile, juce::Image::BitmapData::readWrite);
+            for (int y = 0; y < gt.height; ++y)
+                for (int x = 0; x < gt.width; ++x)
+                {
+                    auto* px = gt.getPixelPointer (x, y);
+                    const int v = rnd.nextInt (256);
+                    const juce::uint8 a = (juce::uint8) 22;               // sehr leicht
+                    const juce::uint8 l = (juce::uint8) ((v * (int) a) / 255);   // premultiplied
+                    px[0] = l; px[1] = l; px[2] = l; px[3] = a;
+                }
+        }
+        else
+        {
+            pg.setColour (juce::Colour (0xff1c1738));
+            pg.fillAll();
+            juce::ColourGradient grad (juce::Colour (0xff271f4d), 0.0f, 0.0f, juce::Colour (0xff15112c), (float) w, (float) h, false);
+            pg.setGradientFill (grad);
+            pg.fillAll();
+            pg.setColour (juce::Colours::white.withAlpha (0.075f));
+            for (int y = 0, row = 0; y < h; y += 12, ++row)
+                for (int x = (row & 1) ? 6 : 0; x < w; x += 12)
+                    pg.fillEllipse ((float) x - 1.3f, (float) y - 1.3f, 2.6f, 2.6f);
+        }
+        themePlateFor = uiThemeIndex;
+    }
+    g.drawImageAt (themePlate, (int) plate.getX(), (int) plate.getY());
+}
+
+// Hinweiszeile unter dem Footer. Liegt in paintOverContent, damit sie auch
+// ueber dem abgedunkelten Bereich des View-Panels lesbar bleibt.
+void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
+{
+    if (hintBarArea.isEmpty()) return;
+    auto r = hintBarArea.toFloat();
+    // Feine Trennlinie darueber - sonst schwebt der Text im Nichts.
+    g.setColour (juce::Colours::white.withAlpha (0.055f));
+    g.fillRect (r.getX() - 30.0f, r.getY() - 7.0f, r.getWidth() + 30.0f, 1.0f);
+
+    if (currentHint.isEmpty())
+        return;   // Platzhaltertext entfallen (User: "weiss jeder")
+
+    // Bezeichnung bis zum Doppelpunkt fett, Rest normal - dasselbe Muster wie
+    // frueher im Tooltip-Fenster.
+    const juce::Font boldF  (juce::FontOptions (12.5f, juce::Font::bold));
+    const juce::Font plainF (juce::FontOptions (12.5f));
+    const int colon = currentHint.indexOfChar (':');
+    juce::AttributedString a;
+    a.setJustification (juce::Justification::centredLeft);
+    const juce::Colour head (themePalette().knob);
+    const juce::Colour body (0xffb5b9c2);
+    if (colon > 0 && colon <= 22)
+    {
+        a.append (currentHint.substring (0, colon + 1), boldF,  head);
+        a.append (currentHint.substring (colon + 1),    plainF, body);
+    }
+    else
+    {
+        a.append (currentHint, plainF, body);
+    }
+    a.draw (g, r);
+}
+
+void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
+{
+    drawHintBar (g);
+    auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
+
+    // View-Panel offen: die Sektionsspalte rechts abdunkeln, damit das Panel
+    // darueber klar hervortritt und das Sternenfeld links frei bleibt.
+    if (viewPanel.isVisible())
+    {
+        g.saveState();
+        g.excludeClipRegion (viewPanel.getBounds());
+        auto rightCol = juce::Rectangle<int> (goniometer.getRight() + 10, kOuterMargin + kTitleBarH,
+                                              kDesignW - goniometer.getRight() - 10, kDesignH - kOuterMargin - kTitleBarH);
+        // Abgerundet und mit weichem Saum statt harter Kante (User: "sieht
+        // kantig aus an den Raendern").
+        const juce::Colour dimCol (0xff0a0b0e);
+        juce::Path dimPath;
+        dimPath.addRoundedRectangle (rightCol.toFloat().reduced (2.0f), 14.0f);
+        g.setColour (dimCol.withAlpha (0.88f));   // 0.80 -> 0.88 (User: "noch zu durchsichtig")
+        g.fillPath (dimPath);
+        for (int i = 1; i <= 5; ++i)
+        {
+            g.setColour (dimCol.withAlpha (0.30f * (1.0f - (float) i / 6.0f)));
+            g.strokePath (dimPath, juce::PathStrokeType ((float) i * 2.0f));
+        }
+        g.restoreState();
+    }
+
+    // Settings-Panel: alles dahinter abdunkeln, damit das Panel klar
+    // hervortritt (dasselbe Prinzip wie beim View-Panel, nur ueber die ganze
+    // Flaeche, weil das Panel mittig liegt).
+    if (settingsPanel.isVisible())
+    {
+        g.saveState();
+        g.excludeClipRegion (settingsPanel.getBounds());
+        if (settingsBlur.isValid())
+        {
+            g.setOpacity (1.0f);
+            g.drawImage (settingsBlur, bounds.reduced (8.0f), juce::RectanglePlacement::stretchToFit);
+        }
+        g.setColour (juce::Colour (0xff0a0b0e).withAlpha (0.62f));
+        g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+        g.restoreState();
+    }
+
+    if (! processor.uiBypassed.load (std::memory_order_relaxed))
+        return;
+
+    g.setColour (juce::Colour (0xff0e0f13).withAlpha (0.6f));
+    g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+}
+
+void LCRMSAudioProcessorEditor::resized()
+{
+    // Editor-Fenster kann beliebig (innerhalb der Resize-Limits) gross sein;
+    // die content-Komponente bleibt IMMER auf der logischen Design-Groesse
+    // und wird per Transform passend skaliert - dadurch werden wirklich
+    // alle Elemente (Rahmen, Schrift, Regler, Buttons) mitskaliert.
+    const float scaleX = (float) getWidth()  / (float) kDesignW;
+    const float scaleY = (float) getHeight() / (float) kDesignH;
+    const float scale = juce::jmin (scaleX, scaleY);
+
+    content.setTransform (juce::AffineTransform::scale (scale));
+    content.setBounds (0, 0, kDesignW, kDesignH);
+}
+
+void LCRMSAudioProcessorEditor::layoutContent()
+{
+    // Logo-Klickflaeche exakt ueber dem in paintContent() gezeichneten Logo -
+    // beide nutzen dieselbe kTitleBarH-Konstante, damit sie garantiert
+    // deckungsgleich bleiben.
+    logoButton.setBounds (juce::Rectangle<int> (kOuterMargin, kOuterMargin, kTitleBarH, kTitleBarH).reduced (5));
+
+    // ===== TITELZEILE: ZWEI ZEILEN RECHTS, EIN BLOCK =====
+    // Dritter Anlauf, und diesmal mit einer Diagnose statt nur einer neuen
+    // Anordnung. Der User hat die Versionen nebeneinander gelegt und
+    // festgestellt: "optisch die beste finde ich sogar die Variante ohne
+    // Preset Name" (die alte Einzeile) - obwohl er den Preset-Namen
+    // ausdruecklich braucht.
+    //
+    // Was an der Zwischenversion (eigene Preset-Leiste unter der Titelzeile)
+    // wirklich stoerte, war nicht der Inhalt, sondern die FORM: zwei Zeilen,
+    // beide halb leer, und zwar DIAGONAL - oben rechts die Live-Aktionen mit
+    // Leere links davon, darunter links die Presets mit Leere rechts davon.
+    // Zwei Treppenstufen aus Luft. Das Auge liest das als "irgendwie
+    // vollgepackt", weil nirgends ein ruhiger Block entsteht.
+    //
+    // Die alte Einzeile wirkte besser, weil sie EIN geschlossener Block war.
+    // Also: die zwei Zeilen behalten (der Preset-Name braucht die Breite),
+    // aber beide RECHTS buendig als EINEN Block setzen, exakt gleich breit:
+    //
+    //     BYP  M  M  B  ~  GALAXY  |  Undo Redo A/B Copy  |  Menu
+    //     <  [ Preset-Name                 v ]  >  |  Save  Reset
+    //
+    // Links davon steht das Logo, das ohnehin schon zweizeilig ist
+    // (Wortmarke oben, Slogan unten) - zwei Zeilen links, zwei Zeilen
+    // rechts, dazwischen Luft. Das ist ein Header, kein Stapel.
+    //
+    // Gruppen: Zeile 1 = was das Plugin GERADE tut + Werkzeuge fuer den
+    // Zustand (Undo/Redo/A-B/Copy, wie bei Pro-Q direkt nebeneinander) +
+    // Menue. Zeile 2 = wo bin ich (Preset) und wie sichere/verwerfe ich es.
+    // Load-Knopf gibt es nicht - das Namensfeld ist die Liste.
+    {
+        auto titleBar = juce::Rectangle<int> (kOuterMargin, kOuterMargin, kDesignW - kOuterMargin * 2, kTitleBarH);
+
+        // Abstaende leicht geweitet (User: "wieder 50% zurueck") - der Block
+        // waechst von 419 auf ~462px, bleibt aber innerhalb der Sektionskante.
+        constexpr int kHamburgerW = 48;
+        constexpr int kUndoBtnW = 30;
+        constexpr int kIconBtnW = 36;
+        constexpr int kGap = 6;
+        constexpr int kSepGap = 15;
+        constexpr int kSepW = 1;
+        constexpr int kSepBlockW = kSepGap * 2 + kSepW;
+        constexpr int kRowH = 26;
+        constexpr int kRowGap = 6;
+
+        // Vierter Anlauf, zwei Korrekturen des Users:
+        //  1) "A/B + Copy gehoert fuer mich eher zu den Presets runter" -
+        //     stimmt, beides sind Zustands-Werkzeuge wie Save/Reset.
+        //  2) "beide Header duerfen maximal links bis zum linken vertikalen
+        //     Rand der Sections gehen" - der Block darf also hoechstens so
+        //     breit sein wie die Sektionsspalte rechts. Die beginnt bei
+        //     kOuterMargin + gonioSize + 20 = 540, der Block endet bei 1020,
+        //     ergibt 480 als Obergrenze. Zeile 1 kommt ohne A/B+Copy auf 419.
+        //
+        // Zeile 1:  BYP M M B ~ GALAXY | Undo Redo | Menu
+        // Zeile 2:  < [ Name ] > | Save Delete | A/B Copy Reset
+        constexpr int kLiveW   = kIconBtnW * 5 + kGap * 4;
+        constexpr int kGalaxyGap = 18;
+        constexpr int kGalaxyW = 62;
+        constexpr int kRow1W   = kLiveW + kGalaxyGap + kGalaxyW + kSepBlockW + (kUndoBtnW * 2 + kGap) + kSepBlockW + kHamburgerW;
+
+        // Zeile 2 gleich breit. Das Namensfeld bekommt den Rest - deutlich
+        // kleiner als vorher, und das ist so gewollt (User: "kann theoretisch
+        // halb so gross sein - so lange werden die Namen normalerweise nie").
+        constexpr int kPArrowW = 20;
+        constexpr int kPSmallGap = 4;
+        constexpr int kABW = 46;
+        constexpr int kCopyW = 28;
+        constexpr int kFileW   = kUndoBtnW * 2 + kGap;                 // Save, Delete
+        constexpr int kStateW  = kABW + kGap + kCopyW + kGap + kUndoBtnW; // A/B, Copy, Reset
+        constexpr int kGroupGap = 10;   // Save/Delete | A/B Copy Reset: Luecke statt Strich
+        constexpr int kNameW   = kRow1W - (kPArrowW * 2 + kPSmallGap * 2) - kSepBlockW - kFileW - kGroupGap - kStateW;
+
+        auto block = titleBar.removeFromRight (kRow1W).withSizeKeepingCentre (kRow1W, kRowH * 2 + kRowGap);
+        auto row1 = block.removeFromTop (kRowH);
+        block.removeFromTop (kRowGap);
+        auto row2 = block.removeFromTop (kRowH);
+
+        // --- Zeile 1 ---
+        globalRowSeparatorX.clearQuick();
+        globalRowSeparatorTop = row1.getY() - 3;
+        globalRowSeparatorBottom = row1.getBottom() + 3;
+        auto sep1 = [&]
+        {
+            row1.removeFromLeft (kSepGap);
+            globalRowSeparatorX.add (row1.getX());
+            row1.removeFromLeft (kSepW);
+            row1.removeFromLeft (kSepGap);
+        };
+
+        auto live = row1.removeFromLeft (kLiveW);
+        globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
+        live.removeFromLeft (kGap);
+        globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
+        live.removeFromLeft (kGap);
+        globalChaosSectionsButton.setBounds (live.removeFromLeft (kIconBtnW));
+        live.removeFromLeft (kGap);
+        globalBreatheButton.setBounds (live.removeFromLeft (kIconBtnW));
+        live.removeFromLeft (kGap);
+        globalModBypassButton.setBounds (live);
+
+        row1.removeFromLeft (kGalaxyGap);
+        globalGalaxyActivateButton.setBounds (row1.removeFromLeft (kGalaxyW));
+
+        sep1();
+
+        undoButton.setBounds (row1.removeFromLeft (kUndoBtnW));
+        row1.removeFromLeft (kGap);
+        redoButton.setBounds (row1.removeFromLeft (kUndoBtnW));
+
+        sep1();
+
+        presetMenuButton.setBounds (row1);
+
+        // --- Zeile 2 ---
+        presetRowSeparatorX.clearQuick();
+        presetRowSeparatorTop = row2.getY() - 3;
+        presetRowSeparatorBottom = row2.getBottom() + 3;
+        auto sep2 = [&]
+        {
+            row2.removeFromLeft (kSepGap);
+            presetRowSeparatorX.add (row2.getX());
+            row2.removeFromLeft (kSepW);
+            row2.removeFromLeft (kSepGap);
+        };
+
+        presetPrevButton.setBounds (row2.removeFromLeft (kPArrowW));
+        row2.removeFromLeft (kPSmallGap);
+        presetNameButton.setBounds (row2.removeFromLeft (kNameW).reduced (0, 1));
+        row2.removeFromLeft (kPSmallGap);
+        presetNextButton.setBounds (row2.removeFromLeft (kPArrowW));
+
+        sep2();
+
+        globalSaveSizeButton.setBounds (row2.removeFromLeft (kUndoBtnW));
+        row2.removeFromLeft (kGap);
+        presetDeleteButton.setBounds (row2.removeFromLeft (kUndoBtnW));
+
+        row2.removeFromLeft (kGroupGap);
+
+        globalABButton.setBounds (row2.removeFromLeft (kABW));
+        row2.removeFromLeft (kGap);
+        abCopyButton.setBounds (row2.removeFromLeft (kCopyW));
+        row2.removeFromLeft (kGap);
+        globalResetButton.setBounds (row2.removeFromLeft (kUndoBtnW));
+    }
+
+    auto area = juce::Rectangle<int> (0, 0, kDesignW, kDesignH).reduced (kOuterMargin);
+    area.removeFromTop (kTitleBarH); // Titelbereich (Logo + Wortmark + Claim-Zeile)
+    area.removeFromTop (10); // etwas Luft zwischen Titelzeile und erster Regler-Reihe
+    // ===== HINWEISZEILE GANZ UNTEN =====
+    // User: "ganz unten links ein dezentes ?-Icon, und die Hover-Infos sollen
+    // dort in der Zeile unter dem Footer stehen statt direkt an der Maus."
+    // Ein fester Streifen ueber die volle Breite; alles darueber rueckt
+    // entsprechend nach oben.
+    {
+        const int hintH = 22;
+        auto strip = area.removeFromBottom (hintH);
+        area.removeFromBottom (6);
+        helpButton.setBounds (strip.removeFromLeft (hintH));
+        strip.removeFromLeft (8);
+        hintBarArea = strip;
+    }
+
+    // -- Linke Spalte: Goniometer + Korrelationsmesser darunter, gemeinsam
+    //    vertikal zentriert. Das Goniometer bleibt quadratisch (Kappe
+    //    weiterhin bei 500), der Balken bekommt eine feste kleine Hoehe.
+    //    Die Einklapp-Option wurde wieder entfernt (User-Feedback: "Sieht
+    //    nicht gut aus und macht glaub zu viele Probleme") - Goniometer und
+    //    Korrelationsmesser sind jetzt wieder immer sichtbar; ob sie
+    //    laufen/CPU verbrauchen, steuert weiterhin applyVisualsVisibility()
+    //    ueber die beiden Hamburger-Menue-Schalter.
+    // Der Korrelationsmesser hat KEINE eigene Zeile mehr (User-Feedback:
+    // "Correlations Meter ist viel zu klobig, zu amateurhaft... vielleicht
+    // einfach IN das obere Feld ganz unten mit einbauen... gar keinen extra
+    // Kasten dafuer"). Er liegt jetzt transparent ueber dem unteren
+    // Innenrand des Starfields (siehe corrOverlay weiter unten) und braucht
+    // deshalb weder Hoehe noch Abstand im vertikalen Aufbau der Spalte.
+    const int correlationBarH = 0;
+    const int correlationGap = 0;
+    // Hoehe/Innenabstand des Overlay-Streifens INNERHALB des Starfields.
+    const int corrOverlayH = 14;
+    const int corrOverlayInset = 10;
+
+    // Unter dem Korrelationsmesser: Input-/Output-Pegelanzeige, Mono-/Dry-
+    // Icon und der Volume-Regler ALLE IN EINER EINZIGEN ZEILE (User-Wunsch:
+    // "Es muss unten alles in einer Zeile sein") - vorher lagen die Meter
+    // in 2 eigenen Zeilen oberhalb der Icon-Reihe, jetzt sitzen sie als
+    // kompakte, duennere Balken-Spalte ganz links in DERSELBEN Zeile. Der
+    // globale Bypass-Icon-Button ist NICHT mehr Teil dieser Zeile - er sitzt
+    // wieder oben im Header links von Mutate (siehe layoutContent() weiter
+    // oben, globalBypassButton).
+    const int controlRowGap = 12;
+    const int controlRowH = 44;
+    const int belowCorrH = controlRowGap + controlRowH;
+
+    // Zeile ueber dem Sternenfeld: Kategorie-Chips links, A/B/C rechts.
+    // Gehoert zum Block und drueckt Sternenfeld + Footer entsprechend nach
+    // unten (User: "Kategorien groesser, dafuer Starfield runter").
+    const int chipRowH = 30, chipRowGap = 8;
+    const int gonioSize = juce::jmin (500, area.getHeight() - correlationBarH - correlationGap - belowCorrH - chipRowH - chipRowGap);
+
+    auto leftColumn = area.removeFromLeft (gonioSize);
+    area.removeFromLeft (20);
+
+    const int blockH = chipRowH + chipRowGap + gonioSize + correlationGap + correlationBarH + belowCorrH;
+    auto block = leftColumn.withSizeKeepingCentre (gonioSize, blockH);
+    auto chipRow = block.removeFromTop (chipRowH);
+    block.removeFromTop (chipRowGap);
+    auto gonioArea = block.removeFromTop (gonioSize);
+    goniometer.setBounds (gonioArea);
+    // Zahnrad oben rechts im Feld, Panel darunter (innerhalb des Feldes).
+    {
+        const int gearS = 34;   // 22 -> 34: groessere Klickflaeche (User); das Icon selbst bleibt klein
+        viewGearButton.setBounds (gonioArea.getRight() - gearS - 4, gonioArea.getY() + 4, gearS, gearS);
+        // Kategorien: Pillen im Stil des GALAXY-Knopfs, Breite aus der
+        // Textbreite plus Innenabstand, gleichmaessig ueber die ganze Zeile.
+        {
+            const auto f = CustomLookAndFeel::globalRowFont();
+            int textTotal = 0;
+            int widths[6];
+            for (int i = 0; i < 6; ++i)
+            {
+                widths[i] = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, categoryBtn[i].getButtonText().toUpperCase())) + 28;
+                textTotal += widths[i];
+            }
+            const int chipGap = juce::jlimit (6, 18, (chipRow.getWidth() - textTotal) / 5);
+            int cx = chipRow.getX();
+            for (int i = 0; i < 6; ++i)
+            {
+                categoryBtn[i].setBounds (cx, chipRow.getY(), widths[i], chipRow.getHeight());
+                categoryBtn[i].setVisible (showMutateCategories);
+                cx += widths[i] + chipGap;
+            }
+        }
+        // Panel NICHT ueber dem Sternenfeld (User: "man sieht zu wenig"),
+        // sondern rechts ueber der Sektionsspalte; die wird waehrenddessen
+        // abgedunkelt (siehe paintOverContent()). So bleibt das Feld frei,
+        // waehrend man an seinen Einstellungen dreht.
+        const int panelW = 390;   // groesser (User)
+        const int panelH = 452 - 30 - 68 + 46 + 38;   // eine Zeile mehr: "Stars" Show/Hide (User)
+        viewPanel.setBounds (gonioArea.getRight() + 20, gonioArea.getY(), panelW, panelH);
+        viewGearButton.toFront (false);
+    }
+
+    // Settings-Panel: mittig ueber allem. Breiter als das View-Panel, weil
+    // drei Spalten nebeneinander stehen.
+    {
+        const int sw = 760, sh = 630;   // groesser, Platz fuer die Theme-Vorschau (User)
+        settingsPanel.setBounds ((kDesignW - sw) / 2, (kDesignH - sh) / 2 - 8, sw, sh);
+        settingsBackdrop.setBounds (0, 0, kDesignW, kDesignH);
+    }
+
+    // Korrelationsmesser als transparentes Overlay im unteren Innenbereich
+    // des Starfields (kein eigener Kasten, kein eigener Platz in der Spalte).
+    // correlationMeter wird NACH dem Goniometer zu content hinzugefuegt und
+    // liegt dadurch automatisch darueber.
+    correlationMeter.setBounds (gonioArea.getX() + corrOverlayInset,
+                                 gonioArea.getBottom() - corrOverlayInset - corrOverlayH,
+                                 gonioArea.getWidth() - corrOverlayInset * 2,
+                                 corrOverlayH);
+
+    block.removeFromTop (controlRowGap);
+    {
+        auto controlRow = block.removeFromTop (controlRowH);
+
+        // ===== FOOTER-ZEILE, komplett neu aufgebaut =====
+        // User-Feedback: "Die untere Zeile links (in, out, mono usw.) sieht
+        // amateurhaft aus... Die Icons und Schriften wirken amateurhaft
+        // platziert" + "Die Schrift bei IN/OUT Meter passt nicht zum Rest.
+        // Soll gleich sein."
+        //
+        // Drei Regeln, die den unruhigen Eindruck beheben:
+        //  1) EIN Schriftschnitt fuer alles. Vorher war IN/OUT auf 9pt
+        //     heruntergesetzt, waehrend MONO/VOL die normale paramFont (12pt
+        //     bold) benutzten - zwei verschiedene Schriftgroessen auf engstem
+        //     Raum sind der Hauptgrund fuer den amateurhaften Eindruck. Jetzt
+        //     ueberall dieselbe paramFont (siehe Konstruktor).
+        //  2) EINE gemeinsame Grundlinie fuer alle Beschriftungen unter den
+        //     Bedienelementen (MONO, DRY, VOL).
+        //  3) Jedes Bedienelement hat GENAU EIN eigenes Label. Vorher teilten
+        //     sich Mono-Icon und Dry-Icon EIN einziges, ueber beide gespanntes
+        //     "MONO"-Label - das Dry-Icon war dadurch unbeschriftet und der
+        //     Text stand mittig zwischen zwei verschiedenen Funktionen.
+        //
+        // Die Reihe sitzt weiterhin in der rechten Haelfte unter dem
+        // Starfield, von dessen Mitte bis buendig an den rechten Rand.
+        // Aufteilung der Footer-Zeile (User-Wunsch): der bisherige Inhalt
+        // (Meter, Mono, Dry, Vol) wandert in die LINKE Haelfte, PRISM bekommt
+        // die rechte - dort, wo vorher die Icons sassen.
+        const int rowMid   = controlRow.getX() + controlRow.getWidth() / 2;
+        const int rowLeft  = controlRow.getX();
+        const int rowTop   = controlRow.getY();
+        const int rowH     = controlRow.getHeight();
+
+        const int labelH   = 14;
+        const int labelGap = 2;
+        const int iconSize = juce::jlimit (18, 26, rowH - labelH - labelGap);
+
+        // ===== Gleiche Abstaende (User) =====
+        // Mono - Dry - Mix - Vol und der Abstand von Vol zur PRISM-Kachel
+        // sind alle gleich (kGap). Die Reihe wird von RECHTS her gesetzt,
+        // beginnend an der PRISM-Kachel; was links uebrig bleibt, bekommt
+        // der Meter-Block - und dessen Abstand zu MONO ist bewusst groesser,
+        // damit die Schrift nicht an den Balken klebt.
+        const int prismLeft = rowMid + 14;
+        constexpr int kGap  = 16;
+        const int blockH    = iconSize + labelGap + labelH;
+        const int blockTop  = rowTop + (rowH - blockH) / 2;
+
+        juce::Component* elems[4]  = { &monoCheckButton, &monoDryButton, &mixSlider, &volSlider };
+        juce::Label*     labels[4] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &volLabel  };
+        int x = prismLeft - kGap - iconSize;   // rechte Kante von VOL = PRISM-Kachel minus Luecke
+        for (int i = 3; i >= 0; --i)
+        {
+            // MIX und VOL 3px groesser als die beiden Icons (User) - wachsen
+            // um ihre Mitte, die Luecken bleiben gleich.
+            if (elems[i] == &volSlider || elems[i] == &mixSlider)
+                elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
+            else
+                elems[i]->setBounds (x, blockTop, iconSize, iconSize);
+            labels[i]->setBounds (x - 8, blockTop + iconSize + labelGap, iconSize + 16, labelH);
+            x -= iconSize + kGap;
+        }
+        const int iconsLeft = x + iconSize + kGap;   // linke Kante von MONO
+
+        // Meter-Block: zwei Zeilen, Label links (knapp bemessen, damit der
+        // Balken direkt neben der Schrift beginnt), Balken rechts. Der Block
+        // endet mit Luft (kGap + 6) vor MONO.
+        {
+            const int meterLabelW = 30;
+            const int meterBarH   = 7;
+            const int meterVGap   = 4;
+            const int meterRight  = iconsLeft - (kGap + 6);
+            const int stackH = labelH * 2 + meterVGap;
+            auto stack = juce::Rectangle<int> (rowLeft, rowTop + (rowH - stackH) / 2, juce::jmax (60, meterRight - rowLeft), stackH);
+
+            auto inRow = stack.removeFromTop (labelH);
+            inputMeterLabel.setBounds (inRow.removeFromLeft (meterLabelW));
+            volInputMeter.setBounds (inRow.withSizeKeepingCentre (inRow.getWidth(), meterBarH));
+
+            stack.removeFromTop (meterVGap);
+
+            auto outRow = stack;
+            outputMeterLabel.setBounds (outRow.removeFromLeft (meterLabelW));
+            volOutputMeter.setBounds (outRow.withSizeKeepingCentre (outRow.getWidth(), meterBarH));
+        }
+
+        // ===== PRISM in der rechten Footer-Haelfte =====
+        // Bewusst NICHT als siebte Sektion im Raster rechts: PRISM besteht den
+        // Sektions-Test nicht. Alle sechs Sektionen haben Solo, Lock und Mod,
+        // weil jede fuer sich einen Klang erzeugt, den man isoliert hoeren
+        // kann. "Solo Prism" ergaebe nichts - PRISM erzeugt selbst keinen
+        // Klang, es begrenzt nur, WO die anderen wirken. Es liegt quer ueber
+        // Orbit, Size, Boost und Width statt neben ihnen, und gehoert damit zu
+        // den globalen Werkzeugen hier unten.
+        {
+            const int prismW    = controlRow.getRight() - prismLeft;
+
+            // Leiste ueber die ganze rechte Haelfte, Ein/Aus-Icon IN der
+            // Leiste ganz links (leftInset). Etwas hoeher als vorher (22 ->
+            // 26), damit das Power-Icon bequem hineinpasst.
+            // Buendig mit dem VOL-Block (Regler-Oberkante bis Schrift-Unterkante).
+            const int blockH0  = iconSize + labelGap + labelH;
+            // Nur oben gekuerzt (User): Unterkante bleibt buendig mit der Schrift.
+            const int bandTop  = rowTop + (rowH - blockH0) / 2 + 3;
+            const int bandH    = blockH0 - 3;
+            const int onZone   = bandH * 2;   // zwei quadratische Kacheln: Ein/Aus und Wing
+            prismBand.setLeftInset (onZone);
+            prismBand.setBounds (prismLeft, bandTop, juce::jmax (60, prismW), bandH);
+            prismOnButton.setBounds (prismBand.getBounds().withWidth (onZone / 2).reduced (3));
+            wingButton.setBounds (prismBand.getBounds().withWidth (onZone / 2).translated (onZone / 2, 0).reduced (3));
+            wingButton.toFront (false);
+        }
+    }
+
+    auto rightColumn = area;
+
+    // 4 Zeilen: LCR+Polarity, Warp+Size, Flow, und ganz unten die neue,
+    // bewusst kleinere Position-Zeile (sekundaere Sektion, siehe Chat).
+    const int rowGap = 16;
+    // Etwas groesser als vorher (22 -> 24), zusammen mit weniger Innenabstand
+    // bei Power-/Mod-Icon unten (User-Feedback: "Mod/On-Off Icon ein
+    // kleines bisschen groesser, Solo ein ganz kleines bisschen groesser").
+    const int headerH = 24;
+    const int frameGap = 14;
+    // Etwas hoeher als vorher (92) - User-Feedback: die Regler sassen zu eng
+    // am unteren Rahmenrand. Der Puffer entsteht automatisch weiter unten
+    // durch das vertikale Zentrieren der Knob-Slots in der jetzt groesseren
+    // Restflaeche.
+    const int posRowH = 116;
+
+    auto bottomRowArea = rightColumn.removeFromBottom (posRowH);
+    // ===== UNTERE ZEILE: POSITION | RAY =====
+    // User-Wunsch: "Phaser ... sollte inhaltlich am ehesten unten rechts hin
+    // und dafuer die Position Section kleiner machen." Position behaelt
+    // gut 60 % der Breite (vier Regler), RAY bekommt den Rest - der reicht
+    // fuer Staerke-Icon, Speed und Pair bequem, und die Zeile ist damit
+    // genauso zweigeteilt wie die beiden Zeilen darueber. Das Raster stimmt
+    // wieder: rechts war die Position-Zeile bisher die einzige, die ueber
+    // die volle Breite lief.
+    const int rayColW = juce::roundToInt (bottomRowArea.getWidth() * 0.36f);
+    auto rayRowArea = bottomRowArea.removeFromRight (rayColW);
+    bottomRowArea.removeFromRight (frameGap);
+    auto positionRowArea = bottomRowArea;
+    rightColumn.removeFromBottom (rowGap);
+
+    // Zeile 1 (LCR + Polarity) etwas hoeher, da der Orbit-Kegel Hoehe
+    // braucht; Zeile 3 (Flow) etwas niedriger, da dort nur kompakte Regler/
+    // Buttons ohne grosse Vertikal-Anforderung sitzen.
+    const int totalH = rightColumn.getHeight() - rowGap * 2;
+    // Hyperdrive (Zeile 3) bekommt etwas mehr Hoehe (User) - dort sitzt der
+    // Speed-Regler mit dem RAYE-Pair-Ring, der vorher an der Kante klemmte.
+    const int row1H = juce::roundToInt ((float) totalH * 0.385f);
+    const int row2H = juce::roundToInt ((float) totalH * 0.335f);
+    const int row3H = totalH - row1H - row2H;
+
+    // Legt Power-Button + Solo-Icon + Titel-Label oben links in einen Rahmen
+    // und liefert den verbleibenden Innenbereich fuer die Regler zurueck.
+    // Klickflaeche eines Sektionsnamens auf die Textbreite begrenzen - dieselbe
+    // Regel wie in layoutHeader(). Vision und RAYE bauen ihren Kopf von Hand
+    // und bekamen dadurch die ganze Restbreite (User: "clickbare range noch zu
+    // weit nach rechts").
+    auto fitTitle = [] (juce::Label& title, juce::Rectangle<int> area)
+    {
+        const int textW = juce::GlyphArrangement::getStringWidthInt (title.getFont(), title.getText()) + 12;
+        title.setBounds (area.withWidth (juce::jmax (40, juce::jmin (area.getWidth(), textW))));
+    };
+
+    auto layoutHeader = [&] (juce::Rectangle<int> frame, juce::TextButton& powerBtn, juce::TextButton& soloBtn, juce::Label& title, juce::TextButton* modBtn = nullptr, juce::Slider* modDepthSlider = nullptr, juce::TextButton* lockBtn = nullptr, juce::TextButton* filterBtn = nullptr) -> juce::Rectangle<int>
+    {
+        auto header = frame.removeFromTop (headerH);
+        // Power-Button aus dem Header entfernt (User-Wunsch, Layout-Engpass-
+        // Loesung "Option 1": "On/Off Button in den Sections entfernen. Name
+        // der Sections nach links ... Da section sowieso angeht mit klick
+        // auf name waere das eine Option.") - der Klick auf den Titel macht
+        // exakt dasselbe (siehe setupClickableTitle()/mouseUp()), daher
+        // funktional verlustfrei. Der Button selbst existiert im Code
+        // unveraendert weiter (APVTS-Attachment, Solo-Reset-Logik) und wird
+        // nur unsichtbar/aus dem Layout genommen - keine doppelte Buchhaltung
+        // fuer denselben Zustand noetig.
+        powerBtn.setVisible (false);
+        // Reihenfolge im Header (User-Wunsch, nach Test der "Name zuerst"-
+        // Variante wieder zurueckgedreht: "Name und Solo ist jetzt zu weit
+        // auseinander"): Solo -> Lock -> Name. Solo/Lock sitzen daher wieder
+        // fest links, der Name bekommt den kompletten Rest direkt daneben -
+        // dadurch klebt der Name-Text (Label ist links-buendig) unmittelbar
+        // am Lock-Icon, ohne Luecke.
+        soloBtn.setBounds (header.removeFromLeft (headerH).reduced (1));
+        header.removeFromLeft (6);
+        if (lockBtn != nullptr)
+        {
+            const int lockSize = juce::roundToInt (headerH * 0.72f);
+            auto lockArea = header.removeFromLeft (lockSize);
+            header.removeFromLeft (6);
+            lockBtn->setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
+        }
+        // Optionales Mod-Icon (Sinuswelle) + Tiefe-Regler ganz rechts im
+        // Header, nur bei den drei Sektionen mit LFO-Modulation (Timewarp/
+        // Dimension/Hyperdrive). War zunaechst genauso klein wie das Icon
+        // selbst - User-Feedback danach: "zu klein" - jetzt deutlich groesser
+        // (36px statt 22px), darf dafuer leicht ueber die duenne Header-Zeile
+        // hinausragen (vertikal mittig zentriert, ausreichend Puffer im
+        // Rahmen darunter vorhanden).
+        if (modDepthSlider != nullptr)
+        {
+            const int knobSize = 36;
+            auto depthArea = header.removeFromRight (knobSize);
+            header.removeFromRight (3);
+            modDepthSlider->setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
+        }
+        if (modBtn != nullptr)
+        {
+            auto modArea = header.removeFromRight (headerH);
+            header.removeFromRight (4);
+            modBtn->setBounds (modArea.reduced (0));
+        }
+        // Filter-Symbol (nur Galaxy und Dimension): direkt links neben dem
+        // Mod-Icon, gleiche Groessenordnung wie das Lock-Icon.
+        if (filterBtn != nullptr)
+        {
+            const int fs = juce::roundToInt (headerH * 0.80f);
+            auto fArea = header.removeFromRight (fs);
+            header.removeFromRight (5);
+            filterBtn->setBounds (fArea.withSizeKeepingCentre (fs, fs));
+        }
+        // Klickflaeche des Sektionsnamens nur knapp ueber den Text hinaus
+        // (User: "bei Hyperdrive ist es zu viel leere Klickflaeche - man
+        // merkt es, wenn bei Section off der Name beim Drueberfahren
+        // leuchtet"). Betrifft vor allem Polarity, Hyperdrive und RAYE, wo
+        // rechts vom Namen nichts mehr kommt.
+        {
+            const int textW = juce::GlyphArrangement::getStringWidthInt (title.getFont(), title.getText()) + 12;
+            title.setBounds (header.withWidth (juce::jmax (40, juce::jmin (header.getWidth(), textW))));
+        }
+        frame.removeFromTop (4);
+        return frame;
+    };
+
+    // Zerlegt eine Zeile in zwei gleich breite Rahmen mit Abstand dazwischen.
+    // ===== Gemeinsame Regel fuer ALLE Regler-Beschriftungen =====
+    // User-Feedback: "Einige Abstaende sind unregelmaessig: z.B. Position der
+    // Abstand der Schrift zum unteren Rahmenrand. Timewarp und Dimension -
+    // auch hier sind die Abstaende nicht identisch, obwohl die Rahmen auf
+    // gleicher Hoehe nebeneinander sind."
+    //
+    // Ursache (war an mehreren Stellen gleich): Regler und Label wurden als
+    // ZWEI unabhaengige Dinge platziert. Mal wurde der Knob in der Flaeche
+    // zentriert und das Label einfach darunter gehaengt (Position-Zeile -
+    // dadurch ragte das Label bis zu 14px ueber die Flaeche hinaus und klebte
+    // am Rahmenrand), mal sass der Knob oben und der gesamte Rest blieb als
+    // Luft unten stehen (Timewarp/Dimension).
+    //
+    // Loesung: Knob + Label sind EIN Block, und dieser Block wird als Ganzes
+    // vertikal zentriert. Dadurch ist der Abstand nach oben und unten
+    // zwangslaeufig gleich - in jeder Sektion, bei jeder Fenstergroesse.
+    constexpr int kKnobLabelH = 14;
+    auto placeKnobWithLabel = [] (juce::Rectangle<int> slot, juce::Slider& s, juce::Label& l, int knobSize)
+    {
+        const int blockH = knobSize + kKnobLabelH;
+        const int top    = slot.getY() + juce::jmax (0, (slot.getHeight() - blockH) / 2);
+        const int knobX  = slot.getX() + (slot.getWidth() - knobSize) / 2;
+        s.setBounds (knobX, top, knobSize, knobSize);
+        // Label bewusst ueber die volle Slot-Breite (statt nur ueber die
+        // Knob-Breite) PLUS 8px in die Luecke zu beiden Nachbarn hinein,
+        // damit laengere Namen (DISTANCE, ELEVATE) nicht abgeschnitten
+        // werden. Zentrierter Text - die Nachbarn kommen sich nicht ins
+        // Gehege.
+        l.setBounds (slot.getX() - 8, top + knobSize, slot.getWidth() + 16, kKnobLabelH);
+    };
+
+    auto splitFrame = [&] (juce::Rectangle<int> row) -> std::pair<juce::Rectangle<int>, juce::Rectangle<int>>
+    {
+        auto left = row.removeFromLeft ((row.getWidth() - frameGap) / 2);
+        row.removeFromLeft (frameGap);
+        return { left, row };
+    };
+
+    // ===== Reihe 1: LCR (links) + Polarity (rechts) =========================
+    auto row1 = rightColumn.removeFromTop (row1H);
+    auto [lcrFrame, polFrame] = splitFrame (row1);
+    groupLcrArea = lcrFrame;
+    groupPolArea = polFrame;
+
+    // -- LCR: Gravity (Knob) + Dimension (Kegel) - beide dynamisch an die
+    //    tatsaechlich verfuegbare Hoehe/Breite des Rahmens angepasst, statt
+    //    fester Pixelwerte, damit die vorher leere rechte Haelfte genutzt wird.
+    auto lcrInner = layoutHeader (lcrFrame.reduced (10), lcrPowerButton, lcrSoloButton, lcrTitleLabel, &galaxyModButton, &galaxyModDepthSlider, &lcrLockButton);
+    {
+        const int knobAreaH = lcrInner.getHeight() - 14;
+        const int gravSize = juce::jlimit (70, 190, knobAreaH);
+        auto gravCol = lcrInner.removeFromLeft (gravSize);
+        gravityLabel.setBounds (gravCol.removeFromBottom (14));
+        gravitySlider.setBounds (gravCol);
+        // Starfield-Mond soll ungefaehr so gross sein wie der Gravity-Regler
+        // (User-Wunsch) - reicht die aktuelle, fenstergroessen-abhaengige
+        // Knob-Groesse direkt an den Goniometer weiter, statt dort einen
+        // unabhaengigen, fest verdrahteten Wert zu benutzen.
+        goniometer.setGravityKnobDiameter ((float) gravSize);
+
+        // Zwischenraum etwas breiter: hier sitzt jetzt der Focus-Knopf,
+        // genau wie das Balance-Icon zwischen Drift und Shift (User).
+        auto galaxyGapArea = lcrInner.removeFromLeft (34);
+        // Dimension bekommt die gesamte verbleibende Breite/Hoehe der Zeile.
+        auto focusArea = lcrInner;
+        orbitLabel.setBounds (focusArea.removeFromBottom (14));
+        orbitSlider.setBounds (focusArea);
+
+        constexpr int focusIconSize = 24;
+        galaxyFilterButton.setBounds (galaxyGapArea.getCentreX() - focusIconSize / 2,
+                                      gravitySlider.getBounds().getCentreY() - focusIconSize / 2,
+                                      focusIconSize, focusIconSize);
+    }
+
+    // -- Polarity: L/R deutlich groesser, dynamisch an die Rahmenbreite
+    //    angepasst; die 4 Positions-Buttons darunter nutzen dieselbe
+    //    Gesamtbreite wie L+R zusammen, damit beide Reihen buendig wirken.
+    auto polInner = layoutHeader (polFrame.reduced (10), polPowerButton, polSoloButton, polTitleLabel, nullptr, nullptr, &polLockButton);
+    {
+        // L/R waren vorher ueber die halbe Rahmenhoehe gestreckt (bis 96px) -
+        // im Vergleich zu allen anderen Reglern (<=110px Durchmesser, aber
+        // rund) wirkte das klobig/unproportional. Jetzt feste, kleinere
+        // Groesse wie Pulse/Sync (User-Feedback). Das liess aber viel
+        // Leerraum unten im Rahmen stehen ("sieht seltsam aus"), da die Box
+        // selbst gleich hoch blieb - deshalb wird der ganze L/R+1-4-Block
+        // jetzt vertikal MITTIG im verfuegbaren Bereich platziert, statt oben
+        // zu kleben.
+        const int lrBtnW = 60, lrBtnH = 36;
+        const int lrGap = 12;
+        const int posBtnGap = 8;
+        const int posBtnW = 36, posBtnH = 30;
+        const int gapV = 18;
+        // Link-Button bekommt eine EIGENE Zeile ueber L/R statt sie zu
+        // ueberlappen, UND ist jetzt genauso breit wie L+R zusammen (statt
+        // eines schmalen, isolierten Icons) - liest sich als Klammer, die
+        // beide Buttons darunter verbindet (User-Feedback: "ist nicht
+        // richtig" zur vorherigen schmalen Variante).
+        // Exakt headerH (= Groesse des On/Off-Icons, User-Feedback: "Icon
+        // genau so gross wie z.B. das On/Off Icon") statt eines eigenen,
+        // kleineren Werts.
+        const int linkAreaH = headerH;
+        const int linkGapV = 4;
+        const int blockH = linkAreaH + linkGapV + lrBtnH + gapV + posBtnH;
+        const int topMargin = juce::jmax (0, (polInner.getHeight() - blockH) / 2);
+        polInner.removeFromTop (topMargin);
+
+        auto linkRow = polInner.removeFromTop (linkAreaH);
+        polLinkButton.setBounds (linkRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, linkAreaH));
+        polInner.removeFromTop (linkGapV);
+
+        auto polRow = polInner.removeFromTop (lrBtnH);
+        auto lrCentered = polRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, lrBtnH);
+        polLButton.setBounds (lrCentered.removeFromLeft (lrBtnW));
+        lrCentered.removeFromLeft (lrGap);
+        polRButton.setBounds (lrCentered);
+
+        polInner.removeFromTop (gapV);
+        auto posRow = polInner.removeFromTop (posBtnH);
+        auto posRowCentered = posRow.withSizeKeepingCentre (posBtnW * 4 + posBtnGap * 3, posBtnH);
+        polPos1Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
+        posRowCentered.removeFromLeft (posBtnGap);
+        polPos2Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
+        posRowCentered.removeFromLeft (posBtnGap);
+        polPos3Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
+        posRowCentered.removeFromLeft (posBtnGap);
+        polPos4Button.setBounds (posRowCentered);
+    }
+
+    rightColumn.removeFromTop (rowGap);
+
+    // ===== Reihe 2: Warp/Drift (links) + Size (rechts) ======================
+    auto row2 = rightColumn.removeFromTop (row2H);
+    auto [driftFrame, wbFrame] = splitFrame (row2);
+    groupDriftArea = driftFrame;
+    groupWidthBoostArea = wbFrame;
+
+    // Knob-Hoehe hier bewusst genauso wie in Reihe 3 (Flow/Speed, siehe unten)
+    // auf 110 gedeckelt statt die volle verfuegbare Rahmenhoehe zu nutzen -
+    // vorher fuehrte die groessere Reihe 2 (35% statt 25% Hoehe) dazu, dass
+    // der Regler-Bereich selbst viel hoeher als sein sichtbarer Knob war und
+    // das Label dadurch mit deutlich mehr Abstand darunter landete (User-
+    // Feedback: Abstand bei Drift/Shift/Expand/Boost passt nicht zu Flow/Speed).
+    // Gemeinsame Regler-Groesse fuer BEIDE Rahmen dieser Reihe.
+    // User-Feedback: "Timewarp und Dimension - auch hier sind die Abstaende
+    // nicht identisch, obwohl die Rahmen auf gleicher Hoehe nebeneinander
+    // sind." Ursache: jede Sektion rechnete ihre Knob-Groesse aus ihrer
+    // EIGENEN Innenbreite minus ihrem EIGENEN Zwischenraum aus. Timewarp
+    // braucht wegen des Balance-Icons 34px Zwischenraum, Dimension nur 20 -
+    // dadurch wurden Dimensions Regler 7px groesser, und weil das Label
+    // direkt unter dem Regler haengt, sassen die Beschriftungen der beiden
+    // Rahmen auf unterschiedlicher Hoehe.
+    // Jetzt wird EIN gemeinsamer Wert aus dem GROESSEREN der beiden
+    // Zwischenraeume berechnet und in beiden Rahmen benutzt.
+    const int row2InnerH   = driftFrame.getHeight() - 20 - headerH; // reduced(10) oben+unten, minus Header
+    const int row2InnerW   = driftFrame.getWidth() - 20;
+    const int row2KnobArea = juce::jmin (110, row2InnerH - kKnobLabelH);
+    const int driftGap     = 34; // Platz fuer das 24x24px-Balance-Icon
+    const int wbGap        = 34; // wie bei Timewarp: Platz fuer den Focus-Knopf
+    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - juce::jmax (driftGap, wbGap)) / 2);
+
+    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
+    {
+        // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die
+        // Restbreite links und rechts gleich gross ist.
+        auto pair = driftInner.withSizeKeepingCentre (row2KnobSize * 2 + driftGap, driftInner.getHeight());
+        auto driftSlot = pair.removeFromLeft (row2KnobSize);
+        pair.removeFromLeft (driftGap);
+        auto bendSlot = pair.removeFromLeft (row2KnobSize);
+
+        placeKnobWithLabel (driftSlot, driftSlider, driftLabel, row2KnobSize);
+        placeKnobWithLabel (bendSlot,  bendSlider,  bendLabel,  row2KnobSize);
+
+        // "Balance"-Icon mittig im Zwischenraum, vertikal auf Reglerhoehe.
+        constexpr int balanceIconSize = 24;
+        driftBalanceButton.setBounds (driftSlot.getRight() + (driftGap - balanceIconSize) / 2,
+                                       driftSlider.getBounds().getCentreY() - balanceIconSize / 2,
+                                       balanceIconSize, balanceIconSize);
+    }
+
+    auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
+    {
+        auto pair = wbInner.withSizeKeepingCentre (row2KnobSize * 2 + wbGap, wbInner.getHeight());
+        auto swSlot = pair.removeFromLeft (row2KnobSize);
+        pair.removeFromLeft (wbGap);
+        auto sbSlot = pair.removeFromLeft (row2KnobSize);
+
+        placeKnobWithLabel (swSlot, sideWidthSlider, sideWidthLabel, row2KnobSize);
+        placeKnobWithLabel (sbSlot, sideBoostSlider, sideBoostLabel, row2KnobSize);
+
+        constexpr int focusIconSize = 24;
+        dimFilterButton.setBounds (swSlot.getRight() + (wbGap - focusIconSize) / 2,
+                                   sideWidthSlider.getBounds().getCentreY() - focusIconSize / 2,
+                                   focusIconSize, focusIconSize);
+    }
+
+    rightColumn.removeFromTop (rowGap);
+
+    // ===== Reihe 3: Flow (Auto-Pan), volle Breite ===========================
+    auto row3 = rightColumn.removeFromTop (row3H);
+    groupFlowArea = row3;
+    auto flowInner = layoutHeader (row3.reduced (10), flowPowerButton, flowSoloButton, flowTitleLabel, &hyperdriveModButton, &hyperdriveModDepthSlider, &flowLockButton);
+    // Gemeinsame Bezugshoehe fuer ALLE Elemente dieser Reihe (= Hoehe des
+    // Regler-Bereichs oberhalb des Label-Streifens), damit Move/Pulse/Speed/
+    // Sync/Speed-Box garantiert auf gleicher Hoehe sitzen.
+    const int knobAreaH = juce::jmin (110, flowInner.getHeight() - 14);
+    const int moveSize = juce::jmin (knobAreaH, 110);
+
+    // Auch hier ueber die gemeinsame Regel (siehe placeKnobWithLabel oben),
+    // statt den Regler oben anzusetzen und das Label darunter zu haengen -
+    // sonst sitzt der Flow-Block anders als der Speed-Block daneben, der
+    // schon immer als Ganzes zentriert wurde.
+    auto mv = flowInner.removeFromLeft (moveSize);
+    placeKnobWithLabel (mv, movementSlider, movementLabel, moveSize);
+
+    flowInner.removeFromLeft (20);
+    auto pulseArea = flowInner.removeFromLeft (64).withHeight (knobAreaH);
+    pulseButton.setBounds (pulseArea.withSizeKeepingCentre (64, juce::jmin (36, knobAreaH)));
+
+    flowInner.removeFromLeft (16);
+    auto speedKnobArea = flowInner.removeFromLeft (juce::jmin (76, knobAreaH + 14)).withSizeKeepingCentre (76, knobAreaH + 14);
+    speedLabel.setBounds (speedKnobArea.removeFromBottom (14));
+    speedRateSlider.setBounds (speedKnobArea);
+
+    flowInner.removeFromLeft (16);
+    auto syncArea = flowInner.removeFromLeft (60).withHeight (knobAreaH);
+    syncButton.setBounds (syncArea.withSizeKeepingCentre (60, juce::jmin (32, knobAreaH)));
+
+    flowInner.removeFromLeft (16);
+    auto speedBoxArea = flowInner.withHeight (knobAreaH);
+    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmin (140, speedBoxArea.getWidth()), 26));
+
+    // ===== Reihe 4: Position (Offset/Width/Distance/Elevate) ================
+    // Bewusst kompakter/kleiner als die anderen Zeilen gehalten (siehe Chat:
+    // "kleiner machen, damit sie sich visuell abhebt") - sekundaere,
+    // nachgelagerte Sektion statt gleichrangig mit den Kern-Werkzeugen.
+    // Mono-Check/Dry/Bypass/Volume sind aus dieser Zeile in die linke Spalte
+    // unter den Goniometer/Korrelationsmesser-Block umgezogen (User-Wunsch:
+    // neuer Platz fuer die Pegelanzeigen "unter dem Corr Meter", Mono/
+    // Bypass/Volume direkt danach) - siehe layoutContent() weiter oben,
+    // Abschnitt "belowCorrH". Die Position-Zeile nutzt dadurch jetzt ihre
+    // volle Breite fuer die 4 Regler.
+    groupPosArea = positionRowArea;
+    auto posFrame = positionRowArea.reduced (10);
+    auto posHeader = posFrame.removeFromTop (headerH);
+    // Power-Button auch hier entfernt (User-Wunsch "Option 1", siehe
+    // layoutHeader() fuer die ausfuehrliche Begruendung) - Klick auf den
+    // Titel (setupClickableTitle()/mouseUp()) macht exakt dasselbe.
+    posPowerButton.setVisible (false);
+    // Reihenfolge wieder zurueckgedreht (siehe layoutHeader()): Solo -> Lock
+    // -> Name, alle drei jetzt wieder von LINKS, Name bekommt den Rest
+    // direkt daneben statt weit rechts mit Luecke.
+    posSoloButton.setBounds (posHeader.removeFromLeft (headerH).reduced (1));
+    posHeader.removeFromLeft (6);
+    {
+        const int lockSize = juce::roundToInt (headerH * 0.72f);
+        auto lockArea = posHeader.removeFromLeft (lockSize);
+        posHeader.removeFromLeft (6);
+        posLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
+    }
+    // Position-Mod-Icon + Tiefe-Regler ganz rechts im Header, genau wie bei
+    // Timewarp/Dimension/Hyperdrive (User-Feedback).
+    {
+        const int knobSize = 36;
+        auto depthArea = posHeader.removeFromRight (knobSize);
+        posHeader.removeFromRight (3);
+        positionModDepthSlider.setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
+        auto modArea = posHeader.removeFromRight (headerH);
+        posHeader.removeFromRight (4);
+        positionModButton.setBounds (modArea);
+    }
+    fitTitle (posTitleLabel, posHeader);
+    posFrame.removeFromTop (6);
+
+    // Etwas kleinerer Cap als vorher (46 -> 40): bei der jetzt groesseren
+    // Zeilenhoehe (116 statt 92) sorgt das automatisch fuer sichtbaren
+    // Puffer oben/unten (withSizeKeepingCentre verteilt die restliche Hoehe
+    // gleichmaessig), statt die Regler bis an den Rand aufzublasen.
+    // Eigener Name (posKnobAreaH statt knobAreaH) - Reihe 3 (Flow) deklariert
+    // weiter oben im selben Funktionsrumpf bereits ein "knobAreaH" OHNE
+    // eigenen Block-Scope, ein zweites "knobAreaH" hier waere eine
+    // Redefinition (das war der Compile-Fehler im letzten Build).
+    // Etwas groesser als vorher (40 -> 56, User-Wunsch: "Regler bisschen
+    // groesser, maximal so gross wie Flow") - bleibt durch das
+    // posFrame.getHeight()-14-Limit (Position-Zeile ist bewusst kompakter
+    // als die anderen Reihen, siehe posRowH) automatisch deutlich unter dem
+    // Flow-Move-Knob (bis zu 110px), keine separate Obergrenzen-Pruefung
+    // noetig.
+    const int posKnobAreaH = juce::jmin (56, posFrame.getHeight() - 14);
+
+    {
+        // Labels werden bewusst an die volle Slot-Breite gebunden (statt an
+        // die schmalere, gedeckelte Knob-Breite) - vorher wurden sie dadurch
+        // abgeschnitten ("OF...", "WI...", ...).
+        const int n = 4;
+        const int gap = 18;
+        // In der Mitte etwas mehr Luft: dort sitzt der Focus-Knopf (User-Idee,
+        // damit Vision denselben Knopf bekommen kann wie Galaxy und Dimension).
+        constexpr int posFocusIconSize = 24;
+        const int midGap = gap + posFocusIconSize + 6;
+        const int slotW = (posFrame.getWidth() - gap * (n - 2) - midGap) / n;
+        juce::Slider* posSliders[n] = { &offsetSlider, &posWidthSlider, &distanceSlider, &elevateSlider };
+        juce::Label*  posLabels[n]  = { &offsetLabel,  &posWidthLabel,  &distanceLabel,  &elevateLabel };
+        // Bug-Fix (User-Feedback: "Position - der Abstand der Schrift zum
+        // unteren Rahmenrand"): vorher wurde der Regler ALLEIN in der Slot-
+        // Hoehe zentriert und das Label einfach unter seine Unterkante
+        // gehaengt. Das Label lag dadurch rechnerisch bis zu 14px UNTERHALB
+        // der eigentlichen Flaeche und klebte am Rahmenrand - der Abstand
+        // oben war entsprechend um dieselben 14px groesser als unten.
+        // Jetzt ueber die gemeinsame Regel (siehe placeKnobWithLabel oben):
+        // Regler + Label bilden EINEN Block, der als Ganzes zentriert wird.
+        const int posKnobSize = juce::jmin (slotW, posKnobAreaH);
+        juce::Rectangle<int> posMidGapArea;
+        for (int i = 0; i < n; ++i)
+        {
+            auto slot = posFrame.removeFromLeft (slotW);
+            if (i < n - 1)
+            {
+                const int thisGap = (i == 1) ? midGap : gap;
+                auto gapArea = posFrame.removeFromLeft (thisGap);
+                if (i == 1) posMidGapArea = gapArea;
+            }
+            placeKnobWithLabel (slot, *posSliders[i], *posLabels[i], posKnobSize);
+        }
+        posFilterButton.setBounds (posMidGapArea.getCentreX() - posFocusIconSize / 2,
+                                   posWidthSlider.getBounds().getCentreY() - posFocusIconSize / 2,
+                                   posFocusIconSize, posFocusIconSize);
+    }
+
+    // ===== RAY =====
+    // Gleicher Kopfaufbau wie Position (Solo, Lock, Titel), darunter drei
+    // Elemente in einer Reihe: Staerke-Icon | Speed | Pair.
+    groupRayArea = rayRowArea;
+    auto rayFrame = rayRowArea.reduced (10);
+    auto rayHeader = rayFrame.removeFromTop (headerH);
+    rayPowerButton.setVisible (false);   // wie ueberall: Titel-Klick schaltet
+    raySoloButton.setBounds (rayHeader.removeFromLeft (headerH).reduced (1));
+    rayHeader.removeFromLeft (6);
+    {
+        const int lockSize = juce::roundToInt (headerH * 0.72f);
+        auto lockArea = rayHeader.removeFromLeft (lockSize);
+        rayHeader.removeFromLeft (6);
+        rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
+    }
+    fitTitle (rayTitleLabel, rayHeader);
+    rayFrame.removeFromTop (6);
+
+    {
+        const int rayKnobAreaH = juce::jmin (56, rayFrame.getHeight() - 14);
+        const int gap = 10;
+        const int slotW = (rayFrame.getWidth() - gap * 2) / 3;
+
+        // Staerke-Icon: quadratisch, so gross wie der Regler daneben, als
+        // eigener Block mit Label-Platz darunter (Label ist im Icon selbst
+        // nicht noetig - die drei Stufen erklaeren sich durch die Fuellung).
+        auto slotA = rayFrame.removeFromLeft (slotW);
+        rayFrame.removeFromLeft (gap);
+        const int iconSize = juce::jmin (slotW, rayKnobAreaH);
+        rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
+
+        auto slotB = rayFrame.removeFromLeft (slotW);
+        rayFrame.removeFromLeft (gap);
+        placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, juce::jmin (slotW, rayKnobAreaH));
+
+        auto slotC = rayFrame;
+        rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (60, slotW), juce::jmin (32, rayKnobAreaH)).translated (0, -6));
+    }
+}

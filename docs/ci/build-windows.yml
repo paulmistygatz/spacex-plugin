@@ -1,0 +1,48 @@
+# Windows-Build von "Space X" (VST3) auf GitHub Actions.
+#
+# Einrichtung (einmalig):
+#   1. Projektordner als Git-Repository zu GitHub pushen (der Ordner "build"
+#      sollte in .gitignore stehen).
+#   2. Diese Datei liegt unter .github/workflows/build-windows.yml.
+#   3. GitHub -> Reiter "Actions" -> "Build Windows VST3" -> "Run workflow".
+#      Nach ~10-15 Minuten liegt unter dem Lauf ein Artefakt
+#      "SpaceX-Windows-VST3" (ZIP mit "Space X.vst3") zum Download.
+#
+# Installation auf Windows: den Ordner "Space X.vst3" nach
+#   C:\Program Files\Common Files\VST3\
+# kopieren und die DAW neu scannen lassen.
+
+name: Build Windows VST3
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ "v*" ]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (Visual Studio 2022, x64)
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Collect VST3
+        shell: pwsh
+        run: |
+          $src = Get-ChildItem -Path build -Recurse -Directory -Filter "Space X.vst3" | Select-Object -First 1
+          if (-not $src) { throw "Space X.vst3 nicht gefunden" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Recurse -Force $src.FullName dist/
+          Get-ChildItem -Recurse dist | Select-Object FullName
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceX-Windows-VST3
+          path: dist/
+          if-no-files-found: error

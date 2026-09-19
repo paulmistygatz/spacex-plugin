@@ -1,0 +1,43 @@
+# Windows-Build von SpaceX.
+#
+# Warum ueberhaupt: ein VST3 fuer Windows laesst sich vom Mac aus nicht
+# querkompilieren - es braucht einen echten Windows-Rechner mit Visual Studio.
+# GitHub stellt genau den kostenlos als Runner bereit. Jeder Push auf main
+# (oder ein Klick auf "Run workflow") baut das Plugin und haengt es als
+# Download an den Lauf. Dauer: rund 10 Minuten, davon der groesste Teil das
+# Herunterladen und Bauen von JUCE.
+name: Windows VST3
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # JUCE wird von CMake selbst geholt (FetchContent) und danach
+      # zwischengespeichert - der zweite Lauf ist deutlich schneller.
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-9.0.2-${{ runner.os }}
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Show output
+        run: dir build\LCRMSPlugin_artefacts\Release\VST3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpaceX-VST3-Windows
+          path: build/LCRMSPlugin_artefacts/Release/VST3/SpaceX.vst3
+          if-no-files-found: error

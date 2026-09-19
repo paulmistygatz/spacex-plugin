@@ -1,0 +1,1172 @@
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42f, juce::Font::bold)).withExtraKerningFactor (0.04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42f, juce::Font::bold)).withExtraKerningFactor (0.04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+  142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+  142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 |  /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 |     AudioProcessor&   AudioProcessor& processor;
+      |                     ^
+ processor;
+      |                     ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:205:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[8], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:205:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[8], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  205 |     params.push_back (s205 |     params.push_back (std::make_unitd::make_unique<juce::Aque<juce::AudioParametudioParameterFloat> (
+      | erFloat> (
+      |                            ^
+                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |  note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[    [[deprecated deprecated ("Prefer th("Prefer the signaturee signature taking an Attri taking an Attributes argument")]butes argument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::f _Tp(std::forward<_Args>(_orward<_Args>(__args)...))_args)...));
+      |                              ^
+;
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:219:28: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:219:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  219 | note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  219 |     params.    params.push_back (push_back (std::make_ustd::make_unique<juce::AudioPanique<juce::AudioParameterFloat> (
+      rameterFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:|                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[de   97 |     [[deprecated ("precated ("Prefer the signaPrefer the signature taking ature taking an Attributes argument")]n Attributes argument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   ret  759 |   return unique_ptr<_Turn unique_ptr<_Tp>(new _Tp(stdp>(new _Tp(std::forward<_::forward<_Args>(__args)..Args>(__args)...));
+      |                              ^
+.));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:235:28/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:235:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  : note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  235 |     params.push_back (std::make235 |     params.push_back (std::make_unique<juc_unique<juce::AudioPare::AudioParameterFloaameterFloat> (
+t> (
+      |                            ^
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[dep   97 |     [[deprecated ("Prrecated ("Prefer the sefer the signature tignature takingaking an Attrib an Attributes autes argument")]rgument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from 64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |  
+  759 |   retur return unique_ptr<_Tp>n unique_ptr<_Tp>(new _Tp(std::forward<(new _Tp(std::forward<_A_Args>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:239:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested herergs>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:239:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  239 |    
+  239 |     params.push_ba params.push_back (std::make_ck (std::make_uniqueunique<juce::Audi<juce::AudioParameteroParameterFloat> (
+      |                            ^
+Float> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[de   97 |     [[deprecated ("Prefer thprecated ("Prefer the signature e signature taking an Ataking an Attributes attributes argument")]rgument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from 64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return uniqreturn unique_ptr<_Tp>ue_ptr<_Tp>(new _Tp(st(new _Tp(std::forwardd::forward<_Args>(__args)..<_Args>(__args)...));
+      |                              ^
+.));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:261:28:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:261:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  261 note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  261 |     param |     params.puss.push_back (sth_back (std::makd::make_unique<juce::Ae_unique<juce::AudioParametudioParameterFloat> (
+erFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |      97 |     [[de  [[deprecatprecated ("Prefered ("Prefer the signa the signature taking an Ature taking an Attributes attributes argument")]]
+      |       ^
+rgument")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   r  759 |   return uniqeturn unique_ptr<_Tp>(new ue_ptr<_Tp>(new _Tp(std_Tp(std::forward<::forward<_Args>(__args).._Args>(__args)...));
+      |                              ^
+.));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:265:28: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:265:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  265 | note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  265 |     params    params.push_back.push_back (std (std::make_unique<ju::make_unique<juce::AudioPace::AudioParametrameterFloat> (
+      erFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:|                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+ note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |        97 |     [[depr[[deprecated ecated ("Prefer t("Prefer the signature takhe signature taking an Attring an Attributes arguibutes argument")]]
+      ment")]]
+      |       ^
+|       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.hIn file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h::2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:75964:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return :30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std:unique_ptr<_Tp>(new _Tp(std::forward<_Arg:forward<_Args>(__args).s>(__args)...));
+      |                              ^
+..));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:304/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:304:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[15], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  304 |     :28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[15], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  304 |     params.pushparams.push_back (std:_back (std::make_uniq:make_unique<jue<juce::Auce::AudioParameterFloudioParameterFloat> (
+      |                            ^
+at> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |       97 |     [[deprecated ( [[deprecated ("Prefer the sign"Prefer the signature takinature taking an Attrig an Attributesbutes argument")]]
+      |  argument")]]
+      |       ^
+      ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from :
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   retu  759 |   return unique_ptr<_Trn unique_ptr<_Tp>(new _Tp(p>(new _Tp(std::forward<_Astd::forward<_Args>(__argsrgs>(__args)...));
+      |                              ^)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:307:28: note: 
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:307:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[16], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  307 |   in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[16], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  307 |     params.pu  params.push_back (ssh_back (std::make_utd::make_unique<juce:nique<juce::AudioParam:AudioParameterFloat> (
+      | eterFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |    97 |     [[depr [[deprecated ("Pecated ("Prefer the signatrefer the signature taking ure taking an Attribuan Attributes argumetes argument")]nt")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithmIn file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759::1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   retur  759 |   return unique_pn unique_ptr<_Tp>(new _Tp(tr<_Tp>(new _Tp(std::forwarstd::forward<_Args>(__argsd<_Args>(__args)...));
+      |                              ^)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:310:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:310:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  310 |     pa  310 |     params.push_rams.push_back (std:back (std::make_uniq:make_unique<juce::Aue<juce::AudioPudioParameterFlarameterFloat> (
+      |                            ^
+oat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |   
+   97 |     [[deprec  [[deprecated (ated ("Prefer th"Prefer the signature signature taking ae taking an Attributn Attributes argumenes argument")]]
+      |       ^
+t")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759::1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return 30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<unique_ptr<_Tp>(new _Tp(st_Tp>(new _Tp(std::forward<d::forward<_Args>(__args)._Args>(__args)...));
+      |                              ^
+..));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:318:28: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:318:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  318 | note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  318 |     params    params.push_back .push_back (std::make(std::make_unique<ju_unique<juce::Ace::AudioParameudioParameterFloat> terFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:(
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprec   97 |     [[deprecated ("Prefated ("Prefer the siger the signaturnature taking ae taking an Attributn Attributes arges argument")]]
+ument")]]
+      |       ^
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from :
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   re |   return uniquturn unique_ptr<_Tp>e_ptr<_Tp>(new _Tp(s(new _Tp(std::forward<_Argtd::forward<_Args>(__args).s>(__args)...));
+      |                              ^
+..));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:337:28:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:337:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[7], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  337 |     note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[7], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  337 |     params.pus params.push_back (sth_back (std::make_und::make_unique<juce:ique<juce::AudioPara:AudioParametermeterFloat> (
+      | Float> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 | note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[depre    [[deprecated ("Prcated ("Prefer the sefer the signature tignature taking aking an Attribuan Attributes argument")]]tes argument")]]
+      |       ^
+
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:3066:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   re  759 |   return unique_ptr<turn unique_ptr<_Tp>(new _T_Tp>(new _Tp(std::forp(std::forward<_Argsward<_Args>(__args).>(__args)...));
+      |                              ^
+..));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:352:28:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:352:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+ note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  352 |       352 |     params.push_backparams.push_back (std::make (std::make_unique<juce::A_unique<juce::AudioParametudioParameterFloat> (
+erFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   : note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[dep97 |     [[deprecated ("Precated ("Prefer the refer the signature signature takingtaking an Attrib an Attributes argumutes argument")]]
+      |       ^ent")]]
+      |       ^
+
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:3066:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Arforward<_Args>(__args)...gs>(__args)...));
+      |                              ^
+));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:371:28/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:371:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  371 | : note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  371 |     pa    params.push_brams.push_back (std::mack (std::make_unique<juce:ake_unique<juce::AudioP:AudioParameterFloarameterFloat> (
+      |                            ^
+at> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefe note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated ("Prefer the signatr the signature taking ure taking an Attributan Attributes argument")]]es argument")]]
+      |       ^
+
+      |       ^
+15 warnings generated.
+15 warnings generated.
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getH  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeieight() * 0.42ght() * 0.42f, juce::Ff, juce::Font::bold))ont::bold)).withExtra.withExtraKerningFactor (0.KerningFactor (0.04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+  142 |     LCRMSAudioProcessor& processor;
+        142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+|                          ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+note: declared here
+   69 |     Audi   69 |     AudioProcessor& prooProcessor& processor;
+      |                     ^
+cessor;
+      |                     ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.hIn file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:205:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[8], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:205:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[8], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  205 |     params.pu  205 |     params.push_back (std::make_uniqsh_back (std::make_unique<juce::AudioParameue<juce::AudioParameterFloat> (
+      terFloat> (
+      |                            ^
+|                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |  : note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[deprecated    [[deprecated ("Prefer the sig("Prefer the signature takinnature taking an Attribg an Attributes argument")utes argument")]]
+      |       ^
+]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h::
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |     759 |   return unireturn unique_ptr<_Tp>(new que_ptr<_Tp>(new _Tp(std::fo_Tp(std::forward<_Argsrward<_Args>(__args).>(__args)...));
+      |                              ^
+..));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:219:28:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:219:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  219 |  note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[10], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  219 |     params.    params.push_back push_back (std::make(std::make_unique<ju_unique<juce::Ace::AudioParametudioParameterFloat> (erFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: :97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |  'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[depre   [[deprecated ("Prefer tcated ("Prefer the signaturhe signature taking ae taking an Attributn Attributes argumentes argument")]]
+      |       ^
+")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   ret |   return uniqueurn unique_ptr<__ptr<_Tp>(new _TpTp>(new _Tp(std::forw(std::forward<_Args>ard<_Args>(__arg(__args)...));
+      |                              ^
+s)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:235:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  235 | /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:235:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  235 |     params.    params.push_back push_back (std::make(std::make_unique<ju_unique<juce::Ace::AudioParameterFloudioParameterFloat> (
+      |                            ^
+at> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[de   97 |     [[deprecated (precated ("Prefer the sig"Prefer the signaturenature taking an Attri taking an Attributes argumbutes argument")]]
+      |       ^ent")]]
+      |       ^
+
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from 66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |  'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return uni return unique_ptr<_Tque_ptr<_Tp>(np>(new _Tp(ew _Tp(std::forwastd::forward<_Argrd<_Args>(__args)s>(__args)...));
+      |                              ^
+...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:239:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:239:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  239 |   
+  239 |     params.push_b  params.push_back (std::mack (std::make_uniqueake_unique<juce<juce::AudioParameter::AudioParameterFloat> (
+      | Float> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[depr |     [[deprecated ("Precated ("Prefer the signatefer the signature taking ure taking an Attribuan Attributes argumetes argument")]nt")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |  
+  759 |   return unique_ return unique_ptr<_Tp>(nptr<_Tp>(new _Tp(std:ew _Tp(std::forward<_A:forward<_Args>(__argsrgs>(__args)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:261:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:261:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[6], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  261 |     params.push_b  261 |     params.push_back (std::mack (std::make_unique<ake_unique<juce::Audiojuce::AudioParameterFloat> ParameterFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97(
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[d   97 |     [[deprecated eprecated ("Prefer t("Prefer the sihe signature tagnature taking aking an Attributen Attributes arguments argument")]]
+      |       ^
+")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from :
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return  759 |   return unique_pt unique_ptr<_Tpr<_Tp>(new _Tp(>(new _Tp(std::forwastd::forward<_Args>(rd<_Args>(__args__args)...));
+      |                              ^
+)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:265:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:265:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[5], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  265 |      265 |     params.pu params.push_back (ssh_back (std::mtd::make_uniqueake_unique<juce::Aud<juce::AudioParaioParameterFloatmeterFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[   97 |     [[deprecateddeprecated ("Prefer  ("Prefer the sthe signature tignature taking an Aaking an Attributtributes argumentes argument")]]
+      |       ^
+t")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   r  759 |   return uniqeturn unique_ptr<_Tpue_ptr<_Tp>(new >(new _Tp(std::f_Tp(std::forwardorward<_Args>(__a<_Args>(__args)...));rgs)...));
+      |                              ^
+
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:304:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[15], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:304:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[15], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  304 |      304 |     params.pu params.push_back (ssh_back (std::make_utd::make_unique<juce:nique<juce::AudioPara:AudioParameterFloatmeterFloat> (
+      | > (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7:                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+ note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [   97 |     [[deprecate[deprecated ("Preferd ("Prefer the signa the signature takinture taking an Attributes g an Attributes argument")]argument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:6664:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.hIn file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: :27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   retu'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_prn unique_ptr<_Tp>(netr<_Tp>(new _Tpw _Tp(std::f(std::forward<_Arorward<_Args>(__argsgs>(__args)...));
+      | )...));
+      |                              ^
+                             ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:307:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[16], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:307:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[16], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  307 |   
+  307 |     params.p  params.push_back (ush_back (std::make_std::make_uniqueunique<juce::Aud<juce::AudioParameteioParameterFloat> (
+rFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[d   97 |     [[deprecaeprecated ("Prefted ("Prefer the siger the signaturenature taking an taking an Attribute Attributes arguments argument")]]
+      |       ^
+")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   ret  759 |   return unurn unique_ptr<_ique_ptr<_Tp>(neTp>(new _Tp(std:w _Tp(std::forward<_:forward<_Args>(__arArgs>(__args)...));
+gs)...));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:310:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+:310:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[17], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  310 |     p  310 |     params.pusharams.push_back _back (std::make(std::make_unique<ju_unique<juce::AudioPce::AudioParameterFlarameterFloat> (
+      |                            ^
+oat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[de   97 |     [[deprecated (precated ("Pref"Prefer the siger the signaturenature taking an taking an Attribute Attributes arguments argument")]]
+      |       ^
+")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from 64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: :759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 | warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return u  return unique_ptr<nique_ptr<_Tp>(new __Tp>(new _Tp(std::foTp(std::forward<_Argrward<_Args>(__as>(__args)...));rgs)...));
+      |                              ^
+
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:318:28:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:318:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+ note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[13], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  318 |     pa  318 |     params.push_rams.push_back (std:back (std::make_uniq:make_unique<juce::Aue<juce::AudioParameudioParameterFloat> terFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here(
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |    
+   97 |     [[depreca [[deprecated ("Prefted ("Prefer the signaturer the signature taking ane taking an Attribute Attributes args argument")]]
+      |       ^
+ument")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from 64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.hIn file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   re  759 |   return uniqueturn unique_ptr<_Tp>(n_ptr<_Tp>(new _Tp(stdew _Tp(std::forward<_Args>::forward<_Args>(__args)...(__args)...));
+      |                              ^
+));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:337:28: note: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:337:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[7], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  337 |  in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[7], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  337 |     params.   params.push_push_back (std:back (std::make_uniq:make_unique<juce::Aue<juce::AudioParameudioParameterFloat> terFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:(
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[   97 |     [[deprecateddeprecated ("Pre ("Prefer the sifer the signature tagnature taking an Atking an Attributes atributes argumenrgument")]]
+      |       ^
+t")]]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:6664:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.hIn file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: :27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 | 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return unique_  return unique_ptr<_Tp>(neptr<_Tp>(new _Tp(std::w _Tp(std::forward<_Aforward<_Args>(__argrgs>(__args)...s)...));
+      | ));
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:352                             ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:352:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[2], 0>' requested here
+  352 |   
+  352 |     params.p  params.push_back (ush_back (std::make_std::make_unique<jucunique<juce::AudioPae::AudioParameterFlorameterFloat> (
+at> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |     [[d   97 |     [[deprecaeprecated ("Prefted ("Prefer the signaer the signature takingture taking an Attributes  an Attributes argument")]argument")]]
+      |       ^
+]
+      |       ^
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:1:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.h:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/JuceLibraryCode/JuceHeader.h:15:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from :
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.h:66:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/juce_core.h:215:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_core/system/juce_StandardHeader.h:66:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:301865:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h:27:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:759:30: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+: warning: 'AudioParameterFloat' is deprecated: Prefer the signature taking an Attributes argument [-Wdeprecated-declarations]
+  759 |   return  759 |   return unique_pt unique_ptr<_Tp>(newr<_Tp>(new _Tp(std:: _Tp(std::forward<_Aforward<_Args>(_rgs>(__args)...)_args)...));
+      |                              ^
+);
+      |                              ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:371:28: /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginProcessor.cpp:371:28: note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+note: in instantiation of function template specialization 'std::make_unique<juce::AudioParameterFloat, juce::ParameterID, const char (&)[9], juce::NormalisableRange<float>, float, const char (&)[3], 0>' requested here
+  371 |     params.  371 |     params.push_back push_back (std::make(std::make_unique<juce_unique<juce::AudioPara::AudioParameterFloat> (
+      |                            ^
+meterFloat> (
+      |                            ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors_headless/utilities/juce_AudioParameterFloat.h:97:7: note: 'AudioParameterFloat' has been explicitly marked deprecated here
+   97 |        97 |     [[deprecate[[deprecated ("Preferd ("Prefer the signa the signature takinture taking an Attrig an Attributes argubutes argumment")]]
+      |       ^ent")]]
+      |       ^
+
+15 warnings generated.
+15 warnings generated.
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42f, juce::Font:  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42f, juce::Font::bold)).with:bold)).withExtraKerninExtraKerningFactor (0.gFactor (0.04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+  142 |     LCRMSAudioProcessor& proce  142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+ssor;
+      |                          ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 | /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 |     AudioProcessor& pr    AudioProcessor& processocessor;
+      |                     ^
+or;
+      |                     ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:340:27: warning: declaration shadows a local variable [-Wshadow-uncaptured-local]
+  340 |    /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:340:27: warning: declaration shadows a local variable [-Wshadow-uncaptured-local]
+  340 |             constexpr int kDeleteIdBase = 2000;
+      |                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:314:19: note: previous declaration is here
+           constexpr int kDeleteIdBase = 2000;
+      |                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:314:19: note: previous declaration is here
+  314 |     c314 |     constexpr intonstexpr int kDeleteIdBase kDeleteIdBase = 2000;
+       = 2000;
+      |                   ^
+|                   ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:529:55: warning: field 'goniometer' will be initialized after field 'volInputMeter' [-Wreorder-ctor]
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:529:55: warning: field 'goniometer' will be initialized after field 'volInputMeter' [-Wreorder-ctor]
+  529 |     : juce::AudioProcessor  529 |     : juce::AudioProcessorEditor (&p),Editor (&p), processor  processor (p), goniom(p), goniometer (p),
+eter (p),
+      |                                                       ^~~~~~~~~~~~~~
+      |       |                                                       ^~~~~~~~~~~~~~
+      |                                                       volInputMeter (p.currentInputLevel)
+  530 |                                                         volInputMeter (p.currentInputLevel)
+  530 |       volInpu    volInputMeter (p.tMeter (p.currencurrentInputLevel), voltInputLevel), volOutputMeter (p.OutputMeter (p.currentOutpcurrentOutputLevel)utLevel)
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      | 
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |       volOutputMeter (p.currentOutputLevel)goniometer (p)
+      volOutputMeter (p.currentOutputLevel)goniometer (p)
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2242:19: warning: declaration shadows a local variable [-Wshadow]
+ 2242 |  /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2242:19: warning: declaration shadows a local variable [-Wshadow]
+ 2242 |         const int blockH = linkAreaH + linkGa       const int blockH = linkAreaH + linkGapV + lrBtnH + pV + lrBtnH + gapV + posBgapV + posBtnH;
+      |                   ^tnH;
+      |                   ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2034:15: note: previous declaration is here
+ 2034 |     const int blo
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2034:15: note: previous declaration is here
+ 2034 |     const int blockH = gonioSckH = gonioSize + correize + correlationGap + corlationGap + correlationBarH + relationBarH + belowCorrH;
+belowCorrH;
+      |               ^
+      |               ^
+5 warnings generated.
+5 warnings generated.
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:4:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/GUI/CustomLookAndFeel.h:374:66: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42  374 |                 g.setFont (juce::Font (juce::FontOptions (button.getHeight() * 0.42f, juce::Font::bf, juce::Font::bold)).withExold)).withExtraKerningFtraKerningFactor (0.04factor (0.04f));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+));
+      |                                                           ~~~~~~~^~~~~~~~~~~ ~
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+In file included from /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2:
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.h:142:26: warning: non-static data member 'processor' of 'LCRMSAudioProcessorEditor' shadows member inherited from type 'AudioProcessorEditor' [-Wshadow-field]
+  142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+  142 |     LCRMSAudioProcessor& processor;
+      |                          ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 | /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/_deps/juce-src/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.h:69:21: note: declared here
+   69 |       AudioProces  AudioProcessor& processor& processor;
+      |                     ^
+sor;
+      |                     ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:340:27: warning: declaration shadows a local variable [-Wshadow-uncaptured-local]
+  340 | /Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:340:27: warning: declaration shadows a local variable [-Wshadow-uncaptured-local]
+  340 |             constexpr int kDeleteIdBase =             constexpr int kDeleteIdBase = 2000;
+      |                           ^
+2000;
+      |                           ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:314:19: note: previous declaration is here
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:314:19: note: previous declaration is here
+  314 |     co  314 |     constexpr intnstexpr int kDeleteIdB kDeleteIdBase = 2000;ase = 2000;
+      |                   ^
+
+      |                   ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:529:55: warning: field 'goniometer' will be initialized after field 'volInputMeter' [-Wreorder-ctor]
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:529:55: warning: field 'goniometer' will be initialized after field 'volInputMeter' [-Wreorder-ctor]
+  529 |     : juce::AudioProcessorEditor (&p)  529 |     : juce::AudioProcessorEditor (&p), pro, processor (p), gocessor (p), goniometer (pniometer (p),
+      |                                                       ^~~~~~~~~~~~~~
+      |                                                       volInputMeter (p.currentInputLevel)
+),
+      |                                                       ^~~~~~~~~~~~~~
+      |                                                       volInputMeter (p.currentInputLevel)
+  530  530 |       volI |       volInputMeter (p.curnputMeter (p.currentInputLeverentInputLevel), volOutpl), volOutputMeter (putMeter (p.cur.currentOutputrentOutputLevel)
+Level)
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |       volOutputMeter (p.currentOutputLevel)goniometer (p)
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |       volOutputMeter (p.currentOutputLevel)goniometer (p)
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2242:19: warning: declaration shadows a local variable [-Wshadow]
+ 2242/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2242:19: warning: declaration shadows a local variable [-Wshadow]
+ 2242 |         const int bloc |         const int blockH = linkArkH = linkAreaH + linkGaeaH + linkGapV + lrBtnHpV + lrBtnH + gapV +  + gapV + posBtnposBtnH;
+      |                   ^
+H;
+      |                   ^
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2034:15: note: previous declaration is here/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/Source/PluginEditor.cpp:2034:15: note: previous declaration is here
+ 2034 |  
+ 2034 |     const i   const int blockH =nt blockH = gonioSize  gonioSize + correlat+ correlationGap + correlatiionGap + correlationBarH + beloonBarH + belowCorrH;
+      |               ^wCorrH;
+      |               ^
+
+5 warnings generated.
+5 warnings generated.
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/VST3/Space X.vst3: code object is not signed at all
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/VST3/Space X.vst3: code object is not signed at all
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/VST3/Space X.vst3: replacing existing signature
+/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin/build/LCRMSPlugin_artefacts/VST3/Space X.vst3: replacing existing signature
