@@ -60,7 +60,23 @@ public:
         outC.assign ((size_t) ringSize, 0.0f);
         outR.assign ((size_t) ringSize, 0.0f);
         writeHead = 0;
-        outReadPos = fftSize % ringSize; // Leseposition liegt fftSize Samples hinter der Schreibposition
+        // BUG-FIX (User: "Galaxy Latenz nicht korrekt wenn der Focus-Knopf an
+        // ist - da hoere ich eine Dopplung"). Der alte Startwert fftSize war
+        // falsch herum gerechnet: die Leseposition landete dadurch NICHT
+        // fftSize hinter der Schreibposition, sondern 2816 Samples (2,75 x
+        // fftSize) - gemessen mit tools/latency-test. Der Prozessor meldete
+        // dem Host aber 1024 und verzoegerte den Dry-Pfad ebenfalls um 1024.
+        //
+        // Ohne den Focus-Filter faellt das nicht auf: bei voll aufgedrehtem
+        // Galaxy ist wetGain = 1, damit kuerzt sich der Dry-Anteil in
+        // "dry + (wet - dry) * wg" exakt weg. Erst der Focus-Filter mischt
+        // beide wieder zusammen - und 1792 Samples Versatz (37 ms bei 48 kHz)
+        // sind dann als klarer Doppelschlag zu hoeren.
+        //
+        // Herleitung: Ringposition p traegt immer den Zeitpunkt p - (fftSize -
+        // hopSize). Damit beim Sample n der Zeitpunkt n - fftSize gelesen wird,
+        // muss der Startwert ringSize - hopSize sein.
+        outReadPos = (ringSize - hopSize) % ringSize;
         samplesUntilNextFrame = hopSize;
     }
 
@@ -98,7 +114,7 @@ public:
         std::fill (outR.begin(), outR.end(), 0.0f);
         fifoPos = 0;
         writeHead = 0;
-        outReadPos = fftSize % ringSize;
+        outReadPos = (ringSize - hopSize) % ringSize;   // siehe prepare()
         samplesUntilNextFrame = hopSize;
     }
 

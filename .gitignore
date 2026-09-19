@@ -2,3 +2,5 @@ build/
 build_log.txt
 .DS_Store
 *.swp
+tools/latency-test/LCRExtractor_local.h
+tools/latency-test/latency-test
