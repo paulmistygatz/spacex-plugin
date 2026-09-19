@@ -8,6 +8,15 @@ cmake_minimum_required(VERSION 3.22)
 # der Plugin-Liste.
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build architectures for macOS" FORCE)
+    # Mindest-macOS. OHNE diese Zeile traegt CMake die Version des BUILD-Rechners
+    # ein - ein auf macOS 26 gebautes Plugin laesst sich dann auf keinem
+    # aelteren System laden, obwohl beide Architekturen drinstecken. Genau
+    # daran ist die erste Fassung auf einem Intel-Mac gescheitert: universal
+    # ja, aber "min macOS 26.0".
+    # 10.15 (Catalina) deckt praktisch jeden Intel-Mac ab, der heute noch in
+    # einem Studio steht. Sollte JUCE das irgendwann nicht mehr mitmachen, ist
+    # 11.0 (Big Sur) die naechste sinnvolle Stufe.
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version" FORCE)
 endif()
 
 project(LCRMSPlugin VERSION 1.0.0 LANGUAGES C CXX)

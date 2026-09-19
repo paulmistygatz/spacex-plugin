@@ -26,3 +26,7 @@ rm -rf "$HOME/Library/Audio/Plug-Ins/VST3/$NAME" \
        "$HOME/Library/Audio/Plug-Ins/VST3/Space X.vst3" 2>/dev/null || true
 
 echo "OK -> $DST/$NAME"
+
+# Kurzer Selbsttest: beide Architekturen drin, und wie alt darf das Ziel-macOS
+# sein? Ohne das faellt "laeuft nur auf meinem Rechner" erst beim Kollegen auf.
+"$(dirname "$0")/tools/check_binary.sh" "$DST/$NAME/Contents/MacOS/SpaceX" 2>/dev/null || true
