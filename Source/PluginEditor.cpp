@@ -5791,16 +5791,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // vertikal zentriert. Dadurch ist der Abstand nach oben und unten
     // zwangslaeufig gleich - in jeder Sektion, bei jeder Fenstergroesse.
     constexpr int kKnobLabelH = 14;
-    // EIN Wert fuer alle Sektionsregler, aus dem ENGSTEN Rahmen gerechnet -
-    // sonst sieht jede Zeile anders aus (User: "die Reglergroessen ein fuer
-    // alle mal einheitlich machen"). Drei Regler plus zwei Zwischenraeume
-    // muessen in die halbe Spaltenbreite passen, und die Hoehe der
-    // niedrigsten Zeile deckelt zusaetzlich.
-    const int kSectionFrameW = ((rightColumn.getWidth() - frameGap) / 2) - 20;
-    const int kSectionRowH   = juce::jmin (juce::jmin (row1H, row2H), row3H) - 20 - headerH;
-    const int kSectionKnob   = juce::jlimit (34, kKnobLarge,
-                                   juce::jmin (kSectionRowH - kKnobLabelH,
-                                               (kSectionFrameW - 44) / 3));
+    // FEHLVERSUCH, bewusst dokumentiert: hier stand ein gemeinsamer Wert
+    // fuer alle Sektionsregler, gerechnet aus dem ENGSTEN Rahmen und der
+    // NIEDRIGSTEN Zeile. Das Ergebnis war das Gegenteil des Ziels - der
+    // engste Rahmen ist RAYE, und damit sind alle Regler im ganzen Plugin
+    // auf dessen Groesse geschrumpft. "Einheitlich" darf sich nicht am
+    // kleinsten Kasten orientieren, sonst bestimmt die kleinste Sektion das
+    // Aussehen aller anderen. Jede Sektion rechnet ihre Groesse wieder
+    // selbst, gedeckelt durch kKnobLarge.
     auto placeKnobWithLabel = [] (juce::Rectangle<int> slot, juce::Slider& s, juce::Label& l, int knobSize)
     {
         const int blockH = knobSize + kKnobLabelH;
@@ -5855,7 +5853,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         lcrInner.removeFromLeft (gap);
 
         const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
-        const int knobD = juce::jmin (kSectionKnob, juce::jmin (knobAreaH, colW));
+        const int knobD = juce::jlimit (34, kKnobLarge, juce::jmin (knobAreaH, colW));
 
         auto horCol = lcrInner.removeFromLeft (colW);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
@@ -5959,11 +5957,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Zwischenraeume berechnet und in beiden Rahmen benutzt.
     const int row2InnerH   = driftFrame.getHeight() - 20 - headerH; // reduced(10) oben+unten, minus Header
     const int row2InnerW   = driftFrame.getWidth() - 20;
-    const int row2KnobArea = juce::jmin (110, row2InnerH - kKnobLabelH);
+    const int row2KnobArea = juce::jmin (kKnobLarge, row2InnerH - kKnobLabelH);
     // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
     const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
     const int wbGap        = 14;
-    const int row2KnobSize = juce::jmin (kSectionKnob, juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3));
+    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
 
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
     {
@@ -6009,7 +6007,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto row3 = rightColumn.removeFromTop (row3H);
     // RAYE rueckt hier herein - ein Drittel der Breite, genau wie in den
     // beiden Zeilen darueber eine grosse und eine kleine Sektion stehen.
-    const int rayColW = juce::roundToInt (row3.getWidth() * 0.34f);
+    const int rayColW = juce::roundToInt (row3.getWidth() * 0.29f);
     rayRowArea = row3.removeFromRight (rayColW);
     row3.removeFromRight (frameGap);
     groupFlowArea = row3;
@@ -6021,8 +6019,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Deutlich kompakter als vorher: HYPERDRIVE teilt sich die Zeile jetzt
     // mit RAYE. Pulse und Sync sind Icons statt beschrifteter Knoepfe, das
     // allein spart rund 60 px.
-    const int moveSize  = juce::jmin (knobAreaH, 88);
+    // Flow war hier als einziger Regler gross geblieben, waehrend alles
+    // andere klein wurde - das war der Grund, warum die Zeile so unruhig
+    // aussah. Jetzt nehmen Flow und Speed dieselbe Groesse.
     const int flowIconS = 28;
+    const int flowKnob  = juce::jmin (kKnobLarge, juce::jmin (knobAreaH, 72));
+    const int moveSize  = flowKnob;
 
     // Auch hier ueber die gemeinsame Regel (siehe placeKnobWithLabel oben),
     // statt den Regler oben anzusetzen und das Label darunter zu haengen -
@@ -6036,8 +6038,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
     pulseButton.setBounds (pulseArea.withSizeKeepingCentre (flowIconS, flowIconS));
 
     flowInner.removeFromLeft (12);
-    const int speedColW = juce::jmin (72, knobAreaH + 14);
-    auto speedKnobArea = flowInner.removeFromLeft (speedColW).withSizeKeepingCentre (speedColW, knobAreaH + 14);
+    const int speedColW = flowKnob;
+    auto speedKnobArea = flowInner.removeFromLeft (speedColW).withSizeKeepingCentre (speedColW, flowKnob + kKnobLabelH);
     speedLabel.setBounds (speedKnobArea.removeFromBottom (14));
     speedRateSlider.setBounds (speedKnobArea);
 
@@ -6047,7 +6049,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
     flowInner.removeFromLeft (10);
     auto speedBoxArea = flowInner.withHeight (knobAreaH);
-    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmax (56, juce::jmin (104, speedBoxArea.getWidth())), 26));
+    // Mindestens 84 px - darunter stand im Build "8..." statt "8 Bars".
+    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmax (84, juce::jmin (120, speedBoxArea.getWidth())), 26));
 
     // ===== VISION aufgeloest ================================================
     // Die Sektion ist weg. Tilt steht jetzt in PARALLAX, Depth in DIMENSION
