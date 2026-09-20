@@ -211,8 +211,8 @@ private:
     public:
         static constexpr int kThemes  = 6;
         static constexpr int kLayouts = 3;
-        static constexpr int kSmart   = 3;
-        static constexpr int kBehav   = 6;
+        static constexpr int kSmart   = 2;
+        static constexpr int kBehav   = 3;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
@@ -227,8 +227,8 @@ private:
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeModern, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
-        static const int* smartIds()  { static const int a[kSmart]   = { idMutatePrism, idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idShowModulation, idKeepSolo, idPrismClickJumps, idShowHz, idGalaxyDefault }; return a; }
+        static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idShowModulation, idGalaxyDefault }; return a; }
 
         SettingsPanelComponent()
         {
@@ -250,9 +250,12 @@ private:
 
             static const char* const themeNames[kThemes]  = { "Silver", "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };
             static const char* const layoutNames[kLayouts] = { "3D", "Flat", "Outline" };
-            static const char* const smartNames[kSmart]   = { "Changes Focus", "Changes Mix", "Show Categories" };
-            static const char* const behavNames[kBehav]   = { "Auto Gain", "Show Modulation", "Keep Solo When Off",
-                                                              "Focus: Click Moves Edge", "Show Focus Hz",
+            // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
+            // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
+            // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
+            // Art Ballast, die wir gerade abbauen.
+            static const char* const smartNames[kSmart]   = { "Changes Mix", "Show Categories" };
+            static const char* const behavNames[kBehav]   = { "Auto Gain", "Show Modulation",
                                                               "Galaxy On Startup (Latency)" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
@@ -290,12 +293,9 @@ private:
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
             saveBtn.setTooltip ("Keep the changes and close");
 
-            smartBtn[0].setTooltip ("Smart also moves the focus range");
-            smartBtn[1].setTooltip ("Smart also moves the Mix knob");
+            smartBtn[0].setTooltip ("Smart also moves the Mix knob");
             behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
-            behavBtn[2].setTooltip ("Off: switching a soloed section off clears Solo as well");
-            behavBtn[4].setTooltip ("Show the frequency while dragging the focus edges");
-            behavBtn[5].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
+            behavBtn[2].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }

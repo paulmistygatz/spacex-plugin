@@ -1193,7 +1193,19 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // nichts - dann wird er uebersprungen und das Ergebnis ist bitgenau
         // das bisherige.
         const bool coversAll = (loHz <= 25.0f && hiHz >= 19000.0f);
-        prismActive = prismOnRaw && ! coversAll;
+        // Runde 31: Der Focus-Bereich ist raus (User-Entscheidung). Begruendung
+    // in seinen Worten: "es veraendert komplett die Balance der Frequenzen.
+    // Vocals klingen je nach setting deutlich praesenter, oder basslaestiger.
+    // Das veraendert den mix. Das wollen wir mit dem Plugin nicht erreichen."
+    // Genau richtig - ein Imager, der nebenbei den Klang verbiegt, ist in
+    // einem fertigen Mix gefaehrlich. Was vom Konzept bleibt, ist der
+    // Bass-Guard bei 120 Hz: der schuetzt, statt zu faerben.
+    //
+    // Die Parameter bleiben vorerst bestehen (sie fliegen zusammen mit
+    // Vision-Width, Elevate und den Polarity-Slots in einem Durchgang raus),
+    // wirken aber nicht mehr.
+    juce::ignoreUnused (prismOnRaw, coversAll);
+    prismActive = false;
         // Runde 30: die drei Focus-Bypass-Schalter sind aus der Oberflaeche
     // verschwunden (User: "3 Focus Knobs wieder rueckgaengig machen") - drei
     // Schalter fuer ein Routing, das man nicht hoeren kann. Der Focus wirkt

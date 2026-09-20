@@ -1698,17 +1698,13 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
         settingsPanel.layoutBtn[i].setAlpha (layoutsAvailable ? 1.0f : 0.40f);
     }
 
-    settingsPanel.smartBtn[0].setToggleState (p.getBoolValue ("mutateChangesPrism", true),   juce::dontSendNotification);
-    settingsPanel.smartBtn[1].setToggleState (p.getBoolValue ("mutateChangesMix", false),    juce::dontSendNotification);
-    settingsPanel.smartBtn[2].setToggleState (p.getBoolValue ("showMutateCategories", true), juce::dontSendNotification);
+    settingsPanel.smartBtn[0].setToggleState (p.getBoolValue ("mutateChangesMix", false),    juce::dontSendNotification);
+    settingsPanel.smartBtn[1].setToggleState (p.getBoolValue ("showMutateCategories", true), juce::dontSendNotification);
 
     settingsPanel.behavBtn[0].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
     settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (keepSoloWhenSectionOff,                          juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("prismClickJumps", false),        juce::dontSendNotification);
-    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("showFocusHz", false),            juce::dontSendNotification);
-    settingsPanel.behavBtn[5].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
     settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
@@ -5579,21 +5575,18 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Orbit, Size, Boost und Width statt neben ihnen, und gehoert damit zu
         // den globalen Werkzeugen hier unten.
         {
-            const int prismW    = controlRow.getRight() - prismLeft;
-
-            // Leiste ueber die ganze rechte Haelfte, Ein/Aus-Icon IN der
-            // Leiste ganz links (leftInset). Etwas hoeher als vorher (22 ->
-            // 26), damit das Power-Icon bequem hineinpasst.
-            // Buendig mit dem VOL-Block (Regler-Oberkante bis Schrift-Unterkante).
+            // Runde 31: Die Focus-Leiste ist raus (siehe prismActive im
+            // Prozessor). Uebrig bleibt der Wing-Knopf - er stand nur
+            // zufaellig in derselben Kachel und hat mit dem Focus nichts zu
+            // tun. Er rueckt an den Anfang der frei gewordenen Flaeche; der
+            // Rest bleibt bewusst leer, bis entschieden ist, was dort
+            // hinkommt.
             const int blockH0  = iconSize + labelGap + labelH;
-            // Nur oben gekuerzt (User): Unterkante bleibt buendig mit der Schrift.
             const int bandTop  = rowTop + (rowH - blockH0) / 2 + 3;
             const int bandH    = blockH0 - 3;
-            const int onZone   = bandH * 2;   // zwei quadratische Kacheln: Ein/Aus und Wing
-            prismBand.setLeftInset (onZone);
-            prismBand.setBounds (prismLeft, bandTop, juce::jmax (60, prismW), bandH);
-            prismOnButton.setBounds (prismBand.getBounds().withWidth (onZone / 2).reduced (3));
-            wingButton.setBounds (prismBand.getBounds().withWidth (onZone / 2).translated (onZone / 2, 0).reduced (3));
+            prismBand.setVisible (false);
+            prismOnButton.setVisible (false);
+            wingButton.setBounds (prismLeft, bandTop, bandH, bandH);
             wingButton.toFront (false);
         }
     }
