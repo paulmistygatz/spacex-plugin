@@ -1427,6 +1427,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float offsetS   = offsetSmoothed.getNextValue();
         const float posWidthS = posWidthSmoothed.getNextValue();
         const float posGain   = posOnGain.getNextValue();
+        juce::ignoreUnused (posGain);   // VISION aufgeloest, siehe unten
         const float monoGain  = monoCheckGain.getNextValue();
         const float monoDryS  = monoDryBlend.getNextValue();
         lastMoveS = moveS;
@@ -1687,6 +1688,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 rPos *= gPanR;
             }
 
+            // TILT gehoert jetzt zu PARALLAX und haengt deshalb an DESSEN
+            // Ein/Aus-Schalter, nicht mehr an dem der alten Vision-Sektion.
+            // Die Rechenreihenfolge bleibt exakt wie bisher - nur der
+            // Ueberblendpunkt wird aufgeteilt, damit Parallax aus wirklich
+            // Tilt aus heisst.
+            l = l + (lPos - l) * dGain;
+            r = r + (rPos - r) * dGain;
+            lPos = l; rPos = r;
+
             // Width: nochmalige, globale Side-Skalierung (unabhaengig von
             // DIMENSION/Expand weiter vorne).
             {
@@ -1729,8 +1739,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 rPos = elevateStateR.process (rPos, elevateCoeffs);
             }
 
-            l = l + (lPos - l) * posGain;
-            r = r + (rPos - r) * posGain;
+            // Der Rest der alten Vision-Stufe ist DEPTH, und das gehoert zu
+            // DIMENSION - also dessen Schalter. posGain wird nicht mehr
+            // gebraucht: die Sektion, zu der er gehoerte, gibt es nicht mehr.
+            l = l + (lPos - l) * wbGain;
+            r = r + (rPos - r) * wbGain;
         }
 
         // Polarity-Slot 4: nach Vision (M/S-Width), vor RAYE. RAYE selbst ist

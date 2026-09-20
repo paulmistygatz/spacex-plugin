@@ -2945,10 +2945,6 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     //    keine eigene Stufe mehr ist: ein Flip ist pro Kanal linear und
     //    vertauscht mit Delay, dazwischen liegt dann nichts mehr.
     // Uebrig bleiben EARLY (hinter Galaxy) und LATE (hinter Dimension).
-    polPos1Button.setVisible (false);
-    polPos4Button.setVisible (false);
-    polPos2Button.setButtonText ("EARLY");
-    polPos3Button.setButtonText ("LATE");
     juce::TextButton* polPosButtons[4] = { &polPos1Button, &polPos2Button, &polPos3Button, &polPos4Button };
     for (int idx = 0; idx < 4; ++idx)
     {
@@ -2962,6 +2958,17 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
                 param->setValueNotifyingHost ((float) idx / 3.0f);
         };
+    }
+    // ERST JETZT verstecken. Die Schleife darueber ruft addAndMakeVisible()
+    // auf alle vier - ein setVisible(false) DAVOR wird davon sofort wieder
+    // aufgehoben (genau dieser Fehler: im Build standen weiterhin "1" und
+    // "4" neben den beiden neuen Knoepfen).
+    polPos2Button.setButtonText ("EARLY");
+    polPos3Button.setButtonText ("LATE");
+    for (auto* dead : { &polPos1Button, &polPos4Button })
+    {
+        dead->setVisible (false);
+        dead->setEnabled (false);
     }
 
     // --- Mid/Side (Width/Boost) ----------------------------------------------
@@ -3030,6 +3037,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
     // Sinus -> geglaetteter Puls (hart links/rechts, leicht gesmoothed).
     pulseButton.setClickingTogglesState (true);
+    // Icon statt Wort (User: "wie bei einem Synth"). Das ist nicht nur
+    // Kosmetik - erst dadurch wird HYPERDRIVE schmal genug, dass RAYE neben
+    // ihm in dieselbe Reihe passt.
+    pulseButton.getProperties().set ("pulseIcon", true);
     content.addAndMakeVisible (pulseButton);
     pulseAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PULSE, pulseButton);
 
@@ -3041,6 +3052,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     speedRateSlider.setDoubleClickReturnValue (true, 0.25, juce::ModifierKeys::commandModifier);
 
     syncButton.setClickingTogglesState (true);
+    syncButton.getProperties().set ("syncIcon", true);
     content.addAndMakeVisible (syncButton);
     syncAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_SYNC, syncButton);
 
@@ -3822,10 +3834,11 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (speedRateSlider, isFlowOn || rayPairedForHyper);
     setSectionOff (syncButton, isFlowOn || rayPairedForHyper);
     setSectionOff (speedBox, isFlowOn || rayPairedForHyper);
-    setSectionOff (offsetSlider, isPosOn);
-    setSectionOff (posWidthSlider, isPosOn);
-    setSectionOff (distanceSlider, isPosOn);
-    setSectionOff (elevateSlider, isPosOn);
+    // Tilt und Depth haengen jetzt an ihren NEUEN Sektionen, nicht mehr an
+    // Vision - sonst wuerden sie von einem Rahmen gedimmt, den es nicht mehr
+    // gibt. Width und Elevate sind unsichtbar, ihre Zeilen koennen weg.
+    setSectionOff (offsetSlider, isDriftOn);
+    setSectionOff (distanceSlider, isWidthBoostOn);
     setSectionOff (rayStrengthButton, isRayOn);
     setSectionOff (rayPairButton, isRayOn);
     // Regler-Beschriftungen: bei Sektion aus deutlich dunkler (User: "hilft
@@ -3854,10 +3867,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
         setLabelOff (sideBoostLabel, isWidthBoostOn);
         setLabelOff (movementLabel,  isFlowOn);
         setLabelOff (speedLabel,     isFlowOn || rayPairedForHyper);
-        setLabelOff (offsetLabel,    isPosOn);
-        setLabelOff (posWidthLabel,  isPosOn);
-        setLabelOff (distanceLabel,  isPosOn);
-        setLabelOff (elevateLabel,   isPosOn);
+        setLabelOff (offsetLabel,    isDriftOn);
+        setLabelOff (distanceLabel,  isWidthBoostOn);
         setLabelOff (rayRateLabel,   isRayOn);
     }
     // Speed ist bei Pair inaktiv - dann diktiert Hyperdrive die Rate.
@@ -4818,7 +4829,9 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             case 0: m = { (float) groupLcrArea.getX() - 9.0f, (float) groupLcrArea.getCentreY() }; break;
             case 1: m = { (float) groupLcrArea.getCentreX(), 0.5f * (float) (groupLcrArea.getBottom() + groupDriftArea.getY()) }; break;
             case 2: m = { (float) groupWidthBoostArea.getCentreX(), 0.5f * (float) (groupWidthBoostArea.getBottom() + groupFlowArea.getY()) }; break;
-            default: m = { 0.5f * (float) (groupPosArea.getRight() + groupRayArea.getX()), (float) groupPosArea.getCentreY() }; break;
+            // Die Positionen 1 (vor Galaxy) und 4 (hinter Vision) sind
+            // gestrichen; ihre Marker faenden ohnehin keinen Rahmen mehr.
+            default: m = { (float) groupWidthBoostArea.getCentreX(), 0.5f * (float) (groupWidthBoostArea.getBottom() + groupFlowArea.getY()) }; break;
         }
         // Marker dezent in der Theme-Familie (User) - Pop behaelt sein Lila.
         const juce::Colour polCol = isComicTheme() ? juce::Colour (0xffb968ff)
@@ -5650,23 +5663,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // am unteren Rahmenrand. Der Puffer entsteht automatisch weiter unten
     // durch das vertikale Zentrieren der Knob-Slots in der jetzt groesseren
     // Restflaeche.
-    const int posRowH = 116;
-
-    auto bottomRowArea = rightColumn.removeFromBottom (posRowH);
-    // ===== UNTERE ZEILE: POSITION | RAY =====
-    // User-Wunsch: "Phaser ... sollte inhaltlich am ehesten unten rechts hin
-    // und dafuer die Position Section kleiner machen." Position behaelt
-    // gut 60 % der Breite (vier Regler), RAY bekommt den Rest - der reicht
-    // fuer Staerke-Icon, Speed und Pair bequem, und die Zeile ist damit
-    // genauso zweigeteilt wie die beiden Zeilen darueber. Das Raster stimmt
-    // wieder: rechts war die Position-Zeile bisher die einzige, die ueber
-    // die volle Breite lief.
-    const int rayColW = juce::roundToInt (bottomRowArea.getWidth() * 0.36f);
-    auto rayRowArea = bottomRowArea.removeFromRight (rayColW);
-    bottomRowArea.removeFromRight (frameGap);
-    auto positionRowArea = bottomRowArea;
-    rightColumn.removeFromBottom (rowGap);
-
+    // Die vierte Zeile ist weg. VISION war eine eigene Sektion fuer vier
+    // Regler, von denen zwei gestrichen sind (Width, Elevate) - fuer zwei
+    // uebrige lohnt kein eigener Rahmen. Tilt sitzt jetzt bei PARALLAX
+    // (beides schiebt das Bild zur Seite, einmal ueber Zeit, einmal ueber
+    // Pegel), Depth bei DIMENSION (beides beschreibt die Groesse des Raums).
+    // RAYE rueckt dafuer neben HYPERDRIVE in die dritte Zeile.
+    juce::Rectangle<int> rayRowArea;
     // Zeile 1 (LCR + Polarity) etwas hoeher, da der Orbit-Kegel Hoehe
     // braucht; Zeile 3 (Flow) etwas niedriger, da dort nur kompakte Regler/
     // Buttons ohne grosse Vertikal-Anforderung sitzen.
@@ -5872,7 +5875,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int lrBtnW = 60, lrBtnH = 36;
         const int lrGap = 12;
         const int posBtnGap = 8;
-        const int posBtnW = 36, posBtnH = 30;
+        // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
+        // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
+        // exakt so breit wie L+R darueber, damit der Block buendig bleibt.
+        const int posBtnH = 30;
         const int gapV = 18;
         // Link-Button bekommt eine EIGENE Zeile ueber L/R statt sie zu
         // ueberlappen, UND ist jetzt genauso breit wie L+R zusammen (statt
@@ -5900,14 +5906,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
         polInner.removeFromTop (gapV);
         auto posRow = polInner.removeFromTop (posBtnH);
-        auto posRowCentered = posRow.withSizeKeepingCentre (posBtnW * 4 + posBtnGap * 3, posBtnH);
-        polPos1Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
-        posRowCentered.removeFromLeft (posBtnGap);
+        const int posBtnW = (lrBtnW * 2 + lrGap - posBtnGap) / 2;
+        auto posRowCentered = posRow.withSizeKeepingCentre (posBtnW * 2 + posBtnGap, posBtnH);
         polPos2Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
         posRowCentered.removeFromLeft (posBtnGap);
-        polPos3Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
-        posRowCentered.removeFromLeft (posBtnGap);
-        polPos4Button.setBounds (posRowCentered);
+        polPos3Button.setBounds (posRowCentered);
+        polPos1Button.setBounds ({});
+        polPos4Button.setBounds ({});
     }
 
     rightColumn.removeFromTop (rowGap);
@@ -5938,21 +5943,25 @@ void LCRMSAudioProcessorEditor::layoutContent()
     const int row2InnerH   = driftFrame.getHeight() - 20 - headerH; // reduced(10) oben+unten, minus Header
     const int row2InnerW   = driftFrame.getWidth() - 20;
     const int row2KnobArea = juce::jmin (110, row2InnerH - kKnobLabelH);
-    const int driftGap     = 34; // Platz fuer das 24x24px-Balance-Icon
-    const int wbGap        = 34; // wie bei Timewarp: Platz fuer den Focus-Knopf
-    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - juce::jmax (driftGap, wbGap)) / 2);
+    // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
+    const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
+    const int wbGap        = 14;
+    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
 
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
     {
         // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die
         // Restbreite links und rechts gleich gross ist.
-        auto pair = driftInner.withSizeKeepingCentre (row2KnobSize * 2 + driftGap, driftInner.getHeight());
-        auto driftSlot = pair.removeFromLeft (row2KnobSize);
-        pair.removeFromLeft (driftGap);
-        auto bendSlot = pair.removeFromLeft (row2KnobSize);
+        auto trio = driftInner.withSizeKeepingCentre (row2KnobSize * 3 + driftGap + wbGap, driftInner.getHeight());
+        auto driftSlot = trio.removeFromLeft (row2KnobSize);
+        trio.removeFromLeft (driftGap);
+        auto bendSlot = trio.removeFromLeft (row2KnobSize);
+        trio.removeFromLeft (wbGap);
+        auto tiltSlot = trio.removeFromLeft (row2KnobSize);
 
-        placeKnobWithLabel (driftSlot, driftSlider, driftLabel, row2KnobSize);
-        placeKnobWithLabel (bendSlot,  bendSlider,  bendLabel,  row2KnobSize);
+        placeKnobWithLabel (driftSlot, driftSlider,  driftLabel,  row2KnobSize);
+        placeKnobWithLabel (bendSlot,  bendSlider,   bendLabel,   row2KnobSize);
+        placeKnobWithLabel (tiltSlot,  offsetSlider, offsetLabel, row2KnobSize);
 
         // "Balance"-Icon mittig im Zwischenraum, vertikal auf Reglerhoehe.
         constexpr int balanceIconSize = 24;
@@ -5963,31 +5972,40 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
     {
-        auto pair = wbInner.withSizeKeepingCentre (row2KnobSize * 2 + wbGap, wbInner.getHeight());
-        auto swSlot = pair.removeFromLeft (row2KnobSize);
-        pair.removeFromLeft (wbGap);
-        auto sbSlot = pair.removeFromLeft (row2KnobSize);
+        auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + wbGap * 2, wbInner.getHeight());
+        auto swSlot = trio.removeFromLeft (row2KnobSize);
+        trio.removeFromLeft (wbGap);
+        auto sbSlot = trio.removeFromLeft (row2KnobSize);
+        trio.removeFromLeft (wbGap);
+        auto dpSlot = trio.removeFromLeft (row2KnobSize);
 
         placeKnobWithLabel (swSlot, sideWidthSlider, sideWidthLabel, row2KnobSize);
         placeKnobWithLabel (sbSlot, sideBoostSlider, sideBoostLabel, row2KnobSize);
+        placeKnobWithLabel (dpSlot, distanceSlider,  distanceLabel,  row2KnobSize);
 
-        constexpr int focusIconSize = 24;
-        dimFilterButton.setBounds (swSlot.getRight() + (wbGap - focusIconSize) / 2,
-                                   sideWidthSlider.getBounds().getCentreY() - focusIconSize / 2,
-                                   focusIconSize, focusIconSize);
+        dimFilterButton.setBounds ({});   // Focus ist weg (Runde 31)
     }
 
     rightColumn.removeFromTop (rowGap);
 
     // ===== Reihe 3: Flow (Auto-Pan), volle Breite ===========================
     auto row3 = rightColumn.removeFromTop (row3H);
+    // RAYE rueckt hier herein - ein Drittel der Breite, genau wie in den
+    // beiden Zeilen darueber eine grosse und eine kleine Sektion stehen.
+    const int rayColW = juce::roundToInt (row3.getWidth() * 0.34f);
+    rayRowArea = row3.removeFromRight (rayColW);
+    row3.removeFromRight (frameGap);
     groupFlowArea = row3;
     auto flowInner = layoutHeader (row3.reduced (10), flowPowerButton, flowSoloButton, flowTitleLabel, &hyperdriveModButton, &hyperdriveModDepthSlider, &flowLockButton);
     // Gemeinsame Bezugshoehe fuer ALLE Elemente dieser Reihe (= Hoehe des
     // Regler-Bereichs oberhalb des Label-Streifens), damit Move/Pulse/Speed/
     // Sync/Speed-Box garantiert auf gleicher Hoehe sitzen.
     const int knobAreaH = juce::jmin (110, flowInner.getHeight() - 14);
-    const int moveSize = juce::jmin (knobAreaH, 110);
+    // Deutlich kompakter als vorher: HYPERDRIVE teilt sich die Zeile jetzt
+    // mit RAYE. Pulse und Sync sind Icons statt beschrifteter Knoepfe, das
+    // allein spart rund 60 px.
+    const int moveSize  = juce::jmin (knobAreaH, 88);
+    const int flowIconS = 28;
 
     // Auch hier ueber die gemeinsame Regel (siehe placeKnobWithLabel oben),
     // statt den Regler oben anzusetzen und das Label darunter zu haengen -
@@ -5996,119 +6014,37 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto mv = flowInner.removeFromLeft (moveSize);
     placeKnobWithLabel (mv, movementSlider, movementLabel, moveSize);
 
-    flowInner.removeFromLeft (20);
-    auto pulseArea = flowInner.removeFromLeft (64).withHeight (knobAreaH);
-    pulseButton.setBounds (pulseArea.withSizeKeepingCentre (64, juce::jmin (36, knobAreaH)));
+    flowInner.removeFromLeft (12);
+    auto pulseArea = flowInner.removeFromLeft (flowIconS).withHeight (knobAreaH);
+    pulseButton.setBounds (pulseArea.withSizeKeepingCentre (flowIconS, flowIconS));
 
-    flowInner.removeFromLeft (16);
-    auto speedKnobArea = flowInner.removeFromLeft (juce::jmin (76, knobAreaH + 14)).withSizeKeepingCentre (76, knobAreaH + 14);
+    flowInner.removeFromLeft (12);
+    const int speedColW = juce::jmin (72, knobAreaH + 14);
+    auto speedKnobArea = flowInner.removeFromLeft (speedColW).withSizeKeepingCentre (speedColW, knobAreaH + 14);
     speedLabel.setBounds (speedKnobArea.removeFromBottom (14));
     speedRateSlider.setBounds (speedKnobArea);
 
-    flowInner.removeFromLeft (16);
-    auto syncArea = flowInner.removeFromLeft (60).withHeight (knobAreaH);
-    syncButton.setBounds (syncArea.withSizeKeepingCentre (60, juce::jmin (32, knobAreaH)));
+    flowInner.removeFromLeft (12);
+    auto syncArea = flowInner.removeFromLeft (flowIconS).withHeight (knobAreaH);
+    syncButton.setBounds (syncArea.withSizeKeepingCentre (flowIconS, flowIconS));
 
-    flowInner.removeFromLeft (16);
+    flowInner.removeFromLeft (10);
     auto speedBoxArea = flowInner.withHeight (knobAreaH);
-    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmin (140, speedBoxArea.getWidth()), 26));
+    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmax (56, juce::jmin (104, speedBoxArea.getWidth())), 26));
 
-    // ===== Reihe 4: Position (Offset/Width/Distance/Elevate) ================
-    // Bewusst kompakter/kleiner als die anderen Zeilen gehalten (siehe Chat:
-    // "kleiner machen, damit sie sich visuell abhebt") - sekundaere,
-    // nachgelagerte Sektion statt gleichrangig mit den Kern-Werkzeugen.
-    // Mono-Check/Dry/Bypass/Volume sind aus dieser Zeile in die linke Spalte
-    // unter den Goniometer/Korrelationsmesser-Block umgezogen (User-Wunsch:
-    // neuer Platz fuer die Pegelanzeigen "unter dem Corr Meter", Mono/
-    // Bypass/Volume direkt danach) - siehe layoutContent() weiter oben,
-    // Abschnitt "belowCorrH". Die Position-Zeile nutzt dadurch jetzt ihre
-    // volle Breite fuer die 4 Regler.
-    groupPosArea = positionRowArea;
-    auto posFrame = positionRowArea.reduced (10);
-    auto posHeader = posFrame.removeFromTop (headerH);
-    // Power-Button auch hier entfernt (User-Wunsch "Option 1", siehe
-    // layoutHeader() fuer die ausfuehrliche Begruendung) - Klick auf den
-    // Titel (setupClickableTitle()/mouseUp()) macht exakt dasselbe.
-    posPowerButton.setVisible (false);
-    // Gleiche Ordnung wie layoutHeader(): Name links, Lock als Anker ganz
-    // rechts, das Mod-Paar davor. Diese Sektion hat ihren eigenen Kopf, sie
-    // muss also von Hand mitgezogen werden.
-    posSoloButton.setVisible (false);
+    // ===== VISION aufgeloest ================================================
+    // Die Sektion ist weg. Tilt steht jetzt in PARALLAX, Depth in DIMENSION
+    // (siehe oben), Width und Elevate sind gestrichen. Alles, was nur zum
+    // Rahmen gehoerte, verschwindet hier - Sichtbarkeit UND Flaeche, sonst
+    // bleiben unsichtbare Klickflaechen ueber den neuen Reglern liegen.
+    groupPosArea = {};
+    for (auto* c : std::initializer_list<juce::Component*> {
+             &posPowerButton, &posSoloButton, &posLockButton, &posTitleLabel,
+             &positionModButton, &positionModDepthSlider, &posFilterButton,
+             &posWidthSlider, &posWidthLabel, &elevateSlider, &elevateLabel })
     {
-        const int lockSize = juce::roundToInt (headerH * 0.72f);
-        auto lockArea = posHeader.removeFromRight (lockSize);
-        posHeader.removeFromRight (10);
-        posLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
-    }
-    {
-        const int knobSize = 36;
-        auto depthArea = posHeader.removeFromRight (knobSize);
-        posHeader.removeFromRight (3);
-        positionModDepthSlider.setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
-        auto modArea = posHeader.removeFromRight (headerH);
-        posHeader.removeFromRight (4);
-        positionModButton.setBounds (modArea);
-    }
-    fitTitle (posTitleLabel, posHeader);
-    posFrame.removeFromTop (6);
-
-    // Etwas kleinerer Cap als vorher (46 -> 40): bei der jetzt groesseren
-    // Zeilenhoehe (116 statt 92) sorgt das automatisch fuer sichtbaren
-    // Puffer oben/unten (withSizeKeepingCentre verteilt die restliche Hoehe
-    // gleichmaessig), statt die Regler bis an den Rand aufzublasen.
-    // Eigener Name (posKnobAreaH statt knobAreaH) - Reihe 3 (Flow) deklariert
-    // weiter oben im selben Funktionsrumpf bereits ein "knobAreaH" OHNE
-    // eigenen Block-Scope, ein zweites "knobAreaH" hier waere eine
-    // Redefinition (das war der Compile-Fehler im letzten Build).
-    // Etwas groesser als vorher (40 -> 56, User-Wunsch: "Regler bisschen
-    // groesser, maximal so gross wie Flow") - bleibt durch das
-    // posFrame.getHeight()-14-Limit (Position-Zeile ist bewusst kompakter
-    // als die anderen Reihen, siehe posRowH) automatisch deutlich unter dem
-    // Flow-Move-Knob (bis zu 110px), keine separate Obergrenzen-Pruefung
-    // noetig.
-    const int posKnobAreaH = juce::jmin (56, posFrame.getHeight() - 14);
-
-    {
-        // Labels werden bewusst an die volle Slot-Breite gebunden (statt an
-        // die schmalere, gedeckelte Knob-Breite) - vorher wurden sie dadurch
-        // abgeschnitten ("OF...", "WI...", ...).
-        // Width ist gestrichen (Dimension macht Breite, und zwar in Mid/Side -
-        // zwei Regler fuer dieselbe Sache war einer zu viel), Elevate ist in
-        // DEPTH aufgegangen. Bleiben Tilt und Depth.
-        const int n = 2;
-        const int gap = 18;
-        // In der Mitte etwas mehr Luft: dort sitzt der Focus-Knopf (User-Idee,
-        // damit Vision denselben Knopf bekommen kann wie Galaxy und Dimension).
-        constexpr int posFocusIconSize = 24;
-        const int midGap = gap + posFocusIconSize + 6;
-        const int slotW = (posFrame.getWidth() - midGap) / n;
-        juce::ignoreUnused (gap);
-        juce::Slider* posSliders[n] = { &offsetSlider, &distanceSlider };
-        juce::Label*  posLabels[n]  = { &offsetLabel,  &distanceLabel };
-        posWidthSlider.setVisible (false); posWidthLabel.setVisible (false);
-        elevateSlider .setVisible (false); elevateLabel .setVisible (false);
-        // Bug-Fix (User-Feedback: "Position - der Abstand der Schrift zum
-        // unteren Rahmenrand"): vorher wurde der Regler ALLEIN in der Slot-
-        // Hoehe zentriert und das Label einfach unter seine Unterkante
-        // gehaengt. Das Label lag dadurch rechnerisch bis zu 14px UNTERHALB
-        // der eigentlichen Flaeche und klebte am Rahmenrand - der Abstand
-        // oben war entsprechend um dieselben 14px groesser als unten.
-        // Jetzt ueber die gemeinsame Regel (siehe placeKnobWithLabel oben):
-        // Regler + Label bilden EINEN Block, der als Ganzes zentriert wird.
-        const int posKnobSize = juce::jmin (slotW, posKnobAreaH);
-        juce::Rectangle<int> posMidGapArea;
-        for (int i = 0; i < n; ++i)
-        {
-            auto slot = posFrame.removeFromLeft (slotW);
-            if (i < n - 1)
-            {
-                auto gapArea = posFrame.removeFromLeft (midGap);
-                posMidGapArea = gapArea;
-            }
-            placeKnobWithLabel (slot, *posSliders[i], *posLabels[i], posKnobSize);
-        }
-        juce::ignoreUnused (posMidGapArea);
-        posFilterButton.setBounds ({});   // Focus ist weg (Runde 31)
+        c->setVisible (false);
+        c->setBounds ({});
     }
 
     // ===== RAY =====

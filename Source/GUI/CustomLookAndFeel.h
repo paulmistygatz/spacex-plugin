@@ -593,6 +593,85 @@ public:
         // Filter-Symbol in den Sektionskoepfen von Galaxy und Dimension: eine
         // kleine Bandkurve. Leuchtet sie, arbeitet die Sektion NUR innerhalb
         // des Filters (Standard). Mit Schraegstrich ist sie am Filter vorbei.
+        // PULSE: Sinus oder geglaetteter Puls - das Symbol zeigt, was
+        // anliegt, statt das Wort hinzuschreiben (User: "wie bei einem
+        // Synth"). Spart in HYPERDRIVE die Breite, die RAYE daneben braucht.
+        if (button.getProperties().getWithDefault ("pulseIcon", false))
+        {
+            auto b = button.getLocalBounds().toFloat().reduced (1.5f);
+            const float s2 = juce::jmin (b.getWidth(), b.getHeight());
+            const bool on  = button.getToggleState();
+            const bool off = button.getProperties().getWithDefault ("sectionOff", false);
+            if (! button.getProperties().getWithDefault ("noPlate", false))
+                drawSmallIconPlate (g, b, on && ! off);
+            b = b.reduced (s2 * 0.24f);
+            auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.62f);
+            juce::Colour col = smallIconColour (on && ! off);
+            if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
+                col = col.interpolatedWith (juce::Colours::white, 0.30f);
+
+            juce::Path w;
+            const float x0 = box.getX(), x1 = box.getRight();
+            const float yTop = box.getY(), yBot = box.getBottom(), yMid = box.getCentreY();
+            if (on)
+            {
+                // Rechteckpuls mit weichen Ecken - "geglaetteter Puls".
+                w.startNewSubPath (x0, yBot);
+                w.lineTo (x0 + (x1 - x0) * 0.22f, yBot);
+                w.lineTo (x0 + (x1 - x0) * 0.22f, yTop);
+                w.lineTo (x0 + (x1 - x0) * 0.62f, yTop);
+                w.lineTo (x0 + (x1 - x0) * 0.62f, yBot);
+                w.lineTo (x1, yBot);
+            }
+            else
+            {
+                // Sinus - eine Periode.
+                w.startNewSubPath (x0, yMid);
+                w.quadraticTo (x0 + (x1 - x0) * 0.25f, yTop - (yMid - yTop) * 0.35f,
+                               x0 + (x1 - x0) * 0.50f, yMid);
+                w.quadraticTo (x0 + (x1 - x0) * 0.75f, yBot + (yBot - yMid) * 0.35f,
+                               x1, yMid);
+            }
+            g.setColour (col);
+            g.strokePath (w, juce::PathStrokeType (juce::jmax (1.2f, s2 * 0.085f),
+                                                   juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
+            iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            return;
+        }
+        // SYNC: eine Note. An = die Geschwindigkeit haengt am Songtempo,
+        // aus = freie Rate in Hz.
+        if (button.getProperties().getWithDefault ("syncIcon", false))
+        {
+            auto b = button.getLocalBounds().toFloat().reduced (1.5f);
+            const float s2 = juce::jmin (b.getWidth(), b.getHeight());
+            const bool on  = button.getToggleState();
+            const bool off = button.getProperties().getWithDefault ("sectionOff", false);
+            if (! button.getProperties().getWithDefault ("noPlate", false))
+                drawSmallIconPlate (g, b, on && ! off);
+            b = b.reduced (s2 * 0.26f);
+            juce::Colour col = smallIconColour (on && ! off);
+            if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
+                col = col.interpolatedWith (juce::Colours::white, 0.30f);
+            g.setColour (col);
+
+            const float headW = b.getWidth() * 0.54f;
+            const float headH = headW * 0.74f;
+            const float headX = b.getX();
+            const float headY = b.getBottom() - headH;
+            g.fillEllipse (headX, headY, headW, headH);
+            const float stemW = juce::jmax (1.2f, s2 * 0.075f);
+            g.fillRect (headX + headW - stemW, b.getY(), stemW, b.getHeight() - headH * 0.5f);
+            // Faehnchen
+            juce::Path flag;
+            flag.startNewSubPath (headX + headW, b.getY() + stemW * 0.5f);
+            flag.quadraticTo (b.getRight(), b.getY() + b.getHeight() * 0.22f,
+                              headX + headW * 0.96f, b.getY() + b.getHeight() * 0.42f);
+            g.strokePath (flag, juce::PathStrokeType (stemW, juce::PathStrokeType::curved,
+                                                      juce::PathStrokeType::rounded));
+            iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            return;
+        }
         if (button.getProperties().getWithDefault ("filterIcon", false))
         {
             auto b = button.getLocalBounds().toFloat().reduced (1.5f);
@@ -1091,7 +1170,9 @@ public:
             || button.getProperties().getWithDefault ("linkIcon", false)
             || button.getProperties().getWithDefault ("balanceIcon", false)
             || button.getProperties().getWithDefault ("lockIcon", false)
-            || button.getProperties().getWithDefault ("arrowIcon", false))
+            || button.getProperties().getWithDefault ("arrowIcon", false)
+            || button.getProperties().getWithDefault ("pulseIcon", false)
+            || button.getProperties().getWithDefault ("syncIcon", false))
             return; // Icon ist bereits vollstaendig in drawButtonBackground/drawLetterIcon gezeichnet bzw. unsichtbare Klickflaeche.
 
         const bool isGlobalRowButton = button.getProperties().getWithDefault ("globalBtn", false)

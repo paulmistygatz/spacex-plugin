@@ -90,7 +90,13 @@ private:
     // wieder weg - siehe Header-Kommentar in layoutContent(): zwei halb
     // leere Zeilen uebereinander waren der Grund, warum das Plugin
     // "vollgepackt" wirkte, obwohl kaum etwas dazugekommen war.
-    static constexpr int kDesignH = 736;
+    static constexpr int kDesignH = 604;
+    // 736 -> 604: exakt die Hoehe der weggefallenen vierten Zeile (116 px
+    // Rahmen + 16 px Abstand). Alles andere behaelt damit seine bisherige
+    // Groesse, es verschiebt sich nichts. Die Breite bleibt vorerst bei
+    // 1040 - in Reihe 2 stehen jetzt drei statt zwei Regler pro Rahmen, und
+    // beides gleichzeitig zu aendern hiesse nicht mehr zu wissen, woran es
+    // liegt, wenn etwas klemmt.
     // Hoehe der Titelzeile. 64 -> 68: rechts sitzen jetzt ZWEI Zeilen
     // (Live-Aktionen oben, Preset-Verwaltung unten) - das spiegelt genau die
     // zwei Textzeilen links (Wortmarke oben, Slogan unten). Zwei mal 26px
