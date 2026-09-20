@@ -1075,7 +1075,8 @@ juce::StringArray LCRMSAudioProcessorEditor::sectionParamIds (int soloSectionId)
     switch (soloSectionId)
     {
         case P::SOLO_GALAXY:
-            return { P::ID_LCR_ENABLED, P::ID_LCR_SENS, P::ID_LCR_BLEND, P::ID_GALAXY_MOD, P::ID_GALAXY_DEPTH };
+            return { P::ID_LCR_ENABLED, P::ID_LCR_SENS, P::ID_LCR_BLEND, P::ID_LCR_HORIZON,
+                     P::ID_GALAXY_MOD, P::ID_GALAXY_DEPTH };
         case P::SOLO_TIMEWARP:
             return { P::ID_DRIFT_ON, P::ID_DRIFT, P::ID_BEND, P::ID_TIMEWARP_BALANCE, P::ID_TIMEWARP_MOD, P::ID_TIMEWARP_DEPTH };
         case P::SOLO_POLARITY:
@@ -2790,6 +2791,31 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     focusAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_BLEND, orbitSlider);
     orbitSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
 
+    // HORIZON - obere Bandgrenze. Voller Ausschlag = aus, deshalb ist der
+    // Default auch der Rechtsanschlag und kein Mittelwert.
+    styleRotary (horizonSlider, false);
+    content.addAndMakeVisible (horizonSlider);
+    styleLabel (horizonLabel, "Horizon");
+    content.addAndMakeVisible (horizonLabel);
+    horizonAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_HORIZON, horizonSlider);
+    horizonSlider.setDoubleClickReturnValue (true, 20000.0, juce::ModifierKeys::commandModifier);
+    horizonSlider.textFromValueFunction = [] (double v)
+    {
+        if (v >= 19990.0) return juce::String ("Off");
+        if (v >= 1000.0)  return juce::String (v / 1000.0, v >= 10000.0 ? 1 : 2) + " kHz";
+        return juce::String ((int) std::round (v)) + " Hz";
+    };
+    horizonSlider.updateText();
+    // Die Regler zeigen bewusst keine Zahlen an - bei einer FREQUENZ ist die
+    // Zahl aber die halbe Information. Deshalb steht sie im Tooltip und
+    // damit in der Hinweiszeile unten, und sie wandert beim Drehen mit.
+    horizonSlider.onValueChange = [this]
+    {
+        horizonSlider.setTooltip ("Horizon " + horizonSlider.getTextFromValue (horizonSlider.getValue())
+                                  + ": above this nothing is split off - the top stays in L/R");
+    };
+    horizonSlider.onValueChange();
+
     // Galaxy-Mod (Gravity + Orbit) - genau dasselbe Prinzip wie bei Timewarp/
     // Dimension/Hyperdrive (User-Feedback).
     setupModButton (galaxyModButton, LCRMSAudioProcessor::ID_GALAXY_MOD, galaxyModAttachment);
@@ -3763,6 +3789,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     };
     setSectionOff (gravitySlider, isLcrOn);
     setSectionOff (orbitSlider, isLcrOn);
+    setSectionOff (horizonSlider, isLcrOn);
     setSectionOff (driftSlider, isDriftOn);
     setSectionOff (bendSlider, isDriftOn);
     setSectionOff (driftBalanceButton, isDriftOn);
@@ -3825,6 +3852,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         };
         setLabelOff (gravityLabel,   isLcrOn);
         setLabelOff (orbitLabel,     isLcrOn);
+        setLabelOff (horizonLabel,   isLcrOn);
         setLabelOff (driftLabel,     isDriftOn);
         setLabelOff (bendLabel,      isDriftOn);
         setLabelOff (sideWidthLabel, isWidthBoostOn);
@@ -5795,18 +5823,24 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // unabhaengigen, fest verdrahteten Wert zu benutzen.
         goniometer.setGravityKnobDiameter ((float) gravSize);
 
-        // Zwischenraum etwas breiter: hier sitzt jetzt der Focus-Knopf,
-        // genau wie das Balance-Icon zwischen Drift und Shift (User).
-        auto galaxyGapArea = lcrInner.removeFromLeft (34);
-        // Dimension bekommt die gesamte verbleibende Breite/Hoehe der Zeile.
+        // HORIZON zwischen Gravity und Orbit: "wie streng" - "bis wohin" -
+        // "wie viel". Etwas kleiner als Gravity, weil es der seltener
+        // angefasste Regler der drei ist.
+        lcrInner.removeFromLeft (10);
+        const int horSize = juce::jmax (52, (int) ((float) gravSize * 0.68f));
+        auto horCol = lcrInner.removeFromLeft (horSize);
+        horizonLabel.setBounds (horCol.removeFromBottom (14));
+        horizonSlider.setBounds (horCol.withSizeKeepingCentre (horSize, juce::jmin (horCol.getHeight(), horSize)));
+        lcrInner.removeFromLeft (12);
+
+        // Orbit bekommt die gesamte verbleibende Breite/Hoehe der Zeile.
         auto focusArea = lcrInner;
         orbitLabel.setBounds (focusArea.removeFromBottom (14));
         orbitSlider.setBounds (focusArea);
 
-        constexpr int focusIconSize = 24;
-        galaxyFilterButton.setBounds (galaxyGapArea.getCentreX() - focusIconSize / 2,
-                                      gravitySlider.getBounds().getCentreY() - focusIconSize / 2,
-                                      focusIconSize, focusIconSize);
+        // Der alte Focus-Knopf sass hier im Zwischenraum. Focus ist weg
+        // (Runde 31), also bekommt er keine Flaeche mehr.
+        galaxyFilterButton.setBounds ({});
     }
 
     // -- Polarity: L/R deutlich groesser, dynamisch an die Rahmenbreite

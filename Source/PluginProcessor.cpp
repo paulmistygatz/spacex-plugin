@@ -113,6 +113,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pWing        = apvts.getRawParameterValue (ID_WING);
     pAutoGain    = apvts.getRawParameterValue (ID_AUTO_GAIN);
     pBassGuard   = apvts.getRawParameterValue (ID_BASS_GUARD);
+    pHorizon     = apvts.getRawParameterValue (ID_LCR_HORIZON);
     pPrismLo     = apvts.getRawParameterValue (ID_PRISM_LO);
     pPrismHi     = apvts.getRawParameterValue (ID_PRISM_HI);
     pPosDistance = apvts.getRawParameterValue (ID_POS_DISTANCE);
@@ -480,6 +481,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // mehr noetig ist - das laesst sich nur im Vergleich hoeren.
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_BASS_GUARD, 1 }, "Bass Guard", true));
+    // HORIZON - die obere Grenze des Extraktionsbandes (Bertoms LPF).
+    // Oberhalb davon wird NICHT in Mitte und Seiten zerlegt, das Material
+    // bleibt unveraendert in L/R. Zusammen mit dem Bass Guard (untere
+    // Grenze, 120 Hz) ist das genau das Band, das Leapwing CenterOne im
+    // Manual beschreibt. Als Maske innerhalb der FFT: linearphasig und
+    // summentreu - bei Orbit in der Mitte aendert Horizon deshalb GAR
+    // nichts, es verschiebt nur, was Orbit ueberhaupt anfassen kann.
+    // Voller Ausschlag = aus.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_LCR_HORIZON, 1 }, "Horizon",
+        juce::NormalisableRange<float> (500.0f, 20000.0f, 1.0f, 0.3f), 20000.0f,
+        juce::AudioParameterFloatAttributes().withStringFromValueFunction (
+            [] (float v, int) -> juce::String
+            {
+                if (v >= 19990.0f) return "Off";
+                if (v >= 1000.0f)  return juce::String (v / 1000.0f, v >= 10000.0f ? 1 : 2) + " kHz";
+                return juce::String ((int) std::round (v)) + " Hz";
+            })));
     // Skew 0.25 -> logarithmisches Regelgefuehl ueber den Hoerbereich, sonst
     // liegt die halbe Reglerstrecke oberhalb von 10 kHz.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -1337,7 +1356,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool  bassGuardOn = pBassGuard->load() > 0.5f;
     // Setzt nur ein Flag, wenn sich wirklich etwas geaendert hat; die
     // Maske wird im naechsten FFT-Frame neu gerechnet.
-    lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f, 22000.0f);
+    {
+        // >= 19990 heisst "aus": weit ueber Nyquist schicken, damit auch die
+        // weiche Flanke der Maske komplett oberhalb des Hoerbaren liegt.
+        const float hz = pHorizon->load();
+        lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f,
+                                         hz >= 19990.0f ? 96000.0f : hz);
+    }
     const bool  autoGainOn = pAutoGain->load() > 0.5f;
     const float agFrom = autoGainApplied;
     const float agTo   = autoGainOn ? autoGainTarget : 1.0f;

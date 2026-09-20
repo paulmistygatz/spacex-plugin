@@ -1429,6 +1429,11 @@ private:
     juce::Label gravityLabel;
     juce::Slider orbitSlider; // Kegel-Visualisierung: unten Center, oben L+R ("Orbit")
     juce::Label orbitLabel;
+    // HORIZON: obere Grenze des Extraktionsbandes (Bertoms LPF). Sitzt
+    // zwischen Gravity ("wie streng") und Orbit ("wie viel"), weil es die
+    // Frage "bis wohin" beantwortet.
+    juce::Slider horizonSlider;
+    juce::Label horizonLabel;
     juce::TextButton galaxyModButton;
     juce::Slider galaxyModDepthSlider;
 
@@ -1800,7 +1805,7 @@ private:
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
     std::unique_ptr<ButtonAttachment> lcrAttachment;
-    std::unique_ptr<SliderAttachment> gravityAttachment, focusAttachment;
+    std::unique_ptr<SliderAttachment> gravityAttachment, focusAttachment, horizonAttachment;
     std::unique_ptr<SliderAttachment> driftAttachment, bendAttachment;
     std::unique_ptr<ButtonAttachment> polLAttachment, polRAttachment;
     std::unique_ptr<SliderAttachment> sideWidthAttachment, sideBoostAttachment;

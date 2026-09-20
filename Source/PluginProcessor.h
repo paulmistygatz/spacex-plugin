@@ -206,6 +206,7 @@ public:
     static constexpr auto ID_LCR_ENABLED = "lcrEnabled";
     static constexpr auto ID_LCR_SENS    = "lcrSensitivity";
     static constexpr auto ID_LCR_BLEND   = "lcrBlend";
+    static constexpr auto ID_LCR_HORIZON = "lcrHorizon";
     static constexpr auto ID_POL_L       = "polarityL";
     static constexpr auto ID_POL_R       = "polarityR";
     // Position des Polarity-Flips im Signalfluss, waehlbar ueber 4 Buttons
@@ -524,6 +525,7 @@ private:
     std::atomic<float>* pWing = nullptr;
     std::atomic<float>* pAutoGain = nullptr;
     std::atomic<float>* pBassGuard = nullptr;
+    std::atomic<float>* pHorizon = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;

@@ -278,7 +278,16 @@ private:
         const int   nb    = fftSize / 2;
         const float a     = specAlpha;
         const float oneMa = 1.0f - a;
-        const float power = juce::jmap (juce::jlimit (0.0f, 1.0f, sensitivity), 0.0f, 1.0f, 3.0f, 0.5f);
+        // Gravity-Kennlinie. Der NEUTRALE Punkt (power = 1) ist die
+        // mathematisch exakte Zerlegung: fuer gleichphasiges Material ist
+        // C dann genau min(|L|,|R|), L-only und R-only tragen den Rest.
+        // Der gehoert auf die Mittelstellung - der Regler rastet dort ein
+        // und hat centerOut-Optik. Die alte lineare Abbildung 3.0..0.5
+        // setzte power = 1 erst bei 80% und liess darunter nur zu
+        // vorsichtige Extraktion zu (User: "Gravity ist gar nicht so
+        // relevant wie ich dachte"). Jetzt geometrisch um die Mitte:
+        //   0% -> 4.0 (sehr streng)   50% -> 1.0 (exakt)   100% -> 0.25
+        const float power = std::pow (4.0f, 1.0f - 2.0f * juce::jlimit (0.0f, 1.0f, sensitivity));
         constexpr float eps = 1.0e-12f;
 
         // --- Gain pro Bin aus GEGLAETTETEN Spektren --------------------------
