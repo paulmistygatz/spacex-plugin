@@ -5785,38 +5785,39 @@ void LCRMSAudioProcessorEditor::layoutContent()
     {
         // Reihenfolge nach Wichtigkeit (User): ohne ORBIT passiert in Galaxy
         // ueberhaupt nichts, HORIZON bestimmt, worauf Orbit wirken kann, und
-        // GRAVITY ist die Feinabstimmung. Die Groesse folgt derselben
-        // Reihenfolge. Die Breiten muessen aufgeteilt werden statt aus der
-        // Hoehe zu kommen - sonst bleibt fuer das letzte Element nichts
-        // uebrig (User-Screenshot: der Orbit-Kegel war ein Strich und sein
-        // Label auf "O..." gekuerzt).
+        // GRAVITY ist die Feinabstimmung.
+        //
+        // Die Rangfolge steht aber AUSSCHLIESSLICH in der Reihenfolge, nicht
+        // in der Groesse (User: "nicht die beiden Regler unterschiedlich gross
+        // machen"). Drei verschieden grosse Regler nebeneinander sehen unruhig
+        // aus, und die schmalste Spalte war ausserdem zu eng fuer ihre
+        // Beschriftung. Deshalb: der Kegel bekommt seine Breite, der Rest wird
+        // in ZWEI GLEICHE Spalten geteilt, beide Regler gleich gross, und die
+        // Beschriftung nutzt die volle Spaltenbreite statt nur die des Reglers.
         const int knobAreaH = lcrInner.getHeight() - 14;
         const int availW    = lcrInner.getWidth();
-        const int gapA = 10, gapB = 8;
+        const int gap       = 8;
 
-        const int orbitW = juce::jlimit (54, 96, juce::roundToInt ((float) availW * 0.30f));
+        const int orbitW = juce::jlimit (46, 78, juce::roundToInt ((float) availW * 0.24f));
         auto orbitCol = lcrInner.removeFromLeft (orbitW);
         orbitLabel.setBounds (orbitCol.removeFromBottom (14));
         orbitSlider.setBounds (orbitCol);
-        lcrInner.removeFromLeft (gapA);
+        lcrInner.removeFromLeft (gap);
 
-        const int knobsW  = juce::jmax (80, lcrInner.getWidth() - gapB);
-        const int horSize = juce::jlimit (48, 190, juce::jmin (knobAreaH, juce::roundToInt ((float) knobsW * 0.56f)));
-        auto horCol = lcrInner.removeFromLeft (horSize);
+        const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
+        const int knobD = juce::jlimit (34, 190, juce::jmin (knobAreaH, colW));
+
+        auto horCol = lcrInner.removeFromLeft (colW);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
-        horizonSlider.setBounds (horCol.withSizeKeepingCentre (horSize, juce::jmin (horCol.getHeight(), horSize)));
-        lcrInner.removeFromLeft (gapB);
+        horizonSlider.setBounds (horCol.withSizeKeepingCentre (knobD, juce::jmin (horCol.getHeight(), knobD)));
+        lcrInner.removeFromLeft (gap);
 
         auto gravCol = lcrInner;
-        const int gravSize = juce::jlimit (44, 190, juce::jmin (knobAreaH, gravCol.getWidth()));
         gravityLabel.setBounds (gravCol.removeFromBottom (14));
-        gravitySlider.setBounds (gravCol.withSizeKeepingCentre (gravSize, juce::jmin (gravCol.getHeight(), gravSize)));
+        gravitySlider.setBounds (gravCol.withSizeKeepingCentre (knobD, juce::jmin (gravCol.getHeight(), knobD)));
 
-        // Der Starfield-Mond orientiert sich an der Reglergroesse in dieser
-        // Sektion. Gravity ist jetzt der KLEINSTE der drei - deshalb der
-        // groessere der beiden runden Regler als Bezug, sonst schrumpft der
-        // Mond mit.
-        goniometer.setGravityKnobDiameter ((float) juce::jmax (horSize, gravSize));
+        // Der Starfield-Mond orientiert sich an der Reglergroesse dieser Sektion.
+        goniometer.setGravityKnobDiameter ((float) knobD);
 
         // Der alte Focus-Knopf sass im Zwischenraum. Focus ist weg (Runde 31),
         // also bekommt er keine Flaeche mehr.
