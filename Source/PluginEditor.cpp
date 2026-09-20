@@ -5676,9 +5676,27 @@ void LCRMSAudioProcessorEditor::layoutContent()
     const int totalH = rightColumn.getHeight() - rowGap * 2;
     // Hyperdrive (Zeile 3) bekommt etwas mehr Hoehe (User) - dort sitzt der
     // Speed-Regler mit dem RAYE-Pair-Ring, der vorher an der Kante klemmte.
-    const int row1H = juce::roundToInt ((float) totalH * 0.385f);
-    const int row2H = juce::roundToInt ((float) totalH * 0.335f);
+    // Zeile 1 gibt Hoehe an Zeile 3 ab. Dort standen die Regler bisher am
+    // kleinsten, weil sie von der ZEILENHOEHE gedeckelt waren, nicht von der
+    // Breite - und in Zeile 1 stand bei Eclipse ohnehin zu viel Leerraum.
+    const int row1H = juce::roundToInt ((float) totalH * 0.360f);
+    const int row2H = juce::roundToInt ((float) totalH * 0.320f);
     const int row3H = totalH - row1H - row2H;
+
+    // ===== EINE Reglergroesse fuers ganze Plugin =====
+    // Referenz ist DRIFT, also die Geometrie von Zeile 2: drei Regler und
+    // zwei Zwischenraeume in einem halben Spaltenrahmen.
+    //
+    // WICHTIG, und beim letzten Versuch genau falsch gemacht: der Wert wird
+    // NUR aus dieser Zeile gerechnet. Nimmt man das Minimum ueber alle
+    // Sektionen, bestimmt die engste (RAYE) die Groesse aller anderen, und
+    // dann ist im ganzen Plugin alles winzig. Die engeren Sektionen passen
+    // sich stattdessen an: dort schrumpfen Icons und Knoepfe, nicht die
+    // Regler.
+    const int kUnitFrameW = ((rightColumn.getWidth() - frameGap) / 2) - 20;
+    const int kUnitRowH   = row2H - 20 - headerH;
+    const int kKnobUnit   = juce::jlimit (34, 110,
+                                juce::jmin (kUnitRowH - 14, (kUnitFrameW - 30 - 14) / 3));
 
     // Legt Power-Button + Solo-Icon + Titel-Label oben links in einen Rahmen
     // und liefert den verbleibenden Innenbereich fuer die Regler zurueck.
@@ -5841,7 +5859,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         lcrInner.removeFromLeft (gap);
 
         const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
-        const int knobD = juce::jlimit (34, 190, juce::jmin (knobAreaH, colW));
+        const int knobD = juce::jmin (kKnobUnit, juce::jmin (knobAreaH, colW));
 
         auto horCol = lcrInner.removeFromLeft (colW);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
@@ -5947,7 +5965,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
     const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
     const int wbGap        = 14;
-    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
+    const int row2KnobSize = juce::jmin (kKnobUnit, juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3));
 
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
     {
@@ -6005,7 +6023,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Deutlich kompakter als vorher: HYPERDRIVE teilt sich die Zeile jetzt
     // mit RAYE. Pulse und Sync sind Icons statt beschrifteter Knoepfe, das
     // allein spart rund 60 px.
-    const int moveSize  = juce::jmin (knobAreaH, 88);
+    const int moveSize  = juce::jmin (kKnobUnit, knobAreaH);
     const int flowIconS = 28;
 
     // Auch hier ueber die gemeinsame Regel (siehe placeKnobWithLabel oben),
@@ -6020,8 +6038,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
     pulseButton.setBounds (pulseArea.withSizeKeepingCentre (flowIconS, flowIconS));
 
     flowInner.removeFromLeft (12);
-    const int speedColW = juce::jmin (72, knobAreaH + 14);
-    auto speedKnobArea = flowInner.removeFromLeft (speedColW).withSizeKeepingCentre (speedColW, knobAreaH + 14);
+    const int speedColW = moveSize;
+    auto speedKnobArea = flowInner.removeFromLeft (speedColW).withSizeKeepingCentre (speedColW, moveSize + 14);
     speedLabel.setBounds (speedKnobArea.removeFromBottom (14));
     speedRateSlider.setBounds (speedKnobArea);
 
@@ -6067,23 +6085,32 @@ void LCRMSAudioProcessorEditor::layoutContent()
     rayFrame.removeFromTop (6);
 
     {
-        const int rayKnobAreaH = juce::jmin (56, rayFrame.getHeight() - 14);
-        const int gap = 10;
-        const int slotW = (rayFrame.getWidth() - gap * 2) / 3;
+        // RAYE ist die engste Sektion. Damit der Regler trotzdem genauso
+        // gross wird wie Drift, teilen sich die drei Elemente die Breite
+        // NICHT mehr zu gleichen Teilen: der Regler bekommt seine volle
+        // Groesse, Staerke-Icon und Pair geben ab. Beides sind kein Regler,
+        // fuer sie gilt die Groessenregel nicht.
+        const int rayKnobAreaH = juce::jmin (kKnobUnit, rayFrame.getHeight() - 14);
+        const int gap = 8;
+        const int rayKnob = juce::jmin (kKnobUnit, rayKnobAreaH);
+        const int rayRest = juce::jmax (60, rayFrame.getWidth() - rayKnob - gap * 2);
+        const int rayIconW = juce::jmin (48, rayRest * 45 / 100);
+        const int rayPairW = juce::jmax (46, rayRest - rayIconW);
 
         // Staerke-Icon: quadratisch, so gross wie der Regler daneben, als
         // eigener Block mit Label-Platz darunter (Label ist im Icon selbst
         // nicht noetig - die drei Stufen erklaeren sich durch die Fuellung).
-        auto slotA = rayFrame.removeFromLeft (slotW);
+        auto slotA = rayFrame.removeFromLeft (rayIconW);
         rayFrame.removeFromLeft (gap);
-        const int iconSize = juce::jmin (slotW, rayKnobAreaH);
+        const int iconSize = juce::jmin (rayIconW, rayKnobAreaH);
         rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
 
-        auto slotB = rayFrame.removeFromLeft (slotW);
+        auto slotB = rayFrame.removeFromLeft (rayKnob);
         rayFrame.removeFromLeft (gap);
-        placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, juce::jmin (slotW, rayKnobAreaH));
+        placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, rayKnob);
 
         auto slotC = rayFrame;
-        rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (60, slotW), juce::jmin (32, rayKnobAreaH)).translated (0, -6));
+        rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (rayPairW, slotC.getWidth()),
+                                                              juce::jmin (32, rayKnobAreaH)).translated (0, -6));
     }
 }
