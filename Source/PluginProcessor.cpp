@@ -814,7 +814,16 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         currentOutputLevel.store (0.0f, std::memory_order_relaxed);
         currentRayLfo.store (0.0f, std::memory_order_relaxed);
         updateVisualMeters (buffer.getReadPointer (0), buffer.getReadPointer (1), numSamples);
+        wasFullyBypassed = true;
         return;
+    }
+
+    // Erster Block nach dem Bypass: alles Zustandsbehaftete leeren, damit
+    // sich nichts Altes entlaedt (siehe clearProcessingState im Header).
+    if (wasFullyBypassed)
+    {
+        wasFullyBypassed = false;
+        clearProcessingState();
     }
 
     auto* left  = buffer.getWritePointer (0);
@@ -2045,6 +2054,34 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
         currentTransportPlaying.store (playing, std::memory_order_relaxed);
     }
+}
+
+// Siehe wasFullyBypassed im Header.
+void LCRMSAudioProcessor::clearProcessingState() noexcept
+{
+    lcrExtractor.reset();
+    delayL.reset();
+    delayR.reset();
+    bendL.reset();
+    bendR.reset();
+    elevateStateL = {}; elevateStateR = {};
+    prismGalHpL = {}; prismGalLpL = {}; prismGalHpR = {}; prismGalLpR = {};
+    prismDimHp = {}; prismDimLp = {};
+    prismPosHp = {}; prismPosLp = {};
+    bassGuardGalL = {}; bassGuardGalR = {}; bassGuardDim = {};
+    for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
+    rayFbL = rayFbR = 0.0f;
+    wingLpS = 0.0f;
+    std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
+    std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
+    lcrDryWritePos = 0;
+    // Auto Gain danach neu einpegeln - die alten Energien stammen von vor
+    // dem Bypass und passen nicht mehr.
+    kwInHpL = {}; kwInShelfL = {}; kwInHpR = {}; kwInShelfR = {};
+    kwOutHpL = {}; kwOutShelfL = {}; kwOutHpR = {}; kwOutShelfR = {};
+    std::fill (autoGainInDelay.begin(), autoGainInDelay.end(), 0.0f);
+    autoGainInPos = 0;
+    autoGainMeasureSamples = (int) (currentSampleRate * 1.0);
 }
 
 void LCRMSAudioProcessor::passthroughWithLatencyCompensation (juce::AudioBuffer<float>& buffer)

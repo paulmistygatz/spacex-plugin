@@ -691,6 +691,16 @@ private:
     // beide Haelften bekommen gegenlaeufige Gains. Bei gleichen Gains ergibt
     // die Summe wieder exakt das Original - deshalb ist "flach" bitgenau aus.
     float wingLpS = 0.0f;
+
+    // ===== BYPASS =====
+    // Im vollen Bypass kehrt processBlock() frueh um und die gesamte
+    // Verarbeitung steht still. Filter, Verzoegerungsleitungen und die
+    // STFT-FIFO behalten dabei ihren letzten Inhalt - beim Einschalten
+    // entlaedt sich das als Knacken (User: "klingt als sei was im Cache was
+    // sich entladen wuerde"). Deshalb wird beim Verlassen des Bypass alles
+    // Zustandsbehaftete geleert; die 25-ms-Ueberblendung deckt den Neustart.
+    bool wasFullyBypassed = false;
+    void clearProcessingState() noexcept;
     float wingLpCoeff = 0.0f;
     float wingGainLow = 1.0f, wingGainHigh = 1.0f;
     bool  wingActive = false;
