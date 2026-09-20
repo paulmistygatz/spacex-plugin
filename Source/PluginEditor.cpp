@@ -5812,8 +5812,21 @@ void LCRMSAudioProcessorEditor::layoutContent()
     //    fester Pixelwerte, damit die vorher leere rechte Haelfte genutzt wird.
     auto lcrInner = layoutHeader (lcrFrame.reduced (10), lcrPowerButton, lcrSoloButton, lcrTitleLabel, &galaxyModButton, &galaxyModDepthSlider, &lcrLockButton);
     {
+        // Drei Elemente in einem Rahmen, der fuer zwei gebaut war: die
+        // Groessen duerfen deshalb NICHT mehr allein aus der Hoehe kommen
+        // (User-Screenshot: der Orbit-Kegel war auf einen Strich
+        // zusammengequetscht und sein Label auf "O..." gekuerzt). Erst
+        // bekommt der Kegel seine Mindestbreite, der Rest wird unter
+        // Gravity und Horizon aufgeteilt - und beide zusaetzlich von der
+        // Hoehe gedeckelt, damit sie rund bleiben.
         const int knobAreaH = lcrInner.getHeight() - 14;
-        const int gravSize = juce::jlimit (70, 190, knobAreaH);
+        const int availW    = lcrInner.getWidth();
+        const int gapA = 8, gapB = 10;
+        const int orbitW = juce::jlimit (46, 84, juce::roundToInt ((float) availW * 0.27f));
+        const int knobsW = juce::jmax (80, availW - orbitW - gapA - gapB);
+        // Gravity bleibt der groesste der drei - er ist der Regler, den man
+        // tatsaechlich anfasst.
+        const int gravSize = juce::jlimit (54, 190, juce::jmin (knobAreaH, juce::roundToInt ((float) knobsW * 0.56f)));
         auto gravCol = lcrInner.removeFromLeft (gravSize);
         gravityLabel.setBounds (gravCol.removeFromBottom (14));
         gravitySlider.setBounds (gravCol);
@@ -5826,12 +5839,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // HORIZON zwischen Gravity und Orbit: "wie streng" - "bis wohin" -
         // "wie viel". Etwas kleiner als Gravity, weil es der seltener
         // angefasste Regler der drei ist.
-        lcrInner.removeFromLeft (10);
-        const int horSize = juce::jmax (52, (int) ((float) gravSize * 0.68f));
+        lcrInner.removeFromLeft (gapA);
+        const int horSize = juce::jlimit (44, 150, juce::jmin (knobAreaH, knobsW - gravSize));
         auto horCol = lcrInner.removeFromLeft (horSize);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
         horizonSlider.setBounds (horCol.withSizeKeepingCentre (horSize, juce::jmin (horCol.getHeight(), horSize)));
-        lcrInner.removeFromLeft (12);
+        lcrInner.removeFromLeft (gapB);
 
         // Orbit bekommt die gesamte verbleibende Breite/Hoehe der Zeile.
         auto focusArea = lcrInner;
