@@ -45,7 +45,8 @@ enum SpaceXSettingsId
     idCancelSettings,
     idSaveSettings,
     idActivate,
-    idAutoGain
+    idAutoGain,
+    idBassGuard
 };
 
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -65,6 +66,7 @@ public:
     {
         int  theme = 0, layout = 0;
         bool autoGain = true;
+        bool bassGuard = true;
         bool prism = true, mix = false, cats = true, clickEdge = false,
              galaxyStart = false, keepSolo = true, modVis = true, showHz = false;
     };
@@ -212,7 +214,7 @@ private:
         static constexpr int kThemes  = 6;
         static constexpr int kLayouts = 3;
         static constexpr int kSmart   = 2;
-        static constexpr int kBehav   = 3;
+        static constexpr int kBehav   = 4;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
@@ -228,7 +230,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeModern, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
         static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idShowModulation, idGalaxyDefault }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idGalaxyDefault }; return a; }
 
         SettingsPanelComponent()
         {
@@ -255,7 +257,8 @@ private:
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
             static const char* const smartNames[kSmart]   = { "Changes Mix", "Show Categories" };
-            static const char* const behavNames[kBehav]   = { "Auto Gain", "Show Modulation",
+            static const char* const behavNames[kBehav]   = { "Auto Gain", "Bass Guard 120 Hz",
+                                                              "Show Modulation",
                                                               "Galaxy On Startup (Latency)" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
@@ -295,7 +298,8 @@ private:
 
             smartBtn[0].setTooltip ("Smart also moves the Mix knob");
             behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
-            behavBtn[2].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
+            behavBtn[1].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
+            behavBtn[3].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }

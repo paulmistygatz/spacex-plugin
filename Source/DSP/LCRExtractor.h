@@ -1,102 +1,191 @@
 #pragma once
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include <atomic>
 #include <cmath>
 #include <memory>
 
-// Stereo-zu-LCR Extraktion nach dem Azimuth-/Korrelations-Prinzip
-// (aehnliches Grundprinzip wie Bertom Phantom Center):
+// ============================================================================
+// Stereo -> LCR Extraktion (Phantom-Center-Prinzip, STFT/WOLA)
+// ============================================================================
 //
 // Pro Frequenzbin wird bestimmt, wie "zentriert" ein Signalanteil ist:
-//   - hohe Kohaerenz (Phasenkorrelation zwischen L und R) UND
+//   - Phasengleichheit zwischen L und R
+//   - Kohaerenz (Stabilitaet dieser Phasenbeziehung ueber die Zeit)
 //   - aehnlicher Pegel in L und R
-//   => Anteil wird als "Center" gewertet und aus beiden Kanaelen entfernt.
+// Der so gewichtete Anteil wandert in den Center-Kanal und wird aus L/R
+// entfernt:   Lonly = L - C,  Ronly = R - C   =>  L + 0 + R == Original.
 //
-// Center-Signal wird als Mono-Signal interpretiert, das in beiden Kanaelen
-// mit voller Amplitude erscheint (Phantom-Center-Annahme), daher gilt:
-//   Lonly = L - Center
-//   Ronly = R - Center
-// und bei gainL = gainC = gainR = 1 ergibt die Summe wieder das Original.
+// ---------------------------------------------------------------------------
+// UMBAU (Runde 32) - drei Gruende, warum das vorher schlechter klang als
+// Bertom Phantom Center (User: "viel weicher, weniger Bassresonanzen"):
 //
-// Implementiert als Weighted-Overlap-Add STFT mit sqrt-Hann-Fenstern,
-// 4-fachem Overlap (75%). Latenz = fftSize Samples, wird vom Prozessor
-// via getLatencySamples() an den Host gemeldet.
+// 1) AUFLOESUNG. fftSize war 1024 = 46,9 Hz pro Bin bei 48 kHz. Im Bass
+//    liegen damit mehrere Partialtoene in EINEM Bin, die Center/Seiten-
+//    Entscheidung wird fuer alle gemeinsam getroffen und schmiert. Jetzt
+//    4096 = 11,7 Hz pro Bin. Das entspricht auch der Beobachtung, dass
+//    Bertom rund die vierfache Latenz von Galaxy hatte.
+//
+// 2) KEINE GLAETTUNG. Korrelation und Pegeldifferenz wurden aus EINEM
+//    einzelnen FFT-Frame geschaetzt - das ist eine extrem verrauschte
+//    Schaetzung. Der Bin-Gain sprang damit von Frame zu Frame, also mit
+//    der Hop-Rate. Das ist eine Amplitudenmodulation mit ~47 Hz (bei
+//    4096/1024) auf JEDEM Partialton, und genau das hoert man als
+//    "Resonanzen" / metallisch. Jetzt werden die Kreuz- und
+//    Autospektren ueber die Zeit geglaettet (echte Kohaerenzschaetzung,
+//    Zeitkonstante ueber setSmoothing()), zusaetzlich wird der fertige
+//    Gain ueber die Frequenz geglaettet (vorwaerts/rueckwaerts, also
+//    phasenneutral).
+//
+// 3) ALLOKATIONEN IM AUDIO-THREAD. runFrame() legte pro Frame acht
+//    std::vector an. Alle Arbeitspuffer sind jetzt Member und werden in
+//    prepare() einmal dimensioniert.
+//
+// Dazu zwei Extras:
+//
+// * NUR NOCH DREI FFTs statt sechs. Frueher wurden L-only, Center und
+//   R-only einzeln ruecktransformiert. Weil aber Lonly = L - C gilt und
+//   das trockene L/R ohnehin verzoegert vorliegt, reicht EINE inverse
+//   FFT (Center); L-only und R-only entstehen durch Subtraktion vom
+//   verzoegerten Original. Halbe CPU - und die Seitenanteile erben keine
+//   Fenster-/Overlap-Fehler mehr, die Summe ist konstruktionsbedingt
+//   exakt das Original.
+//
+// * EXTRAKTIONSBAND (setExtractionRange). Wie bei Leapwing CenterOne /
+//   Bertom: nur innerhalb des Bandes wird in Center und Seiten zerlegt,
+//   ausserhalb bleibt das Material unangetastet in L/R. Als Maske pro Bin
+//   INNERHALB der FFT - damit linearphasig und summentreu, im Gegensatz
+//   zum frueheren Biquad-Bass-Guard, der auf der Differenz sass und die
+//   Phase verbog.
+//
+// Latenz = fftSize Samples, gemeldet ueber getLatencySamples().
+// ============================================================================
 class StereoSTFTExtractor
 {
 public:
     void prepare (double sampleRateIn)
     {
-        sampleRate = sampleRateIn;
+        sampleRate = (sampleRateIn > 0.0 ? sampleRateIn : 48000.0);
         fft = std::make_unique<juce::dsp::FFT> (fftOrder);
 
+        // PERIODISCHES Hann (Nenner fftSize, nicht fftSize-1): nur damit
+        // erfuellt sqrt-Hann bei 75% Overlap die COLA-Bedingung exakt.
         window.resize ((size_t) fftSize);
         for (int i = 0; i < fftSize; ++i)
         {
-            float hann = 0.5f - 0.5f * std::cos (2.0f * juce::MathConstants<float>::pi * (float) i / (float) (fftSize - 1));
+            const float hann = 0.5f - 0.5f * std::cos (2.0f * juce::MathConstants<float>::pi
+                                                        * (float) i / (float) fftSize);
             window[(size_t) i] = std::sqrt (hann);
         }
 
-        // Normierungsfaktor fuer WOLA-Rekonstruktion bei diesem Overlap-Grad.
-        // WICHTIG: hier muss der Fensterwert an der tatsaechlich verschobenen
-        // Position (idx = i + shift) einfliessen, nicht window[i] selbst -
+        // Normierung fuer die WOLA-Rekonstruktion. Der Fensterwert muss an
+        // der tatsaechlich verschobenen Position stehen (idx = i + shift) -
         // sonst ist das Ergebnis um einen festen Faktor falsch (frueherer
-        // Bug: exakt Faktor 2 / 6.02 dB zu leise).
-        std::vector<float> ola ((size_t) fftSize, 0.0f);
-        for (int shift = -fftSize; shift <= fftSize; shift += hopSize)
-            for (int i = 0; i < fftSize; ++i)
-            {
-                int idx = i + shift;
-                if (idx >= 0 && idx < fftSize)
-                    ola[(size_t) i] += window[(size_t) idx] * window[(size_t) idx];
-            }
-        normFactor = juce::jmax (1.0e-6f, ola[(size_t) (fftSize / 2)]);
+        // Bug: exakt Faktor 2 / 6,02 dB zu leise).
+        {
+            std::vector<float> ola ((size_t) fftSize, 0.0f);
+            for (int shift = -fftSize; shift <= fftSize; shift += hopSize)
+                for (int i = 0; i < fftSize; ++i)
+                {
+                    const int idx = i + shift;
+                    if (idx >= 0 && idx < fftSize)
+                        ola[(size_t) i] += window[(size_t) idx] * window[(size_t) idx];
+                }
+            normFactor = juce::jmax (1.0e-6f, ola[(size_t) (fftSize / 2)]);
+        }
 
         fifoInL.assign ((size_t) fftSize, 0.0f);
         fifoInR.assign ((size_t) fftSize, 0.0f);
         fifoPos = 0;
 
+        // Trockenes L/R, exakt um die Analyselatenz verzoegert. Daraus
+        // entstehen die Seitenanteile per Subtraktion (siehe oben).
+        dryL.assign ((size_t) fftSize, 0.0f);
+        dryR.assign ((size_t) fftSize, 0.0f);
+        dryPos = 0;
+
         ringSize = fftSize * 3;
-        outL.assign ((size_t) ringSize, 0.0f);
         outC.assign ((size_t) ringSize, 0.0f);
-        outR.assign ((size_t) ringSize, 0.0f);
         writeHead = 0;
-        // BUG-FIX (User: "Galaxy Latenz nicht korrekt wenn der Focus-Knopf an
-        // ist - da hoere ich eine Dopplung"). Der alte Startwert fftSize war
-        // falsch herum gerechnet: die Leseposition landete dadurch NICHT
-        // fftSize hinter der Schreibposition, sondern 2816 Samples (2,75 x
-        // fftSize) - gemessen mit tools/latency-test. Der Prozessor meldete
-        // dem Host aber 1024 und verzoegerte den Dry-Pfad ebenfalls um 1024.
-        //
-        // Ohne den Focus-Filter faellt das nicht auf: bei voll aufgedrehtem
-        // Galaxy ist wetGain = 1, damit kuerzt sich der Dry-Anteil in
-        // "dry + (wet - dry) * wg" exakt weg. Erst der Focus-Filter mischt
-        // beide wieder zusammen - und 1792 Samples Versatz (37 ms bei 48 kHz)
-        // sind dann als klarer Doppelschlag zu hoeren.
-        //
-        // Herleitung: Ringposition p traegt immer den Zeitpunkt p - (fftSize -
-        // hopSize). Damit beim Sample n der Zeitpunkt n - fftSize gelesen wird,
-        // muss der Startwert ringSize - hopSize sein.
+        // Ringposition p traegt immer den Zeitpunkt p - (fftSize - hopSize).
+        // Damit beim Sample n der Zeitpunkt n - fftSize gelesen wird, muss
+        // der Startwert ringSize - hopSize sein. (Alter Wert fftSize ergab
+        // 2,75 x fftSize echte Latenz bei gemeldeten fftSize - hoerbar als
+        // Dopplung, sobald sich verarbeiteter und trockener Pfad mischten.)
         outReadPos = (ringSize - hopSize) % ringSize;
         samplesUntilNextFrame = hopSize;
+
+        bufL.assign ((size_t) fftSize * 2, 0.0f);
+        bufR.assign ((size_t) fftSize * 2, 0.0f);
+        cBuf.assign ((size_t) fftSize * 2, 0.0f);
+
+        const size_t nb = (size_t) (fftSize / 2 + 1);
+        sxx.assign  (nb, 0.0f);
+        syy.assign  (nb, 0.0f);
+        sxyRe.assign(nb, 0.0f);
+        sxyIm.assign(nb, 0.0f);
+        gain.assign (nb, 0.0f);
+        mask.assign (nb, 1.0f);
+
+        maskDirty.store (true);
+        updateSmoothingCoeff();
     }
 
     int getLatencySamples() const { return fftSize; }
 
-    // sensitivity: 0..1 (0 = nur sehr strikt zentrierte Anteile, 1 = grosszuegigere Extraktion)
+    // --- Parameter (Message-Thread) -----------------------------------------
+
+    // 0 = kaum Glaettung (schnell, aber rauh), 1 = sehr traege.
+    // Entspricht Bertoms "Smooth". Default 0.5.
+    void setSmoothing (float s01)
+    {
+        const float v = juce::jlimit (0.0f, 1.0f, s01);
+        if (std::abs (v - smoothAmount) > 1.0e-4f)
+        {
+            smoothAmount = v;
+            updateSmoothingCoeff();
+        }
+    }
+
+    // Extraktionsband. Nur hier drin wird in Center/Seiten zerlegt.
+    // loHz <= 20 bzw. hiHz >= sr/2 heisst "keine Begrenzung".
+    void setExtractionRange (float loHzIn, float hiHzIn)
+    {
+        const float lo = juce::jlimit (10.0f, 2000.0f, loHzIn);
+        const float hi = juce::jmax (lo * 2.0f, hiHzIn);
+        if (std::abs (lo - loHz) > 0.01f || std::abs (hi - hiHz) > 0.01f)
+        {
+            loHz = lo; hiHz = hi;
+            maskDirty.store (true);
+        }
+    }
+
+    // --- Audio-Thread --------------------------------------------------------
+
+    // sensitivity: 0..1 (0 = nur sehr strikt zentrierte Anteile,
+    //                    1 = grosszuegigere Extraktion)
     inline void processSample (float lIn, float rIn, float sensitivity,
-                                float& lOnlyOut, float& centerOut, float& rOnlyOut) noexcept
+                               float& lOnlyOut, float& centerOut, float& rOnlyOut) noexcept
     {
         fifoInL[(size_t) fifoPos] = lIn;
         fifoInR[(size_t) fifoPos] = rIn;
         fifoPos = (fifoPos + 1) % fftSize;
 
-        lOnlyOut  = outL[(size_t) outReadPos];
-        centerOut = outC[(size_t) outReadPos];
-        rOnlyOut  = outR[(size_t) outReadPos];
-        outL[(size_t) outReadPos] = 0.0f;
+        // Verzoegertes Original (genau fftSize Samples: erst lesen, dann
+        // an dieselbe Stelle schreiben).
+        const float dl = dryL[(size_t) dryPos];
+        const float dr = dryR[(size_t) dryPos];
+        dryL[(size_t) dryPos] = lIn;
+        dryR[(size_t) dryPos] = rIn;
+        dryPos = (dryPos + 1) % fftSize;
+
+        const float c = outC[(size_t) outReadPos];
         outC[(size_t) outReadPos] = 0.0f;
-        outR[(size_t) outReadPos] = 0.0f;
         outReadPos = (outReadPos + 1) % ringSize;
+
+        centerOut = c;
+        lOnlyOut  = dl - c;
+        rOnlyOut  = dr - c;
 
         if (--samplesUntilNextFrame == 0)
         {
@@ -109,103 +198,194 @@ public:
     {
         std::fill (fifoInL.begin(), fifoInL.end(), 0.0f);
         std::fill (fifoInR.begin(), fifoInR.end(), 0.0f);
-        std::fill (outL.begin(), outL.end(), 0.0f);
-        std::fill (outC.begin(), outC.end(), 0.0f);
-        std::fill (outR.begin(), outR.end(), 0.0f);
+        std::fill (dryL.begin(),    dryL.end(),    0.0f);
+        std::fill (dryR.begin(),    dryR.end(),    0.0f);
+        std::fill (outC.begin(),    outC.end(),    0.0f);
+        std::fill (sxx.begin(),     sxx.end(),     0.0f);
+        std::fill (syy.begin(),     syy.end(),     0.0f);
+        std::fill (sxyRe.begin(),   sxyRe.end(),   0.0f);
+        std::fill (sxyIm.begin(),   sxyIm.end(),   0.0f);
+        std::fill (gain.begin(),    gain.end(),    0.0f);
         fifoPos = 0;
+        dryPos = 0;
         writeHead = 0;
         outReadPos = (ringSize - hopSize) % ringSize;   // siehe prepare()
         samplesUntilNextFrame = hopSize;
     }
 
 private:
+    void updateSmoothingCoeff()
+    {
+        // Zeitkonstante exponentiell: 0 -> 3 ms, 0.5 -> ~19 ms, 1 -> 120 ms.
+        // Ueber die Zeit gerechnet, damit sich bei 96 kHz nichts aendert.
+        const double tauSec = 0.003 * std::pow (40.0, (double) smoothAmount);
+        const double hopSec = (double) hopSize / sampleRate;
+        specAlpha = (float) std::exp (-hopSec / juce::jmax (1.0e-4, tauSec));
+    }
+
+    void rebuildMask()
+    {
+        const float binHz = (float) (sampleRate / (double) fftSize);
+        const int   nb    = fftSize / 2;
+        const float edge  = 1.41421356f;                      // halbe Oktave Flanke
+        const float invLogEdge = 1.0f / std::log (edge);
+        const bool  cutLo = (loHz > 20.5f);
+        const bool  cutHi = (hiHz < (float) (0.49 * sampleRate));
+
+        for (int b = 0; b <= nb; ++b)
+        {
+            const float f = (float) b * binHz;
+            float m = 1.0f;
+
+            if (cutLo)
+            {
+                const float a = loHz / edge;
+                if (f <= a)            m = 0.0f;
+                else if (f < loHz)     m = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::pi
+                                                                   * std::log (f / a) * invLogEdge);
+            }
+            if (cutHi && m > 0.0f)
+            {
+                const float z = hiHz * edge;
+                if (f >= z)            m = 0.0f;
+                else if (f > hiHz)     m *= 0.5f + 0.5f * std::cos (juce::MathConstants<float>::pi
+                                                                    * std::log (f / hiHz) * invLogEdge);
+            }
+            mask[(size_t) b] = m;
+        }
+    }
+
     void runFrame (float sensitivity)
     {
-        std::vector<float> frameL ((size_t) fftSize), frameR ((size_t) fftSize);
-        for (int i = 0; i < fftSize; ++i)
-        {
-            int idx = (fifoPos + i) % fftSize;
-            frameL[(size_t) i] = fifoInL[(size_t) idx] * window[(size_t) i];
-            frameR[(size_t) i] = fifoInR[(size_t) idx] * window[(size_t) i];
-        }
+        if (maskDirty.exchange (false))
+            rebuildMask();
 
-        std::vector<float> bufL ((size_t) fftSize * 2, 0.0f);
-        std::vector<float> bufR ((size_t) fftSize * 2, 0.0f);
+        // --- Analyse ---------------------------------------------------------
+        std::fill (bufL.begin(), bufL.end(), 0.0f);
+        std::fill (bufR.begin(), bufR.end(), 0.0f);
         for (int i = 0; i < fftSize; ++i)
         {
-            bufL[(size_t) i * 2] = frameL[(size_t) i];
-            bufR[(size_t) i * 2] = frameR[(size_t) i];
+            const int idx = (fifoPos + i) % fftSize;
+            bufL[(size_t) i * 2] = fifoInL[(size_t) idx] * window[(size_t) i];
+            bufR[(size_t) i * 2] = fifoInR[(size_t) idx] * window[(size_t) i];
         }
 
         fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (bufL.data()),
-                       reinterpret_cast<juce::dsp::Complex<float>*> (bufL.data()), false);
+                      reinterpret_cast<juce::dsp::Complex<float>*> (bufL.data()), false);
         fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (bufR.data()),
-                       reinterpret_cast<juce::dsp::Complex<float>*> (bufR.data()), false);
+                      reinterpret_cast<juce::dsp::Complex<float>*> (bufR.data()), false);
 
-        std::vector<float> cBuf ((size_t) fftSize * 2, 0.0f);
-        std::vector<float> lBuf ((size_t) fftSize * 2, 0.0f);
-        std::vector<float> rBuf ((size_t) fftSize * 2, 0.0f);
+        const int   nb    = fftSize / 2;
+        const float a     = specAlpha;
+        const float oneMa = 1.0f - a;
+        const float power = juce::jmap (juce::jlimit (0.0f, 1.0f, sensitivity), 0.0f, 1.0f, 3.0f, 0.5f);
+        constexpr float eps = 1.0e-12f;
 
-        float power = juce::jmap (juce::jlimit (0.0f, 1.0f, sensitivity), 0.0f, 1.0f, 3.0f, 0.5f);
-
-        for (int b = 0; b < fftSize; ++b)
+        // --- Gain pro Bin aus GEGLAETTETEN Spektren --------------------------
+        // Das ist der Kern des Umbaus: nicht der Gain wird geglaettet,
+        // sondern die Statistik, aus der er entsteht. Damit ist die
+        // Kohaerenz eine echte Schaetzung ueber mehrere Frames und kein
+        // Einzelframe-Zufallswert mehr.
+        for (int b = 0; b <= nb; ++b)
         {
-            float lre = bufL[(size_t) b * 2], lim = bufL[(size_t) b * 2 + 1];
-            float rre = bufR[(size_t) b * 2], rim = bufR[(size_t) b * 2 + 1];
+            const float lre = bufL[(size_t) b * 2], lim = bufL[(size_t) b * 2 + 1];
+            const float rre = bufR[(size_t) b * 2], rim = bufR[(size_t) b * 2 + 1];
 
-            float lmag = std::sqrt (lre * lre + lim * lim);
-            float rmag = std::sqrt (rre * rre + rim * rim);
+            const size_t s = (size_t) b;
+            sxx[s]   = a * sxx[s]   + oneMa * (lre * lre + lim * lim);
+            syy[s]   = a * syy[s]   + oneMa * (rre * rre + rim * rim);
+            sxyRe[s] = a * sxyRe[s] + oneMa * (lre * rre + lim * rim);
+            sxyIm[s] = a * sxyIm[s] + oneMa * (lim * rre - lre * rim);
 
-            float corr = (lre * rre + lim * rim) / (lmag * rmag + 1.0e-9f);
-            float levelDiff = std::abs (lmag - rmag) / (lmag + rmag + 1.0e-9f);
+            const float crossMag = std::sqrt (sxyRe[s] * sxyRe[s] + sxyIm[s] * sxyIm[s]);
+            const float lmag     = std::sqrt (sxx[s]);
+            const float rmag     = std::sqrt (syy[s]);
 
-            float g = juce::jlimit (0.0f, 1.0f, corr) * (1.0f - levelDiff);
-            g = std::pow (g, power);
+            // Kohaerenz: wie stabil ist die Phasenbeziehung ueber die Zeit.
+            const float coh   = crossMag / (lmag * rmag + eps);
+            // Ausrichtung: cos der mittleren Phasendifferenz (negativ =
+            // gegenphasig, gehoert dann nicht in die Mitte).
+            const float align = sxyRe[s] / (crossMag + eps);
+            // Pegeldifferenz. Fuer gleichphasiges Material ist
+            // C = (1 - levelDiff) * 0.5 * (L + R) exakt min(|L|,|R|) -
+            // also genau die richtige Zerlegung.
+            const float levelDiff = std::abs (lmag - rmag) / (lmag + rmag + eps);
 
-            float cre = g * 0.5f * (lre + rre);
-            float cim = g * 0.5f * (lim + rim);
+            float g = juce::jlimit (0.0f, 1.0f, align) * juce::jlimit (0.0f, 1.0f, coh)
+                        * (1.0f - levelDiff);
+            if (g > 0.0f)
+                g = std::pow (g, power);
+            gain[s] = g * mask[s];
+        }
 
-            cBuf[(size_t) b * 2] = cre;
+        // --- Glaettung ueber die Frequenz (vorwaerts + rueckwaerts) ----------
+        // Zwei Durchlaeufe in beide Richtungen: das Ergebnis ist symmetrisch,
+        // verschiebt also nichts. Nimmt dem Gain die Bin-zu-Bin-Zacken, die
+        // sonst als Verschmierung im Zeitbereich landen.
+        {
+            constexpr float fb = 0.45f;
+            float acc = gain[0];
+            for (int b = 1; b <= nb; ++b) { acc = fb * acc + (1.0f - fb) * gain[(size_t) b]; gain[(size_t) b] = acc; }
+            acc = gain[(size_t) nb];
+            for (int b = nb - 1; b >= 0; --b) { acc = fb * acc + (1.0f - fb) * gain[(size_t) b]; gain[(size_t) b] = acc; }
+        }
+
+        // --- Center-Spektrum (konjugiert-symmetrisch gespiegelt) -------------
+        for (int b = 0; b <= nb; ++b)
+        {
+            const float g = gain[(size_t) b] * 0.5f;
+            const float cre = g * (bufL[(size_t) b * 2]     + bufR[(size_t) b * 2]);
+            const float cim = g * (bufL[(size_t) b * 2 + 1] + bufR[(size_t) b * 2 + 1]);
+            cBuf[(size_t) b * 2]     = cre;
             cBuf[(size_t) b * 2 + 1] = cim;
-            lBuf[(size_t) b * 2] = lre - cre;
-            lBuf[(size_t) b * 2 + 1] = lim - cim;
-            rBuf[(size_t) b * 2] = rre - cre;
-            rBuf[(size_t) b * 2 + 1] = rim - cim;
+
+            if (b > 0 && b < nb)
+            {
+                const int m = fftSize - b;
+                cBuf[(size_t) m * 2]     =  cre;
+                cBuf[(size_t) m * 2 + 1] = -cim;
+            }
         }
 
         fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()),
-                       reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()), true);
-        fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (lBuf.data()),
-                       reinterpret_cast<juce::dsp::Complex<float>*> (lBuf.data()), true);
-        fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (rBuf.data()),
-                       reinterpret_cast<juce::dsp::Complex<float>*> (rBuf.data()), true);
+                      reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()), true);
 
         for (int i = 0; i < fftSize; ++i)
         {
-            int idx = (writeHead + i) % ringSize;
-            float w = window[(size_t) i] / normFactor;
-            outC[(size_t) idx] += cBuf[(size_t) i * 2] * w;
-            outL[(size_t) idx] += lBuf[(size_t) i * 2] * w;
-            outR[(size_t) idx] += rBuf[(size_t) i * 2] * w;
+            const int idx = (writeHead + i) % ringSize;
+            outC[(size_t) idx] += cBuf[(size_t) i * 2] * (window[(size_t) i] / normFactor);
         }
         writeHead = (writeHead + hopSize) % ringSize;
     }
 
-    static constexpr int fftOrder = 10;
-    static constexpr int fftSize  = 1 << fftOrder; // 1024
-    static constexpr int hopSize  = fftSize / 4;    // 256 (75% Overlap)
+    static constexpr int fftOrder = 12;
+    static constexpr int fftSize  = 1 << fftOrder;  // 4096 -> 11,7 Hz/Bin @48k
+    static constexpr int hopSize  = fftSize / 4;    // 1024 (75% Overlap)
 
     std::unique_ptr<juce::dsp::FFT> fft;
     std::vector<float> window;
     float normFactor = 1.0f;
-    double sampleRate = 44100.0;
+    double sampleRate = 48000.0;
 
     std::vector<float> fifoInL, fifoInR;
     int fifoPos = 0;
 
+    std::vector<float> dryL, dryR;
+    int dryPos = 0;
+
     int ringSize = 0;
-    std::vector<float> outL, outC, outR;
+    std::vector<float> outC;
     int writeHead = 0;
     int outReadPos = 0;
     int samplesUntilNextFrame = hopSize;
+
+    // Arbeitspuffer - in prepare() dimensioniert, nie im Audio-Thread.
+    std::vector<float> bufL, bufR, cBuf;
+    std::vector<float> sxx, syy, sxyRe, sxyIm, gain, mask;
+
+    float smoothAmount = 0.5f;
+    float specAlpha    = 0.6f;
+
+    float loHz = 20.0f, hiHz = 22000.0f;
+    std::atomic<bool> maskDirty { true };
 };

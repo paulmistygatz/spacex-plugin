@@ -112,6 +112,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPrismVis    = apvts.getRawParameterValue (ID_PRISM_VIS);
     pWing        = apvts.getRawParameterValue (ID_WING);
     pAutoGain    = apvts.getRawParameterValue (ID_AUTO_GAIN);
+    pBassGuard   = apvts.getRawParameterValue (ID_BASS_GUARD);
     pPrismLo     = apvts.getRawParameterValue (ID_PRISM_LO);
     pPrismHi     = apvts.getRawParameterValue (ID_PRISM_HI);
     pPosDistance = apvts.getRawParameterValue (ID_POS_DISTANCE);
@@ -472,6 +473,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // nicht die Ausnahme, die man erst suchen muss.
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_AUTO_GAIN, 1 }, "Auto Gain", true));
+    // Bass-Guard: unterhalb 120 Hz bleibt das Material unangetastet.
+    // In Galaxy als Maske INNERHALB der FFT (linearphasig, summentreu),
+    // in Dimension als Biquad auf dem Side-Anteil. Abschaltbar, weil es
+    // mit der neuen Aufloesung (4096 statt 1024) womoeglich gar nicht
+    // mehr noetig ist - das laesst sich nur im Vergleich hoeren.
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_BASS_GUARD, 1 }, "Bass Guard", true));
     // Skew 0.25 -> logarithmisches Regelgefuehl ueber den Hoerbereich, sonst
     // liegt die halbe Reglerstrecke oberhalb von 10 kHz.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -587,7 +595,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // ersten 0,5 s laufen mit kurzer Zeitkonstante, damit ein Offline-Bounce
     // nicht mit einer hoerbaren Einschwingphase beginnt.
     updateHighpassCoeffs (bassGuardCoeffs, sampleRate, 120.0f);
-    bassGuardGalL = {}; bassGuardGalR = {}; bassGuardDim = {};
+    bassGuardDim = {};
 
     updateHighpassCoeffs  (kwHpCoeffs,    sampleRate, 60.0f);
     updateHighShelfCoeffs (kwShelfCoeffs, sampleRate, 1500.0f, 4.0f);
@@ -1326,6 +1334,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             autoGainMeasureSamples = (int) (currentSampleRate * 1.5);
         }
     }
+    const bool  bassGuardOn = pBassGuard->load() > 0.5f;
+    // Setzt nur ein Flag, wenn sich wirklich etwas geaendert hat; die
+    // Maske wird im naechsten FFT-Frame neu gerechnet.
+    lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f, 22000.0f);
     const bool  autoGainOn = pAutoGain->load() > 0.5f;
     const float agFrom = autoGainApplied;
     const float agTo   = autoGainOn ? autoGainTarget : 1.0f;
@@ -1361,9 +1373,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const int   dn = (int) autoGainInDelay.size();
             if (dn > 0)
             {
-                agInAcc += (double) autoGainInDelay[(size_t) autoGainInPos];
+                const float delayed = autoGainInDelay[(size_t) autoGainInPos];
                 autoGainInDelay[(size_t) autoGainInPos] = e;
                 autoGainInPos = (autoGainInPos + 1) % dn;
+                // Nur wenn Galaxy wirklich armiert ist, hat der Ausgang eine
+                // Verzoegerung - sonst wuerde hier ein 85 ms alter Eingang mit
+                // einem aktuellen Ausgang verglichen. Bei 1024 fiel das kaum
+                // auf, bei 4096 waere es ein echter Messfehler.
+                agInAcc += (double) (galaxyActivateRaw ? delayed : e);
             }
             else
             {
@@ -1465,13 +1482,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const float wg = lcrWetGain.getNextValue();
             float gxL = lcrDryL + (wetL - lcrDryL) * wg;
             float gxR = lcrDryR + (wetR - lcrDryR) * wg;
-            // Bass-Guard (siehe Header): unter 120 Hz bleibt das Original.
-            {
-                const float dL = gxL - lcrDryL;
-                const float dR = gxR - lcrDryR;
-                gxL = lcrDryL + bassGuardGalL.process (dL, bassGuardCoeffs);
-                gxR = lcrDryR + bassGuardGalR.process (dR, bassGuardCoeffs);
-            }
+            // Bass-Guard sitzt jetzt IM Extractor als Maske pro Bin
+            // (setExtractionRange weiter oben). Der frueher hier stehende
+            // Biquad lag auf der DIFFERENZ zwischen verarbeitetem und
+            // trockenem Signal und hat dabei die Phase verbogen - genau
+            // die Art Eingriff, die man als Bassresonanz hoert.
             // "Band Limits Galaxy": nur der ANTEIL der Galaxy-Bearbeitung
             // innerhalb des Bandes bleibt stehen. Dieselbe Rechnung wie bei
             // Dimension/Vision (dry + band(wet - dry)), deshalb ist das
@@ -1568,7 +1583,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const float sFactor = boostS * widthS;
             // Bass-Guard: skaliert wird nur der Anteil OBERHALB von 120 Hz.
             // Darunter bleibt das Side-Signal so, wie es hereinkam.
-            const float sGuard = bassGuardDim.process (s, bassGuardCoeffs);
+            // Filter laeuft immer mit (Zustand bleibt warm, kein Knacksen
+            // beim Umschalten), benutzt wird er nur wenn eingeschaltet.
+            const float sHigh  = bassGuardDim.process (s, bassGuardCoeffs);
+            const float sGuard = bassGuardOn ? sHigh : s;
             float sWet;
             if (prismDimActive)
             {
@@ -2068,7 +2086,7 @@ void LCRMSAudioProcessor::clearProcessingState() noexcept
     prismGalHpL = {}; prismGalLpL = {}; prismGalHpR = {}; prismGalLpR = {};
     prismDimHp = {}; prismDimLp = {};
     prismPosHp = {}; prismPosLp = {};
-    bassGuardGalL = {}; bassGuardGalR = {}; bassGuardDim = {};
+    bassGuardDim = {};
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     wingLpS = 0.0f;

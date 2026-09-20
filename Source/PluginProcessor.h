@@ -337,6 +337,7 @@ public:
     // verursacht - damit ein Bypass-Vergleich ehrlich wird (User: "oft schwer
     // zu beurteilen ob das Signal jetzt besser oder nur lauter ist").
     static constexpr auto ID_AUTO_GAIN    = "autoGain";
+    static constexpr auto ID_BASS_GUARD   = "bassGuard";
     static constexpr auto ID_PRISM_LO = "prismLo";
     static constexpr auto ID_PRISM_HI = "prismHi";
 
@@ -522,6 +523,7 @@ private:
     std::atomic<float>* pPrismVis = nullptr;
     std::atomic<float>* pWing = nullptr;
     std::atomic<float>* pAutoGain = nullptr;
+    std::atomic<float>* pBassGuard = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;
@@ -629,7 +631,7 @@ private:
     // Grenze steht damit exakt das Eingangssignal, es entstehen keine
     // Kammfilter, und bei neutralen Einstellungen bleibt alles bitgenau.
     BiquadCoeffs bassGuardCoeffs;
-    BiquadState  bassGuardGalL, bassGuardGalR, bassGuardDim;
+    BiquadState  bassGuardDim;   // nur noch Mid/Side - Galaxy filtert in der FFT
     // ===== AUTO GAIN =====
     // Gemessen wird K-gewichtet (vereinfachtes ITU-R BS.1770: Hochpass gegen
     // den Bassueberschuss, Hoehenschelf fuer die Ohrkurve) auf der Monosumme.

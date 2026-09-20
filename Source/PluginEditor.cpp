@@ -1636,6 +1636,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.keepSolo    = keepSoloWhenSectionOff;
     settingsSnap.modVis      = modulationVisualsEnabled;
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
+    settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
 
 // "Cancel": alles zurueck auf den Stand beim Oeffnen. Laeuft ueber dieselben
@@ -1655,6 +1656,8 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
+    flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
+                                                            settingsSnap.bassGuard,   idBassGuard);
 
     if (uiLayoutRef() != settingsSnap.layout)
         handleSettingsAction (settingsSnap.layout == 0 ? idLayoutFrames
@@ -1703,8 +1706,10 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
 
     settingsPanel.behavBtn[0].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
-    settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
+                                                                                               juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
+    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
     settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
@@ -1860,6 +1865,13 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     break;
                 case idAutoGain:
                     if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN))
+                    {
+                        const bool on = prm->getValue() > 0.5f;
+                        prm->setValueNotifyingHost (on ? 0.0f : 1.0f);
+                    }
+                    break;
+                case idBassGuard:
+                    if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_BASS_GUARD))
                     {
                         const bool on = prm->getValue() > 0.5f;
                         prm->setValueNotifyingHost (on ? 0.0f : 1.0f);
@@ -2508,11 +2520,13 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         // Galaxy, kein Klangparameter - wer Regler zuruecksetzt, will nicht
         // gleichzeitig sein Messwerkzeug verlieren.
         auto* autoGainParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN);
+        auto* bassGuardParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_BASS_GUARD);
         auto* galaxyActivateParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE);
         auto* mixLockedParam = isMixLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX) : nullptr;
         auto* volLockedParam = isVolLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM) : nullptr;
         for (auto* param : processor.getParameters())
             if (param != nullptr && param != galaxyActivateParam && param != autoGainParam
+                && param != bassGuardParam
                 && param != mixLockedParam
                 && param != volLockedParam && param != processor.getBypassParameter())
                 param->setValueNotifyingHost (param->getDefaultValue());
