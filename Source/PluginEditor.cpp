@@ -1348,10 +1348,14 @@ bool LCRMSAudioProcessorEditor::isMixLocked()
 // dass nach einem Update aus jener Zeit alles wieder sichtbar ist.
 void LCRMSAudioProcessorEditor::applyLayoutMode()
 {
+    // ACHTUNG (Runde 30): hier standen frueher auch die Solo- und
+    // Power-Knoepfe drin. Beide sind dauerhaft unsichtbar, diese Schleife hat
+    // sie aber bei jedem Layout-Wechsel wieder eingeblendet - bei Vision und
+    // RAYE blieb das "S" dadurch sichtbar, weil deren Kopf nicht durch
+    // layoutHeader() laeuft (das den Knopf jedes Mal wieder versteckt hat).
+    // Wer hier etwas ergaenzt: nur Dinge, die wirklich sichtbar sein sollen.
     juce::Component* headerBits[] = {
-        &lcrSoloButton, &polSoloButton, &driftSoloButton, &widthBoostSoloButton, &flowSoloButton, &posSoloButton, &raySoloButton,
         &lcrLockButton, &polLockButton, &driftLockButton, &widthBoostLockButton, &flowLockButton, &posLockButton, &rayLockButton,
-        &lcrPowerButton, &polPowerButton, &driftPowerButton, &widthBoostPowerButton, &flowPowerButton, &posPowerButton, &rayPowerButton,
         &lcrTitleLabel, &polTitleLabel, &driftTitleLabel, &widthBoostTitleLabel, &flowTitleLabel, &posTitleLabel, &rayTitleLabel
     };
     for (auto* c : headerBits)
@@ -4451,21 +4455,6 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         }
     }
 
-    // ===== AUTO-GAIN-ANZEIGE =====
-    // Die eine Zahl, die verraet, welche Einstellung wirklich etwas am Bild
-    // aendert und welche nur Pegel macht.
-    if (autoGainReadoutArea.getHeight() >= 9
-        && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f)
-    {
-        const float db = processor.autoGainDb.load (std::memory_order_relaxed);
-        const juce::String txt = (std::abs (db) < 0.05f)
-                                    ? juce::String ("0.0 dB")
-                                    : juce::String (db, 1) + " dB";
-        g.setFont (juce::Font (juce::FontOptions (juce::jlimit (9.0f, 12.0f, (float) autoGainReadoutArea.getHeight() - 1.0f))));
-        g.setColour (themePalette().knob.withAlpha (0.55f));
-        g.drawText (txt, autoGainReadoutArea, juce::Justification::centred, false);
-    }
-
     // Kleine vertikale Trennstriche in der globalen Button-Zeile (User-
     // Wunsch: neue Reihenfolge mit Gruppen-Trennern), Positionen kommen aus
     // layoutContent().
@@ -5073,6 +5062,32 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
     g.setColour (juce::Colours::white.withAlpha (0.055f));
     g.fillRect (r.getX() - 30.0f, r.getY() - 7.0f, r.getWidth() + 30.0f, 1.0f);
 
+    // ===== AUTO-GAIN-ANZEIGE =====
+    // Rechts in derselben Zeile. Erster Versuch war der Luftraum ueber
+    // MIX/VOL - dort waren keine 9 px frei, die Zahl wurde also nie
+    // gezeichnet. Hier ist immer Platz, und der Hinweistext links kommt ihr
+    // nie in die Quere.
+    if (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f)
+    {
+        const float db = processor.autoGainDb.load (std::memory_order_relaxed);
+        const juce::String txt = (std::abs (db) < 0.05f) ? juce::String ("0.0 dB")
+                                                         : juce::String (db, 1) + " dB";
+        // NICHT removeFromRight auf hintBarArea: das ist ein Member und
+        // wuerde bei jedem Frame ein Stueck kleiner werden.
+        const int agW = juce::jmin (92, hintBarArea.getWidth());
+        autoGainReadoutArea = hintBarArea.withLeft (hintBarArea.getRight() - agW);
+        g.setFont (juce::Font (juce::FontOptions (12.0f)));
+        g.setColour (themePalette().knob.withAlpha (0.40f));
+        g.drawText ("AG", autoGainReadoutArea.withWidth (24).toFloat(), juce::Justification::centredLeft, false);
+        g.setColour (themePalette().knob.withAlpha (0.85f));
+        g.drawText (txt, autoGainReadoutArea.withTrimmedLeft (24).toFloat(), juce::Justification::centredRight, false);
+        r = r.withTrimmedRight ((float) agW + 10.0f);   // Hinweistext haelt Abstand
+    }
+    else
+    {
+        autoGainReadoutArea = {};
+    }
+
     if (currentHint.isEmpty())
         return;   // Platzhaltertext entfallen (User: "weiss jeder")
 
@@ -5508,13 +5523,6 @@ void LCRMSAudioProcessorEditor::layoutContent()
         }
         const int iconsLeft = x + iconSize + kGap;   // linke Kante von MONO
 
-        // Auto-Gain-Anzeige in den Luftraum UEBER MIX/VOL. Bewusst so
-        // berechnet, dass sie einfach entfaellt, wenn dort kein Platz ist
-        // (siehe Hoehenpruefung in paintContent) - sie darf unter keinen
-        // Umstaenden in die Regler oder die Beschriftung hineinragen.
-        autoGainReadoutArea = juce::Rectangle<int> (mixSlider.getX() - 8, rowTop,
-                                                    (volSlider.getRight() - mixSlider.getX()) + 16,
-                                                    blockTop - rowTop);
 
         // Meter-Block: zwei Zeilen, Label links (knapp bemessen, damit der
         // Balken direkt neben der Schrift beginnt), Balken rechts. Der Block
@@ -5944,19 +5952,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // layoutHeader() fuer die ausfuehrliche Begruendung) - Klick auf den
     // Titel (setupClickableTitle()/mouseUp()) macht exakt dasselbe.
     posPowerButton.setVisible (false);
-    // Reihenfolge wieder zurueckgedreht (siehe layoutHeader()): Solo -> Lock
-    // -> Name, alle drei jetzt wieder von LINKS, Name bekommt den Rest
-    // direkt daneben statt weit rechts mit Luecke.
-    posSoloButton.setBounds (posHeader.removeFromLeft (headerH).reduced (1));
-    posHeader.removeFromLeft (6);
+    // Gleiche Ordnung wie layoutHeader(): Name links, Lock als Anker ganz
+    // rechts, das Mod-Paar davor. Diese Sektion hat ihren eigenen Kopf, sie
+    // muss also von Hand mitgezogen werden.
+    posSoloButton.setVisible (false);
     {
         const int lockSize = juce::roundToInt (headerH * 0.72f);
-        auto lockArea = posHeader.removeFromLeft (lockSize);
-        posHeader.removeFromLeft (6);
+        auto lockArea = posHeader.removeFromRight (lockSize);
+        posHeader.removeFromRight (10);
         posLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
-    // Position-Mod-Icon + Tiefe-Regler ganz rechts im Header, genau wie bei
-    // Timewarp/Dimension/Hyperdrive (User-Feedback).
     {
         const int knobSize = 36;
         auto depthArea = posHeader.removeFromRight (knobSize);
@@ -6031,12 +6036,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto rayFrame = rayRowArea.reduced (10);
     auto rayHeader = rayFrame.removeFromTop (headerH);
     rayPowerButton.setVisible (false);   // wie ueberall: Titel-Klick schaltet
-    raySoloButton.setBounds (rayHeader.removeFromLeft (headerH).reduced (1));
-    rayHeader.removeFromLeft (6);
+    raySoloButton.setVisible (false);
     {
+        // Name links, Lock rechts - siehe layoutHeader().
         const int lockSize = juce::roundToInt (headerH * 0.72f);
-        auto lockArea = rayHeader.removeFromLeft (lockSize);
-        rayHeader.removeFromLeft (6);
+        auto lockArea = rayHeader.removeFromRight (lockSize);
+        rayHeader.removeFromRight (10);
         rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
     fitTitle (rayTitleLabel, rayHeader);
