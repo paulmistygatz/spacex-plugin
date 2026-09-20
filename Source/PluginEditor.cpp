@@ -5595,7 +5595,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
             // MIX und VOL 3px groesser als die beiden Icons (User) - wachsen
             // um ihre Mitte, die Luecken bleiben gleich.
             if (elems[i] == &volSlider || elems[i] == &mixSlider)
-                elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
+                elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize)
+                                        .withSizeKeepingCentre (kKnobSmall, kKnobSmall));
             else
                 elems[i]->setBounds (x, blockTop, iconSize, iconSize);
             labels[i]->setBounds (x - 8, blockTop + iconSize + labelGap, iconSize + 16, labelH);
@@ -5719,11 +5720,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // links davor, mit etwas Luft dazwischen, damit es als eigene Gruppe
         // gelesen wird. Der Name bewegt sich dabei nie.
         soloBtn.setVisible (false);
+        // Lock steht jetzt GANZ LINKS, direkt vor dem Namen (User). Dadurch
+        // liegt es ueber alle Sektionen hinweg auf einer Linie mit der
+        // linken Rahmenkante statt mit der rechten, und der Kopf liest sich
+        // als eine Einheit: Schloss, Name - dann rechts die Modulation.
         if (lockBtn != nullptr)
         {
             const int lockSize = juce::roundToInt (headerH * 0.72f);
-            auto lockArea = header.removeFromRight (lockSize);
-            header.removeFromRight (10);   // Luft zwischen Lock und Mod-Gruppe
+            auto lockArea = header.removeFromLeft (lockSize);
+            header.removeFromLeft (8);
             lockBtn->setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
         }
         // Optionales Mod-Icon (Sinuswelle) + Tiefe-Regler ganz rechts im
@@ -5735,7 +5740,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Rahmen darunter vorhanden).
         if (modDepthSlider != nullptr)
         {
-            const int knobSize = 36;
+            const int knobSize = kKnobSmall;
             auto depthArea = header.removeFromRight (knobSize);
             header.removeFromRight (3);
             modDepthSlider->setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
@@ -5786,6 +5791,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // vertikal zentriert. Dadurch ist der Abstand nach oben und unten
     // zwangslaeufig gleich - in jeder Sektion, bei jeder Fenstergroesse.
     constexpr int kKnobLabelH = 14;
+    // EIN Wert fuer alle Sektionsregler, aus dem ENGSTEN Rahmen gerechnet -
+    // sonst sieht jede Zeile anders aus (User: "die Reglergroessen ein fuer
+    // alle mal einheitlich machen"). Drei Regler plus zwei Zwischenraeume
+    // muessen in die halbe Spaltenbreite passen, und die Hoehe der
+    // niedrigsten Zeile deckelt zusaetzlich.
+    const int kSectionFrameW = ((rightColumn.getWidth() - frameGap) / 2) - 20;
+    const int kSectionRowH   = juce::jmin (juce::jmin (row1H, row2H), row3H) - 20 - headerH;
+    const int kSectionKnob   = juce::jlimit (34, kKnobLarge,
+                                   juce::jmin (kSectionRowH - kKnobLabelH,
+                                               (kSectionFrameW - 44) / 3));
     auto placeKnobWithLabel = [] (juce::Rectangle<int> slot, juce::Slider& s, juce::Label& l, int knobSize)
     {
         const int blockH = knobSize + kKnobLabelH;
@@ -5840,7 +5855,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         lcrInner.removeFromLeft (gap);
 
         const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
-        const int knobD = juce::jlimit (34, 190, juce::jmin (knobAreaH, colW));
+        const int knobD = juce::jmin (kSectionKnob, juce::jmin (knobAreaH, colW));
 
         auto horCol = lcrInner.removeFromLeft (colW);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
@@ -5872,14 +5887,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // selbst gleich hoch blieb - deshalb wird der ganze L/R+1-4-Block
         // jetzt vertikal MITTIG im verfuegbaren Bereich platziert, statt oben
         // zu kleben.
-        const int lrBtnW = 60, lrBtnH = 36;
+        // Groesser als vorher (User: "zu viel Raum in der Section") - der
+        // Rahmen ist so hoch wie Galaxy daneben, der Inhalt war es nicht.
+        const int lrBtnW = 68, lrBtnH = 44;
         const int lrGap = 12;
         const int posBtnGap = 8;
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
         // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
         // exakt so breit wie L+R darueber, damit der Block buendig bleibt.
-        const int posBtnH = 30;
-        const int gapV = 18;
+        const int posBtnH = 36;
+        const int gapV = 16;
         // Link-Button bekommt eine EIGENE Zeile ueber L/R statt sie zu
         // ueberlappen, UND ist jetzt genauso breit wie L+R zusammen (statt
         // eines schmalen, isolierten Icons) - liest sich als Klammer, die
@@ -5946,7 +5963,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
     const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
     const int wbGap        = 14;
-    const int row2KnobSize = juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
+    const int row2KnobSize = juce::jmin (kSectionKnob, juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3));
 
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
     {
@@ -6056,10 +6073,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
     rayPowerButton.setVisible (false);   // wie ueberall: Titel-Klick schaltet
     raySoloButton.setVisible (false);
     {
-        // Name links, Lock rechts - siehe layoutHeader().
+        // Lock links, dann der Name - dieselbe Ordnung wie in layoutHeader().
+        // RAYE baut seinen Kopf von Hand, muss also mitgezogen werden.
         const int lockSize = juce::roundToInt (headerH * 0.72f);
-        auto lockArea = rayHeader.removeFromRight (lockSize);
-        rayHeader.removeFromRight (10);
+        auto lockArea = rayHeader.removeFromLeft (lockSize);
+        rayHeader.removeFromLeft (8);
         rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
     fitTitle (rayTitleLabel, rayHeader);

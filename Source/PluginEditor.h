@@ -90,13 +90,23 @@ private:
     // wieder weg - siehe Header-Kommentar in layoutContent(): zwei halb
     // leere Zeilen uebereinander waren der Grund, warum das Plugin
     // "vollgepackt" wirkte, obwohl kaum etwas dazugekommen war.
-    static constexpr int kDesignH = 604;
-    // 736 -> 604: exakt die Hoehe der weggefallenen vierten Zeile (116 px
-    // Rahmen + 16 px Abstand). Alles andere behaelt damit seine bisherige
-    // Groesse, es verschiebt sich nichts. Die Breite bleibt vorerst bei
-    // 1040 - in Reihe 2 stehen jetzt drei statt zwei Regler pro Rahmen, und
-    // beides gleichzeitig zu aendern hiesse nicht mehr zu wissen, woran es
-    // liegt, wenn etwas klemmt.
+    static constexpr int kDesignH = 736;
+    // ZURUECK auf 736. Der Versuch mit 604 hatte einen Nebeneffekt, den ich
+    // nicht bedacht hatte: die BREITE der linken Spalte haengt an der Hoehe
+    // (das Sternenfeld ist quadratisch, gonioSize kommt aus der verfuegbaren
+    // Hoehe). Weniger Hoehe hiess also auch weniger Breite - die Kategorie-
+    // Chips liefen unter den Galaxy-Rahmen ("PADS"), und im Footer
+    // ueberlappten IN/OUT mit MONO. Das Fenster kleiner zu machen geht nur
+    // zusammen mit einem Umbau der linken Spalte, nicht ueber diese eine
+    // Konstante.
+
+    // ===== EINE Regler-Groessenordnung fuers ganze Plugin =====
+    // Drei Groessen, mehr nicht (User): gross fuer alle Sektionsregler,
+    // mittel vorerst ungenutzt (Groesse aber gemerkt), klein fuer Mod-Tiefe
+    // und Footer.
+    static constexpr int kKnobLarge  = 110;
+    static constexpr int kKnobMedium = 88;
+    static constexpr int kKnobSmall  = 36;
     // Hoehe der Titelzeile. 64 -> 68: rechts sitzen jetzt ZWEI Zeilen
     // (Live-Aktionen oben, Preset-Verwaltung unten) - das spiegelt genau die
     // zwei Textzeilen links (Wortmarke oben, Slogan unten). Zwei mal 26px
