@@ -1403,10 +1403,8 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (polLButton,     "L: flip the left channel");
     tip (polRButton,     "R: flip the right channel");
     tip (polLinkButton,  "Link: switch L and R together");
-    tip (polPos1Button,  "Position 1: flip before Galaxy");
-    tip (polPos2Button,  "Position 2: flip after Galaxy, before Dimension");
-    tip (polPos3Button,  "Position 3: flip after Dimension, before Vision");
-    tip (polPos4Button,  "Position 4: flip after Vision, before RAYE");
+    tip (polPos2Button,  "Early: flip right after Galaxy, so everything downstream reacts to it");
+    tip (polPos3Button,  "Late: flip at the end, after the width has been set");
 
     // Timewarp
     tip (driftTitleLabel,   "TIMEWARP: opens a mono-ish sound into a wide one by pulling left and right apart in time and in pitch");
@@ -1438,7 +1436,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (posTitleLabel,   "VISION: where the sound sits in the picture");
     tip (offsetSlider,    "Tilt: shifts the whole image left or right");
     tip (posWidthSlider,  "Width: final width of the image");
-    tip (distanceSlider,  "Distance: moves the sound back into the room, or pulls it up close again");
+    tip (distanceSlider,  "Depth: left moves it back into the room and darkens it, right pulls it close and opens it up");
     tip (elevateSlider,   "Elevate: lifts the sound up and forward, out from behind the rest of the mix");
     tip (posFilterButton, "Focus: Vision only widens inside the focus range. Click to let it work across the whole spectrum");
     tip (positionModButton, "Mod: switch modulation on or off for this section");
@@ -2828,7 +2826,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     setupPowerButton (driftPowerButton, LCRMSAudioProcessor::ID_DRIFT_ON, driftOnAttachment, LCRMSAudioProcessor::SOLO_TIMEWARP);
     // "Timewarp" statt "Drift" als Header, damit sich Header und Regler-Label
     // ("Drift") nicht mehr wiederholen.
-    styleTitle (driftTitleLabel, "TIMEWARP", juce::Colour (0xffb968ff));
+    // PARALLAX statt TIMEWARP: sobald Tilt neben Drift steht, geht es nicht
+    // mehr um Zeit, sondern um die seitliche Verschiebung des Bildes -
+    // einmal ueber Zeit (Drift), einmal ueber Pegel (Tilt).
+    styleTitle (driftTitleLabel, "PARALLAX", juce::Colour (0xffb968ff));
     setupClickableTitle (driftTitleLabel, LCRMSAudioProcessor::ID_DRIFT_ON, LCRMSAudioProcessor::SOLO_TIMEWARP);
     content.addAndMakeVisible (driftTitleLabel);
     setupSoloButton (driftSoloButton, LCRMSAudioProcessor::SOLO_TIMEWARP);
@@ -2889,7 +2890,11 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // --- Polarity -----------------------------------------------------------
     setupPowerButton (polPowerButton, LCRMSAudioProcessor::ID_POL_ON, polOnAttachment, LCRMSAudioProcessor::SOLO_POLARITY);
     // Zurueck zu "Polarity" (User-Feedback) - "Flip" war zu kurz/unklar.
-    styleTitle (polTitleLabel, "POLARITY", juce::Colour (0xffb968ff));
+    // ECLIPSE statt POLARITY: eine Finsternis ist woertlich der Fall, in dem
+    // sich zwei Dinge ausloeschen - genau die Physik dahinter. Und der Name
+    // verspricht einen Effekt, statt nach Werkzeugkasten zu klingen; genau
+    // darum geht es hier (User: "was man nicht sieht, macht man nicht").
+    styleTitle (polTitleLabel, "ECLIPSE", juce::Colour (0xffb968ff));
     setupClickableTitle (polTitleLabel, LCRMSAudioProcessor::ID_POL_ON, LCRMSAudioProcessor::SOLO_POLARITY);
     content.addAndMakeVisible (polTitleLabel);
     setupSoloButton (polSoloButton, LCRMSAudioProcessor::SOLO_POLARITY);
@@ -2931,6 +2936,19 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // 4=nach Auto-Pan/Flow). Kein Choice-ButtonAttachment in JUCE verfuegbar,
     // daher manuell verdrahtet: Klick schreibt den Parameter, timerCallback
     // haelt die Buttons mit dem aktuellen Parameterwert synchron (Presets/Automation).
+    // Von vier Positionen bleiben zwei (User-Befund und Messung):
+    //  - VOR Galaxy ist kaputt. Ein einseitiger Flip dreht dort die
+    //    Korrelation auf -1; die Extraktion sucht Phasengleichheit und
+    //    klemmt negative Werte auf 0, also wandert KEIN Bin mehr in die
+    //    Mitte - Galaxy ist damit faktisch aus.
+    //  - HINTER Vision ist identisch mit "hinter Dimension", sobald Vision
+    //    keine eigene Stufe mehr ist: ein Flip ist pro Kanal linear und
+    //    vertauscht mit Delay, dazwischen liegt dann nichts mehr.
+    // Uebrig bleiben EARLY (hinter Galaxy) und LATE (hinter Dimension).
+    polPos1Button.setVisible (false);
+    polPos4Button.setVisible (false);
+    polPos2Button.setButtonText ("EARLY");
+    polPos3Button.setButtonText ("LATE");
     juce::TextButton* polPosButtons[4] = { &polPos1Button, &polPos2Button, &polPos3Button, &polPos4Button };
     for (int idx = 0; idx < 4; ++idx)
     {
@@ -3249,9 +3267,13 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
     styleRotary (distanceSlider, false);
     content.addAndMakeVisible (distanceSlider);
-    styleLabel (distanceLabel, "Distance");
+    // DEPTH: ein bipolarer Regler statt Distance UND Elevate - beide bedienen
+    // dieselbe Wahrnehmungsachse. Links fern und dunkel, rechts nah und offen,
+    // Mitte unbearbeitet. Deshalb auch centerOut-Optik wie bei Drift und Size.
+    styleLabel (distanceLabel, "Depth");
     content.addAndMakeVisible (distanceLabel);
-    distanceAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POS_DISTANCE, distanceSlider);
+    distanceSlider.getProperties().set ("centerOut", true);
+    distanceAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_DEPTH, distanceSlider);
     distanceSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
 
     styleRotary (elevateSlider, false);
@@ -4120,7 +4142,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // halten (z.B. nach Preset-Wechsel oder Host-Automation).
     {
         juce::TextButton* polPosButtons[4] = { &polPos1Button, &polPos2Button, &polPos3Button, &polPos4Button };
-        const int currentPos = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+        int currentPos = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()));
+        // Alte Presets koennen noch auf den gestrichenen Positionen stehen.
+        // 0 (vor Galaxy) wird zu EARLY, 3 (hinter Vision) zu LATE - der
+        // Parameter wird dabei wirklich umgeschrieben, sonst leuchtet gar
+        // kein Knopf und der Zustand waere unsichtbar.
+        if (currentPos == 0 || currentPos == 3)
+        {
+            currentPos = (currentPos == 0) ? 1 : 2;
+            if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
+                param->setValueNotifyingHost ((float) currentPos / 3.0f);
+        }
         for (int idx = 0; idx < 4; ++idx)
         {
             const bool shouldBeOn = (idx == currentPos);
@@ -6040,15 +6072,21 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Labels werden bewusst an die volle Slot-Breite gebunden (statt an
         // die schmalere, gedeckelte Knob-Breite) - vorher wurden sie dadurch
         // abgeschnitten ("OF...", "WI...", ...).
-        const int n = 4;
+        // Width ist gestrichen (Dimension macht Breite, und zwar in Mid/Side -
+        // zwei Regler fuer dieselbe Sache war einer zu viel), Elevate ist in
+        // DEPTH aufgegangen. Bleiben Tilt und Depth.
+        const int n = 2;
         const int gap = 18;
         // In der Mitte etwas mehr Luft: dort sitzt der Focus-Knopf (User-Idee,
         // damit Vision denselben Knopf bekommen kann wie Galaxy und Dimension).
         constexpr int posFocusIconSize = 24;
         const int midGap = gap + posFocusIconSize + 6;
-        const int slotW = (posFrame.getWidth() - gap * (n - 2) - midGap) / n;
-        juce::Slider* posSliders[n] = { &offsetSlider, &posWidthSlider, &distanceSlider, &elevateSlider };
-        juce::Label*  posLabels[n]  = { &offsetLabel,  &posWidthLabel,  &distanceLabel,  &elevateLabel };
+        const int slotW = (posFrame.getWidth() - midGap) / n;
+        juce::ignoreUnused (gap);
+        juce::Slider* posSliders[n] = { &offsetSlider, &distanceSlider };
+        juce::Label*  posLabels[n]  = { &offsetLabel,  &distanceLabel };
+        posWidthSlider.setVisible (false); posWidthLabel.setVisible (false);
+        elevateSlider .setVisible (false); elevateLabel .setVisible (false);
         // Bug-Fix (User-Feedback: "Position - der Abstand der Schrift zum
         // unteren Rahmenrand"): vorher wurde der Regler ALLEIN in der Slot-
         // Hoehe zentriert und das Label einfach unter seine Unterkante
@@ -6064,15 +6102,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
             auto slot = posFrame.removeFromLeft (slotW);
             if (i < n - 1)
             {
-                const int thisGap = (i == 1) ? midGap : gap;
-                auto gapArea = posFrame.removeFromLeft (thisGap);
-                if (i == 1) posMidGapArea = gapArea;
+                auto gapArea = posFrame.removeFromLeft (midGap);
+                posMidGapArea = gapArea;
             }
             placeKnobWithLabel (slot, *posSliders[i], *posLabels[i], posKnobSize);
         }
-        posFilterButton.setBounds (posMidGapArea.getCentreX() - posFocusIconSize / 2,
-                                   posWidthSlider.getBounds().getCentreY() - posFocusIconSize / 2,
-                                   posFocusIconSize, posFocusIconSize);
+        juce::ignoreUnused (posMidGapArea);
+        posFilterButton.setBounds ({});   // Focus ist weg (Runde 31)
     }
 
     // ===== RAY =====

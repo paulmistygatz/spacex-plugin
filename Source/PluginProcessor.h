@@ -311,6 +311,11 @@ public:
     static constexpr auto ID_POS_WIDTH    = "posWidth";
     static constexpr auto ID_POS_DISTANCE = "posDistance";
     static constexpr auto ID_POS_ELEVATE  = "posElevate";
+    // DEPTH loest Distance und Elevate als EIN bipolarer Regler ab:
+    // links fern und dunkel, rechts nah und offen. Die beiden alten
+    // Parameter bleiben als Rechenweg bestehen, sind aber nicht mehr
+    // bedienbar.
+    static constexpr auto ID_DEPTH        = "depth";
 
     // ===== PRISM: frequenzselektive Verbreiterung =====
     // Begrenzt, IN WELCHEM Frequenzbereich die Seitenbearbeitung ueberhaupt
@@ -524,6 +529,7 @@ private:
     std::atomic<float>* pAutoGain = nullptr;
     std::atomic<float>* pBassGuard = nullptr;
     std::atomic<float>* pHorizon = nullptr;
+    std::atomic<float>* pDepth = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;

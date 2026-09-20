@@ -113,6 +113,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pAutoGain    = apvts.getRawParameterValue (ID_AUTO_GAIN);
     pBassGuard   = apvts.getRawParameterValue (ID_BASS_GUARD);
     pHorizon     = apvts.getRawParameterValue (ID_LCR_HORIZON);
+    pDepth       = apvts.getRawParameterValue (ID_DEPTH);
     pPrismLo     = apvts.getRawParameterValue (ID_PRISM_LO);
     pPrismHi     = apvts.getRawParameterValue (ID_PRISM_HI);
     pPosDistance = apvts.getRawParameterValue (ID_POS_DISTANCE);
@@ -441,6 +442,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         // Haelfte aller Ergebnisse nach hinten geschoben. Mit Null am linken
         // Anschlag greift dagegen die vorhandene "meistens wenig"-Logik.
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+
+    // DEPTH - ein bipolarer Regler statt Distance UND Elevate. Beide bedienen
+    // dieselbe Wahrnehmungsachse (naeher/weiter), also gehoeren sie auf einen
+    // Regler: links wird es ferner und dunkler, rechts naeher und offener.
+    // Mitte = unbearbeitet.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_DEPTH, 1 }, "Depth",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
 
     // ===== PRISM =====
     // Default: aus, und Bereich ueber das gesamte Spektrum. Beides zusammen
@@ -1139,7 +1148,12 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     offsetSmoothed.setTargetValue (offsetTarget);
     currentOffsetLivePercent.store (offsetTarget * 100.0f, std::memory_order_relaxed);
 
-    const float posWidthRawBase = pPosWidth->load() * 0.01f; // 0..2
+    // Vision-Width ist gestrichen (User: weniger ist mehr). Breite macht
+    // Dimension, und zwar in Mid/Side statt im Positionspfad - zwei Regler
+    // fuer dieselbe Sache waren einer zu viel. Der Parameter bleibt bestehen,
+    // wirkt aber nicht mehr; neutral heisst 1.0.
+    juce::ignoreUnused (pPosWidth);
+    const float posWidthRawBase = 1.0f;
     float posWidthTarget = posWidthRawBase;
     if (positionModOn && std::abs (posWidthRawBase - 1.0f) > kNeutralEps && positionDepthFrac > kNeutralEps)
     {
@@ -1154,7 +1168,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     posWidthSmoothed.setTargetValue (posWidthTarget);
     currentPosWidthLivePercent.store (posWidthTarget * 100.0f, std::memory_order_relaxed);
 
-    const float distanceRawBase = pPosDistance->load() * 0.01f; // 0..1
+    // Distance und Elevate werden nicht mehr einzeln bedient, sondern aus
+    // DEPTH abgeleitet: die Minus-Haelfte schiebt weg und nimmt oben zurueck,
+    // die Plus-Haelfte holt heran und oeffnet oben.
+    const float depthRaw = pDepth->load();                                  // -100..100
+    const float distanceRawBase = juce::jmax (0.0f, -depthRaw) * 0.01f;     // 0..1
     float distanceTarget = distanceRawBase;
     if (positionModOn && distanceRawBase > kNeutralEps && positionDepthFrac > kNeutralEps)
     {
@@ -1164,7 +1182,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     distanceSmoothed.setTargetValue (distanceTarget);
     currentDistanceLivePercent.store (distanceTarget * 100.0f, std::memory_order_relaxed);
 
-    const float elevateRawBase = pPosElevate->load() * 0.01f; // -1..1
+    const float elevateRawBase = juce::jmax (0.0f, depthRaw) * 0.01f;       // 0..1 (siehe DEPTH)
     float elevateTarget = elevateRawBase;
     if (positionModOn && std::abs (elevateRawBase) > kNeutralEps && positionDepthFrac > kNeutralEps)
     {
