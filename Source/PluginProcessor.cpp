@@ -591,10 +591,14 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     updateHighpassCoeffs  (kwHpCoeffs,    sampleRate, 60.0f);
     updateHighShelfCoeffs (kwShelfCoeffs, sampleRate, 1500.0f, 4.0f);
-    kwInHp = {}; kwInShelf = {}; kwOutHp = {}; kwOutShelf = {};
+    kwInHpL = {}; kwInShelfL = {}; kwInHpR = {}; kwInShelfR = {};
+    kwOutHpL = {}; kwOutShelfL = {}; kwOutHpR = {}; kwOutShelfR = {};
+    autoGainInDelay.assign ((size_t) juce::jmax (1, lcrExtractor.getLatencySamples()), 0.0f);
+    autoGainInPos = 0;
     autoGainInSq = autoGainOutSq = 0.0;
     autoGainTarget = autoGainApplied = 1.0f;
-    autoGainFastSamples = (int) (sampleRate * 0.5);
+    autoGainParamSum = -1.0e9f;                          // erzwingt ein Messfenster
+    autoGainMeasureSamples = (int) (sampleRate * 2.0);   // beim Laden einmal einpegeln
     autoGainDb.store (0.0f, std::memory_order_relaxed);
 
     lcrDryDelayL.assign ((size_t) latSize, 0.0f);
@@ -948,7 +952,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Oberhalb von 2 ms wird der Ausgleich bewusst EINGEFROREN: dort gewinnt
     // der Praezedenzeffekt so klar, dass mehr Pegel die Seite nur noch lauter
     // macht statt mittiger. Weiter aufdrehen wuerde den Fehler vergroessern.
-    constexpr float kBalanceDbPerMs = 3.75f;   // 1 ms -> 3,75 dB, 2 ms -> 7,5 dB
+    // Runde 31: 3,75 war zu viel (User: "ist lauter als die andere Seite").
+    // 2,75 liegt zwischen den alten 1,8 dB bei 1 ms und den 3,75, die
+    // ueberschossen haben.
+    constexpr float kBalanceDbPerMs = 2.75f;   // 1 ms -> 2,75 dB, 2 ms -> 5,5 dB
     constexpr float kBalanceMaxMs   = 2.0f;
     const float balanceMs = juce::jmin (driftPercentToMs (driftAbsPctMod), kBalanceMaxMs);
     const float balanceTargetCompGain = juce::Decibels::decibelsToGain (balanceMs * kBalanceDbPerMs);
@@ -1285,6 +1292,19 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Angewandt wird der im VORIGEN Block berechnete Wert. Ein Block Versatz
     // in der Regelstrecke ist bei rund einer Sekunde Zeitkonstante belanglos
     // und erspart eine zweite Messschleife.
+    // Bewegt sich irgendein Parameter, oeffnet das Messfenster neu. Die
+    // Pruefsumme laeuft ueber ALLE Parameter, damit auch Host-Automation und
+    // ein Preset-Wechsel erfasst werden, nicht nur Mausbewegungen in der GUI.
+    {
+        float sum = 0.0f;
+        for (auto* p : getParameters())
+            sum += p->getValue();
+        if (std::abs (sum - autoGainParamSum) > 1.0e-6f)
+        {
+            autoGainParamSum = sum;
+            autoGainMeasureSamples = (int) (currentSampleRate * 1.5);
+        }
+    }
     const bool  autoGainOn = pAutoGain->load() > 0.5f;
     const float agFrom = autoGainApplied;
     const float agTo   = autoGainOn ? autoGainTarget : 1.0f;
@@ -1309,11 +1329,25 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float dryL = l;
         const float dryR = r;
 
-        // Auto Gain, Messpunkt EIN: Monosumme, K-gewichtet.
+        // Auto Gain, Messpunkt EIN: beide Kanaele einzeln K-gewichtet, dann
+        // die Energien addiert (so macht es der Loudness-Standard). Der Wert
+        // geht durch eine Verzoegerungsleitung in Laenge der gemeldeten
+        // Latenz, damit er mit dem Ausgang desselben Moments verglichen wird.
         {
-            const float m = 0.5f * (dryL + dryR);
-            const float k = kwInShelf.process (kwInHp.process (m, kwHpCoeffs), kwShelfCoeffs);
-            agInAcc += (double) k * (double) k;
+            const float kL = kwInShelfL.process (kwInHpL.process (dryL, kwHpCoeffs), kwShelfCoeffs);
+            const float kR = kwInShelfR.process (kwInHpR.process (dryR, kwHpCoeffs), kwShelfCoeffs);
+            const float e  = kL * kL + kR * kR;
+            const int   dn = (int) autoGainInDelay.size();
+            if (dn > 0)
+            {
+                agInAcc += (double) autoGainInDelay[(size_t) autoGainInPos];
+                autoGainInDelay[(size_t) autoGainInPos] = e;
+                autoGainInPos = (autoGainInPos + 1) % dn;
+            }
+            else
+            {
+                agInAcc += (double) e;
+            }
         }
 
         // Alle geglaetteten Regler-/Section-Werte fuer dieses Sample holen.
@@ -1790,9 +1824,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // Gemessen wird das bearbeitete Signal VOR dem Ausgleich - damit ist
         // die Regelung offen und nicht rueckgekoppelt, also vorhersagbar.
         {
-            const float m = 0.5f * (l + r);
-            const float k = kwOutShelf.process (kwOutHp.process (m, kwHpCoeffs), kwShelfCoeffs);
-            agOutAcc += (double) k * (double) k;
+            const float kL = kwOutShelfL.process (kwOutHpL.process (l, kwHpCoeffs), kwShelfCoeffs);
+            const float kR = kwOutShelfR.process (kwOutHpR.process (r, kwHpCoeffs), kwShelfCoeffs);
+            agOutAcc += (double) (kL * kL + kR * kR);
         }
         agNow += agStep;
         l *= agNow;  r *= agNow;
@@ -1913,30 +1947,31 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const double inMean  = agInAcc  / (double) juce::jmax (1, numSamples);
         const double outMean = agOutAcc / (double) juce::jmax (1, numSamples);
 
-        // Kurz nach dem Start schnell einschwingen, danach bewusst traege.
-        const bool fast = autoGainFastSamples > 0;
-        if (fast) autoGainFastSamples -= numSamples;
-        const double tauMeas = fast ? 0.05 : 0.30;
-        const double tauGain = fast ? 0.05 : 0.35;
-
-        const double aMeas = std::exp (-blockSec / tauMeas);
+        // Die Energien laufen IMMER mit, damit beim naechsten Messfenster
+        // sofort ein brauchbarer Wert dasteht.
+        const double aMeas = std::exp (-blockSec / 0.25);
         autoGainInSq  = inMean  + aMeas * (autoGainInSq  - inMean);
         autoGainOutSq = outMean + aMeas * (autoGainOutSq - outMean);
 
-        // Bei Stille wird der Wert eingefroren statt weggelaufen - sonst
-        // klettert der Ausgleich in Pausen ins Absurde und knallt beim
-        // naechsten Einsatz.
+        // Nachgeregelt wird NUR im Messfenster (siehe Header). Danach steht
+        // der Wert fest, egal was das Material macht.
         constexpr double kSilence = 1.0e-9;   // ca. -90 dBFS
-        if (autoGainInSq > kSilence && autoGainOutSq > kSilence)
+        if (autoGainMeasureSamples > 0)
         {
-            const double ratio = std::sqrt (autoGainInSq / autoGainOutSq);
-            // Begrenzt, damit keine extreme Einstellung einen absurden Boost
-            // erzeugt (und damit ein stummgeschalteter Ausgang nichts reisst).
-            const float wanted = juce::jlimit (juce::Decibels::decibelsToGain (-12.0f),
-                                               juce::Decibels::decibelsToGain (12.0f),
-                                               (float) ratio);
-            const float aGain = (float) std::exp (-blockSec / tauGain);
-            autoGainTarget = wanted + aGain * (autoGainTarget - wanted);
+            autoGainMeasureSamples -= numSamples;
+            if (autoGainInSq > kSilence && autoGainOutSq > kSilence)
+            {
+                const double ratio = std::sqrt (autoGainInSq / autoGainOutSq);
+                // Enger begrenzt als beim ersten Anlauf (User: "12 dB ist viel
+                // zu viel"). Mit der Messung je Kanal ist so viel auch gar
+                // nicht mehr noetig - der grosse Ausschlag kam vorher vom
+                // Fehler, nicht vom Material.
+                const float wanted = juce::jlimit (juce::Decibels::decibelsToGain (-6.0f),
+                                                   juce::Decibels::decibelsToGain (6.0f),
+                                                   (float) ratio);
+                const float aGain = (float) std::exp (-blockSec / 0.25);
+                autoGainTarget = wanted + aGain * (autoGainTarget - wanted);
+            }
         }
     }
 

@@ -2507,11 +2507,17 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         // ungefragt wieder deaktivieren. Per Pointer-Vergleich statt
         // getParameterID() (nicht Teil der Basisklasse AudioProcessorParameter
         // in dieser JUCE-Version).
+        // Auto Gain ist ebenfalls ausgenommen (User-Bug: "Reset resettet
+        // aktuell auch die Settings"). Es ist eine Arbeitseinstellung wie
+        // Galaxy, kein Klangparameter - wer Regler zuruecksetzt, will nicht
+        // gleichzeitig sein Messwerkzeug verlieren.
+        auto* autoGainParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN);
         auto* galaxyActivateParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE);
         auto* mixLockedParam = isMixLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX) : nullptr;
         auto* volLockedParam = isVolLocked() ? processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM) : nullptr;
         for (auto* param : processor.getParameters())
-            if (param != nullptr && param != galaxyActivateParam && param != mixLockedParam
+            if (param != nullptr && param != galaxyActivateParam && param != autoGainParam
+                && param != mixLockedParam
                 && param != volLockedParam && param != processor.getBypassParameter())
                 param->setValueNotifyingHost (param->getDefaultValue());
     };
@@ -3332,6 +3338,20 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // "?" ganz unten links: schaltet die Hinweiszeile darunter an und aus
     // (User). Ersetzt den Menue-Eintrag als taeglichen Weg dorthin - der
     // Eintrag bleibt trotzdem, damit beides denselben Schalter bedient.
+    // Auto Gain ist per Klick auf seine Anzeige schaltbar (User) - die Zahl
+    // steht ohnehin dort, ein zweites Bedienelement waere Verschwendung.
+    autoGainButton.getProperties().set ("invisibleHit", true);
+    autoGainButton.setWantsKeyboardFocus (false);
+    autoGainButton.setTooltip ("Auto Gain: matches the output level to the input so bypass is an honest comparison. Click to switch it off");
+    content.addAndMakeVisible (autoGainButton);
+    autoGainButton.onClick = [this]
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_AUTO_GAIN))
+            prm->setValueNotifyingHost (prm->getValue() > 0.5f ? 0.0f : 1.0f);
+        refreshSettingsPanel();
+        content.repaint (hintBarArea.expanded (8));
+    };
+
     helpButton.getProperties().set ("helpIcon", true);
     helpButton.setClickingTogglesState (true);
     helpButton.setWantsKeyboardFocus (false);
@@ -5063,25 +5083,23 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
     g.fillRect (r.getX() - 30.0f, r.getY() - 7.0f, r.getWidth() + 30.0f, 1.0f);
 
     // ===== AUTO-GAIN-ANZEIGE =====
-    // Rechts in derselben Zeile. Erster Versuch war der Luftraum ueber
-    // MIX/VOL - dort waren keine 9 px frei, die Zahl wurde also nie
-    // gezeichnet. Hier ist immer Platz, und der Hinweistext links kommt ihr
-    // nie in die Quere.
-    if (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f)
+    // Rechts in derselben Zeile; die Flaeche kommt aus layoutContent(), weil
+    // dort auch die Klickflaeche daraufgelegt wird. Im Aus-Zustand steht
+    // "off" statt der Zahl - sonst waere der Knopf unsichtbar und man kaeme
+    // nicht mehr hin.
+    if (! autoGainReadoutArea.isEmpty())
     {
+        const bool agOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
         const float db = processor.autoGainDb.load (std::memory_order_relaxed);
-        const juce::String txt = (std::abs (db) < 0.05f) ? juce::String ("0.0 dB")
+        const juce::String txt = ! agOn ? juce::String ("off")
+                               : (std::abs (db) < 0.05f) ? juce::String ("0.0 dB")
                                                          : juce::String (db, 1) + " dB";
-        // NICHT removeFromRight auf hintBarArea: das ist ein Member und
-        // wuerde bei jedem Frame ein Stueck kleiner werden.
-        const int agW = juce::jmin (92, hintBarArea.getWidth());
-        autoGainReadoutArea = hintBarArea.withLeft (hintBarArea.getRight() - agW);
         g.setFont (juce::Font (juce::FontOptions (12.0f)));
-        g.setColour (themePalette().knob.withAlpha (0.40f));
+        g.setColour (themePalette().knob.withAlpha (agOn ? 0.40f : 0.22f));
         g.drawText ("AG", autoGainReadoutArea.withWidth (24).toFloat(), juce::Justification::centredLeft, false);
-        g.setColour (themePalette().knob.withAlpha (0.85f));
+        g.setColour (themePalette().knob.withAlpha (agOn ? 0.85f : 0.30f));
         g.drawText (txt, autoGainReadoutArea.withTrimmedLeft (24).toFloat(), juce::Justification::centredRight, false);
-        r = r.withTrimmedRight ((float) agW + 10.0f);   // Hinweistext haelt Abstand
+        r = r.withTrimmedRight ((float) autoGainReadoutArea.getWidth() + 10.0f);
     }
     else
     {
@@ -5359,6 +5377,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         helpButton.setBounds (strip.removeFromLeft (hintH));
         strip.removeFromLeft (8);
         hintBarArea = strip;
+        // Auto-Gain-Anzeige rechts in derselben Zeile, samt Klickflaeche.
+        {
+            const int agW = juce::jmin (96, hintBarArea.getWidth() / 2);
+            autoGainReadoutArea = hintBarArea.withLeft (hintBarArea.getRight() - agW);
+            autoGainButton.setBounds (autoGainReadoutArea.expanded (3, 5));
+        }
     }
 
     // -- Linke Spalte: Goniometer + Korrelationsmesser darunter, gemeinsam

@@ -1538,6 +1538,7 @@ private:
     void updateHintBar();
     void drawHintBar (juce::Graphics& g);
     juce::TextButton helpButton;            // dezentes "?" ganz unten links
+    juce::TextButton autoGainButton;        // unsichtbare Klickflaeche ueber der AG-Anzeige
     juce::Rectangle<int> hintBarArea;       // Textbereich rechts daneben
     juce::String currentHint;               // was gerade angezeigt wird
     // Klick ins Sternenfeld: Goniometer-Farbe weiterschalten, 5. Klick = aus.

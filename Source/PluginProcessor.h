@@ -642,11 +642,36 @@ private:
     // Reaktionszeit, und die ist ausdruecklich gewollt - eine schnelle
     // Regelung waere ein Kompressor und wuerde die Dynamik veraendern.
     BiquadCoeffs kwHpCoeffs, kwShelfCoeffs;
-    BiquadState  kwInHp, kwInShelf, kwOutHp, kwOutShelf;
+    // JE KANAL, nicht auf der Monosumme. Der erste Anlauf hat 0,5*(L+R)
+    // gemessen - bei einem Polarity-Flip oder stark seitigem Material loescht
+    // sich diese Summe weitgehend aus, die Regelung hielt den Ausgang fuer
+    // fast still und drehte bis zum Anschlag auf (User: "der reale Pegel auf
+    // der Spur wird bis zu 12 dB hoeher"). Richtig ist, was der
+    // Loudness-Standard macht: jeden Kanal einzeln gewichten und die
+    // Energien addieren. Ein Polarity-Flip aendert die Messung dann gar
+    // nicht - und genau das ist richtig, er macht nichts lauter.
+    BiquadState  kwInHpL, kwInShelfL, kwInHpR, kwInShelfR;
+    BiquadState  kwOutHpL, kwOutShelfL, kwOutHpR, kwOutShelfR;
+
+    // Die Eingangsmessung wird um die gemeldete Latenz verzoegert, damit
+    // wirklich derselbe Moment verglichen wird. Ohne das schwankte der Wert
+    // bei aktivem Galaxy um bis zu 3 dB, obwohl gar nichts eingestellt war.
+    std::vector<float> autoGainInDelay;
+    int autoGainInPos = 0;
+
     double autoGainInSq = 0.0, autoGainOutSq = 0.0;
-    float  autoGainTarget  = 1.0f;   // aus dem letzten Block berechnet
+    float  autoGainTarget  = 1.0f;   // gehaltener Wert
     float  autoGainApplied = 1.0f;   // zuletzt tatsaechlich angewandt
-    int    autoGainFastSamples = 0;  // kurz nach dem Start schneller einschwingen
+
+    // ===== Messfenster statt Dauerbetrieb =====
+    // Das Verhaeltnis Ein/Aus haengt nicht nur an den Einstellungen, sondern
+    // auch am Material - in der Strophe anders als im Refrain. Wer das
+    // dauernd nachregelt, baut einen Level Rider und veraendert die Dynamik
+    // des Songs (User: "auto gain rided das signal wie ein gain rider.
+    // Autsch!"). Deshalb: gemessen wird nur, solange sich Parameter bewegen,
+    // plus eine kurze Nachlaufzeit. Danach steht der Wert fest.
+    int   autoGainMeasureSamples = 0;
+    float autoGainParamSum = -1.0e9f;   // Pruefsumme ueber alle Parameter
     // ZWEI getrennte Filterzustaende, weil die Verbreiterung an zwei
     // verschiedenen Stellen der Kette passiert (Dimension mit Size/Boost und
     // danach Position mit Width) und dort jeweils ein ANDERES Side-Signal
