@@ -110,7 +110,6 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPrismGalaxy = apvts.getRawParameterValue (ID_PRISM_GALAXY);
     pPrismDim    = apvts.getRawParameterValue (ID_PRISM_DIM);
     pPrismVis    = apvts.getRawParameterValue (ID_PRISM_VIS);
-    pWing        = apvts.getRawParameterValue (ID_WING);
     pAutoGain    = apvts.getRawParameterValue (ID_AUTO_GAIN);
     pBassGuard   = apvts.getRawParameterValue (ID_BASS_GUARD);
     pHorizon     = apvts.getRawParameterValue (ID_LCR_HORIZON);
@@ -467,9 +466,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::ParameterID { ID_PRISM_VIS, 1 }, "Vision Focus Bypass", false));
     // Drei Stufen statt eines Reglers: eine Neigung ist entweder da oder nicht,
     // und ein Regler laedt nur zum Uebertreiben ein (User).
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { ID_WING, 1 }, "Wing",
-        juce::StringArray { "Flat", "Up", "Down" }, 0));
     // Standardmaessig AN: der ehrliche Vergleich soll der Normalfall sein,
     // nicht die Ausnahme, die man erst suchen muss.
     params.push_back (std::make_unique<juce::AudioParameterBool> (
@@ -1252,24 +1248,6 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         prismDimActive    = prismActive;   // siehe prismGalaxyActive
         prismVisActive    = prismActive;   // siehe prismGalaxyActive
 
-        // WING: +-2 dB gegenlaeufig um 700 Hz, nur auf dem Seitensignal.
-        // Absichtlich klein - eine Neigung wirkt deutlich staerker als eine
-        // einseitige Anhebung, und das Plugin soll eine Nuance bleiben.
-        const int wingMode = (int) std::round (pWing->load());
-        wingActive = wingMode != 0;
-        if (wingActive)
-        {
-            wingLpCoeff = std::exp (-2.0f * juce::MathConstants<float>::pi * 700.0f / (float) currentSampleRate);
-            const float up = juce::Decibels::decibelsToGain (2.0f);
-            const float dn = juce::Decibels::decibelsToGain (-2.0f);
-            wingGainHigh = (wingMode == 1) ? up : dn;
-            wingGainLow  = (wingMode == 1) ? dn : up;
-        }
-        else
-        {
-            wingLpS = 0.0f;
-        }
-
         if (prismActive)
         {
             updateHighpassCoeffs (prismHpCoeffs, currentSampleRate, loHz);
@@ -1737,21 +1715,6 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             r = r + (rPos - r) * posGain;
         }
 
-        // WING: sanfte Neigung des Seitensignals. Eigene kleine Stufe, weil der
-        // Focus-Balken fuer alle drei Sektionen gilt - eine Neigung gehoert
-        // deshalb an dieselbe Stelle und nicht in eine einzelne Sektion.
-        if (wingActive)
-        {
-            const float m = 0.5f * (l + r);
-            const float s0 = 0.5f * (l - r);
-            wingLpS = s0 + wingLpCoeff * (wingLpS - s0);
-            const float sLow  = wingLpS;
-            const float sHigh = s0 - sLow;
-            const float sTilt = sLow * wingGainLow + sHigh * wingGainHigh;
-            l = m + sTilt;
-            r = m - sTilt;
-        }
-
         // Polarity-Slot 4: nach Vision (M/S-Width), vor RAYE. RAYE selbst ist
         // pro Kanal linear - ein Slot dahinter braechte nichts Neues.
         {
@@ -2114,7 +2077,6 @@ void LCRMSAudioProcessor::clearProcessingState() noexcept
     bassGuardDim = {};
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
-    wingLpS = 0.0f;
     std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
     std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
     lcrDryWritePos = 0;

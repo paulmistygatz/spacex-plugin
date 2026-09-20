@@ -1461,7 +1461,6 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (monoDryButton,   "Dry: while in mono, compare with the unprocessed input");
     tip (mixSlider,       "Mix: blend the processed sound with the original. Right-click to lock it - presets, A/B, Reset and Smart then leave it alone");
     tip (volSlider,       "Vol: output trim, plus or minus 6 dB. Right-click to lock it against presets and Reset");
-    tip (wingButton,      "Wing: tilts the sides gently - up gives the top more width, down the bottom. Click to step through");
     tip (prismOnButton,   "Focus: switch the focus range on or off. Wide open it does nothing at all");
     tip (prismBand,       "Focus: the range SpaceX works in. Drag an edge to resize, the middle to move, up and down or scroll to widen. Outside it the sound passes through untouched");
     tip (correlationMeter, "Correlation: to the right of centre is mono-safe, to the left it cancels in mono");
@@ -3147,22 +3146,6 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     mixSlider.onRightClick = [this] { toggleKnobLock ("lockMix", mixSlider); };
     volSlider.onRightClick = [this] { toggleKnobLock ("lockVol", volSlider); };
 
-    // WING: drei Stufen, ein Klick weiter. Sitzt neben dem Ein/Aus-Knopf in
-    // der Focus-Leiste, weil die Neigung fuer alle Sektionen gilt (User).
-    wingButton.setClickingTogglesState (false);
-    wingButton.setWantsKeyboardFocus (false);
-    wingButton.getProperties().set ("wingIcon", true);
-    wingButton.getProperties().set ("noPlate", true);
-    content.addAndMakeVisible (wingButton);
-    wingButton.onClick = [this]
-    {
-        if (auto* p = processor.apvts.getParameter (LCRMSAudioProcessor::ID_WING))
-        {
-            const int cur = (int) std::round (p->convertFrom0to1 (p->getValue()));
-            p->setValueNotifyingHost (p->convertTo0to1 ((float) ((cur + 1) % 3)));
-        }
-    };
-
     prismOnButton.setClickingTogglesState (true);
     prismOnButton.setWantsKeyboardFocus (false);
     // Eigenes Prisma-Symbol statt des Bypass-Icons (User-Feedback: "Das Icon
@@ -3796,16 +3779,6 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (galaxyFilterButton, isLcrOn);
     setSectionOff (dimFilterButton, isWidthBoostOn);
     setSectionOff (posFilterButton, isPosOn);
-    // Der Wing-Knopf zeichnet sich aus einer Property - die muss dem Parameter
-    // folgen, damit Presets, A/B und Undo ihn mitnehmen.
-    {
-        const int wm = (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_WING)->load());
-        if ((int) wingButton.getProperties().getWithDefault ("wingMode", 0) != wm)
-        {
-            wingButton.getProperties().set ("wingMode", wm);
-            wingButton.repaint();
-        }
-    }
     // Nehmen Galaxy, Dimension UND Vision den Focus heraus, wirkt die Leiste
     // gerade auf nichts. Sie wird dann sichtbar gedimmt - aber NICHT automatisch
     // abgeschaltet (User-Idee, bewusst nicht umgesetzt: ein Parameter, den man
@@ -5628,8 +5601,6 @@ void LCRMSAudioProcessorEditor::layoutContent()
             const int bandH    = blockH0 - 3;
             prismBand.setVisible (false);
             prismOnButton.setVisible (false);
-            wingButton.setBounds (prismLeft, bandTop, bandH, bandH);
-            wingButton.toFront (false);
         }
     }
 
@@ -5812,47 +5783,43 @@ void LCRMSAudioProcessorEditor::layoutContent()
     //    fester Pixelwerte, damit die vorher leere rechte Haelfte genutzt wird.
     auto lcrInner = layoutHeader (lcrFrame.reduced (10), lcrPowerButton, lcrSoloButton, lcrTitleLabel, &galaxyModButton, &galaxyModDepthSlider, &lcrLockButton);
     {
-        // Drei Elemente in einem Rahmen, der fuer zwei gebaut war: die
-        // Groessen duerfen deshalb NICHT mehr allein aus der Hoehe kommen
-        // (User-Screenshot: der Orbit-Kegel war auf einen Strich
-        // zusammengequetscht und sein Label auf "O..." gekuerzt). Erst
-        // bekommt der Kegel seine Mindestbreite, der Rest wird unter
-        // Gravity und Horizon aufgeteilt - und beide zusaetzlich von der
-        // Hoehe gedeckelt, damit sie rund bleiben.
+        // Reihenfolge nach Wichtigkeit (User): ohne ORBIT passiert in Galaxy
+        // ueberhaupt nichts, HORIZON bestimmt, worauf Orbit wirken kann, und
+        // GRAVITY ist die Feinabstimmung. Die Groesse folgt derselben
+        // Reihenfolge. Die Breiten muessen aufgeteilt werden statt aus der
+        // Hoehe zu kommen - sonst bleibt fuer das letzte Element nichts
+        // uebrig (User-Screenshot: der Orbit-Kegel war ein Strich und sein
+        // Label auf "O..." gekuerzt).
         const int knobAreaH = lcrInner.getHeight() - 14;
         const int availW    = lcrInner.getWidth();
-        const int gapA = 8, gapB = 10;
-        const int orbitW = juce::jlimit (46, 84, juce::roundToInt ((float) availW * 0.27f));
-        const int knobsW = juce::jmax (80, availW - orbitW - gapA - gapB);
-        // Gravity bleibt der groesste der drei - er ist der Regler, den man
-        // tatsaechlich anfasst.
-        const int gravSize = juce::jlimit (54, 190, juce::jmin (knobAreaH, juce::roundToInt ((float) knobsW * 0.56f)));
-        auto gravCol = lcrInner.removeFromLeft (gravSize);
-        gravityLabel.setBounds (gravCol.removeFromBottom (14));
-        gravitySlider.setBounds (gravCol);
-        // Starfield-Mond soll ungefaehr so gross sein wie der Gravity-Regler
-        // (User-Wunsch) - reicht die aktuelle, fenstergroessen-abhaengige
-        // Knob-Groesse direkt an den Goniometer weiter, statt dort einen
-        // unabhaengigen, fest verdrahteten Wert zu benutzen.
-        goniometer.setGravityKnobDiameter ((float) gravSize);
+        const int gapA = 10, gapB = 8;
 
-        // HORIZON zwischen Gravity und Orbit: "wie streng" - "bis wohin" -
-        // "wie viel". Etwas kleiner als Gravity, weil es der seltener
-        // angefasste Regler der drei ist.
+        const int orbitW = juce::jlimit (54, 96, juce::roundToInt ((float) availW * 0.30f));
+        auto orbitCol = lcrInner.removeFromLeft (orbitW);
+        orbitLabel.setBounds (orbitCol.removeFromBottom (14));
+        orbitSlider.setBounds (orbitCol);
         lcrInner.removeFromLeft (gapA);
-        const int horSize = juce::jlimit (44, 150, juce::jmin (knobAreaH, knobsW - gravSize));
+
+        const int knobsW  = juce::jmax (80, lcrInner.getWidth() - gapB);
+        const int horSize = juce::jlimit (48, 190, juce::jmin (knobAreaH, juce::roundToInt ((float) knobsW * 0.56f)));
         auto horCol = lcrInner.removeFromLeft (horSize);
         horizonLabel.setBounds (horCol.removeFromBottom (14));
         horizonSlider.setBounds (horCol.withSizeKeepingCentre (horSize, juce::jmin (horCol.getHeight(), horSize)));
         lcrInner.removeFromLeft (gapB);
 
-        // Orbit bekommt die gesamte verbleibende Breite/Hoehe der Zeile.
-        auto focusArea = lcrInner;
-        orbitLabel.setBounds (focusArea.removeFromBottom (14));
-        orbitSlider.setBounds (focusArea);
+        auto gravCol = lcrInner;
+        const int gravSize = juce::jlimit (44, 190, juce::jmin (knobAreaH, gravCol.getWidth()));
+        gravityLabel.setBounds (gravCol.removeFromBottom (14));
+        gravitySlider.setBounds (gravCol.withSizeKeepingCentre (gravSize, juce::jmin (gravCol.getHeight(), gravSize)));
 
-        // Der alte Focus-Knopf sass hier im Zwischenraum. Focus ist weg
-        // (Runde 31), also bekommt er keine Flaeche mehr.
+        // Der Starfield-Mond orientiert sich an der Reglergroesse in dieser
+        // Sektion. Gravity ist jetzt der KLEINSTE der drei - deshalb der
+        // groessere der beiden runden Regler als Bezug, sonst schrumpft der
+        // Mond mit.
+        goniometer.setGravityKnobDiameter ((float) juce::jmax (horSize, gravSize));
+
+        // Der alte Focus-Knopf sass im Zwischenraum. Focus ist weg (Runde 31),
+        // also bekommt er keine Flaeche mehr.
         galaxyFilterButton.setBounds ({});
     }
 

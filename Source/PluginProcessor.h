@@ -333,7 +333,6 @@ public:
     // WING: sanfte Neigung des Seitensignals. 0 = flach, 1 = oben mehr,
     // 2 = unten mehr. Bewusst drei feste Stufen statt eines Reglers - der
     // nutzbare Bereich ist schmal (User).
-    static constexpr auto ID_WING         = "wing";
     // Auto Gain: gleicht den Pegelunterschied aus, den die eigene Bearbeitung
     // verursacht - damit ein Bypass-Vergleich ehrlich wird (User: "oft schwer
     // zu beurteilen ob das Signal jetzt besser oder nur lauter ist").
@@ -522,7 +521,6 @@ private:
     std::atomic<float>* pPrismGalaxy = nullptr;
     std::atomic<float>* pPrismDim = nullptr;
     std::atomic<float>* pPrismVis = nullptr;
-    std::atomic<float>* pWing = nullptr;
     std::atomic<float>* pAutoGain = nullptr;
     std::atomic<float>* pBassGuard = nullptr;
     std::atomic<float>* pHorizon = nullptr;
@@ -694,7 +692,6 @@ private:
     // WING-Neigung: ein Ein-Pol-Tiefpass teilt das Seitensignal bei ~700 Hz,
     // beide Haelften bekommen gegenlaeufige Gains. Bei gleichen Gains ergibt
     // die Summe wieder exakt das Original - deshalb ist "flach" bitgenau aus.
-    float wingLpS = 0.0f;
 
     // ===== BYPASS =====
     // Im vollen Bypass kehrt processBlock() frueh um und die gesamte
@@ -705,9 +702,6 @@ private:
     // Zustandsbehaftete geleert; die 25-ms-Ueberblendung deckt den Neustart.
     bool wasFullyBypassed = false;
     void clearProcessingState() noexcept;
-    float wingLpCoeff = 0.0f;
-    float wingGainLow = 1.0f, wingGainHigh = 1.0f;
-    bool  wingActive = false;
 
     // One-Pole-Tiefpass fuer "Distance" (Naehe/Ferne) - Koeffizient ebenfalls
     // nur einmal pro Block neu berechnet.

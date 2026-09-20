@@ -1452,7 +1452,6 @@ private:
     juce::TextButton driftBalanceButton;
     // Filter-Bypass je Sektion (siehe LookAndFeel "filterIcon").
     juce::TextButton galaxyFilterButton, dimFilterButton, posFilterButton;
-    juce::TextButton wingButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> galaxyFilterAttachment, dimFilterAttachment, posFilterAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> driftBalanceAttachment;
     juce::Slider bendSlider;
