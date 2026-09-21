@@ -3057,6 +3057,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     syncAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_SYNC, syncButton);
 
     speedBox.addItemList ({ "1/16", "1/8", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars", "8 Bars" }, 1);
+    speedBox.getProperties().set ("noArrow", true);
     content.addAndMakeVisible (speedBox);
     speedAttachment = std::make_unique<ComboAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED, speedBox);
 
@@ -5582,7 +5583,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // beginnend an der PRISM-Kachel; was links uebrig bleibt, bekommt
         // der Meter-Block - und dessen Abstand zu MONO ist bewusst groesser,
         // damit die Schrift nicht an den Balken klebt.
-        const int prismLeft = rowMid + 14;
+        // FOOTER-BUG: die Reihe wurde ab der MITTE nach links gesetzt, weil
+        // rechts frueher die PRISM-Kachel sass. Die ist seit Runde 31 weg -
+        // die rechte Haelfte stand also leer, und Meter, Mono, Dry, Mix und
+        // Vol mussten sich die linke Haelfte teilen. Dort ueberlappten dann
+        // IN/OUT und MONO. Jetzt beginnt die Reihe an der rechten Kante.
+        juce::ignoreUnused (rowMid);
+        const int prismLeft = controlRow.getRight();
         constexpr int kGap  = 16;
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
@@ -6049,7 +6056,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
     flowInner.removeFromLeft (10);
     auto speedBoxArea = flowInner.withHeight (knobAreaH);
-    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmax (56, juce::jmin (104, speedBoxArea.getWidth())), 26));
+    // Ohne Pfeil reichen 72 px fuer "8 Bars" (User).
+    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmin (72, speedBoxArea.getWidth()), 26));
 
     // ===== VISION aufgeloest ================================================
     // Die Sektion ist weg. Tilt steht jetzt in PARALLAX, Depth in DIMENSION
@@ -6085,32 +6093,34 @@ void LCRMSAudioProcessorEditor::layoutContent()
     rayFrame.removeFromTop (6);
 
     {
-        // RAYE ist die engste Sektion. Damit der Regler trotzdem genauso
-        // gross wird wie Drift, teilen sich die drei Elemente die Breite
-        // NICHT mehr zu gleichen Teilen: der Regler bekommt seine volle
-        // Groesse, Staerke-Icon und Pair geben ab. Beides sind kein Regler,
-        // fuer sie gilt die Groessenregel nicht.
-        const int rayKnobAreaH = juce::jmin (kKnobUnit, rayFrame.getHeight() - 14);
-        const int gap = 8;
-        const int rayKnob = juce::jmin (kKnobUnit, rayKnobAreaH);
-        const int rayRest = juce::jmax (60, rayFrame.getWidth() - rayKnob - gap * 2);
-        const int rayIconW = juce::jmin (48, rayRest * 45 / 100);
-        const int rayPairW = juce::jmax (46, rayRest - rayIconW);
+        // RAYE ist die engste Sektion. Drei Elemente NEBENEINANDER passen
+        // dort nicht, sobald der Regler so gross ist wie Drift - bei den
+        // neuen Proportionen fehlten rund 20 px. Deshalb steht PAIR jetzt
+        // UNTER dem Speed-Regler: dann teilen sich nur noch zwei Elemente
+        // die Breite (Staerke-Icon und Regler), und die Sektion wird hoeher
+        // statt breiter.
+        const int gap     = 8;
+        const int pairH   = 26;
+        const int rayKnob = juce::jmin (kKnobUnit, rayFrame.getHeight() - 14 - 6 - pairH);
+        const int iconSz  = juce::jmin (48, rayKnob);
 
-        // Staerke-Icon: quadratisch, so gross wie der Regler daneben, als
-        // eigener Block mit Label-Platz darunter (Label ist im Icon selbst
-        // nicht noetig - die drei Stufen erklaeren sich durch die Fuellung).
-        auto slotA = rayFrame.removeFromLeft (rayIconW);
-        rayFrame.removeFromLeft (gap);
-        const int iconSize = juce::jmin (rayIconW, rayKnobAreaH);
-        rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
+        auto pairArea = rayFrame.withSizeKeepingCentre (juce::jmin (rayFrame.getWidth(), iconSz + gap + rayKnob),
+                                                        rayFrame.getHeight());
+        auto slotA = pairArea.removeFromLeft (iconSz);
+        pairArea.removeFromLeft (gap);
+        auto knobCol = pairArea;
 
-        auto slotB = rayFrame.removeFromLeft (rayKnob);
-        rayFrame.removeFromLeft (gap);
-        placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, rayKnob);
+        const int colBlockH = rayKnob + 14 + 6 + pairH;
+        auto colBlock = knobCol.withSizeKeepingCentre (knobCol.getWidth(), juce::jmin (knobCol.getHeight(), colBlockH));
+        auto knobSlot = colBlock.removeFromTop (rayKnob + 14);
+        placeKnobWithLabel (knobSlot, rayRateSlider, rayRateLabel, rayKnob);
+        colBlock.removeFromTop (6);
+        rayPairButton.setBounds (colBlock.removeFromTop (pairH)
+                                   .withSizeKeepingCentre (juce::jmin (60, knobCol.getWidth() + 16), pairH));
 
-        auto slotC = rayFrame;
-        rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (rayPairW, slotC.getWidth()),
-                                                              juce::jmin (32, rayKnobAreaH)).translated (0, -6));
+        // Staerke-Icon auf Hoehe des Reglers, nicht der ganzen Spalte.
+        rayStrengthButton.setBounds (slotA.getX() + (slotA.getWidth() - iconSz) / 2,
+                                     rayRateSlider.getBounds().getCentreY() - iconSz / 2,
+                                     iconSz, iconSz);
     }
 }
