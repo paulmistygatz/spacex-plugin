@@ -1662,7 +1662,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
                             : settingsSnap.layout == 1 ? idLayoutFrameless : idLayoutEasy);
     if (uiThemeIndex != settingsSnap.theme)
     {
-        static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 0, 4, 1, 3, 2 };
+        static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 4, 1, 3, 2 };
         for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
             if (themeForId[i] == settingsSnap.theme)
             {
@@ -1687,7 +1687,7 @@ void LCRMSAudioProcessorEditor::closeSettingsPanel()
 void LCRMSAudioProcessorEditor::refreshSettingsPanel()
 {
     juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
-    static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 0, 4, 1, 3, 2 };
+    static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 4, 1, 3, 2 };
     for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
         settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
 
@@ -2929,8 +2929,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         auto* pl = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
         auto* pr = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
         if (pl == nullptr || pr == nullptr) return;
-        const bool anyOn = pl->getValue() > 0.5f || pr->getValue() > 0.5f;
-        const float target = anyOn ? 0.0f : 1.0f;
+        // Neu (User): ist nur EINER an, schaltet Link beide AN. Erst wenn
+        // beide an sind, schaltet der naechste Klick beide aus.
+        const bool bothOn = pl->getValue() > 0.5f && pr->getValue() > 0.5f;
+        const float target = bothOn ? 0.0f : 1.0f;
         pl->setValueNotifyingHost (target);
         pr->setValueNotifyingHost (target);
     };
@@ -3584,10 +3586,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         const int savedW = savedProps.getIntValue ("windowWidth", 0);
         const int savedH = savedProps.getIntValue ("windowHeight", 0);
         const int minW = juce::roundToInt (kDesignW * 0.7f), maxW = juce::roundToInt (kDesignW * 1.6f);
-        const int minH = juce::roundToInt (kDesignH * 0.7f), maxH = juce::roundToInt (kDesignH * 1.6f);
-        if (SPACEX_ROW2_VARIANT == 0
-            && savedW >= minW && savedW <= maxW && savedH >= minH && savedH <= maxH)
-            setSize (savedW, savedH);
+        // Nur die BREITE wird uebernommen, die Hoehe immer aus dem aktuellen
+        // Seitenverhaeltnis gerechnet. Vorher wurde eine alte Groesse 1:1
+        // gesetzt - stammte sie aus einer Version mit anderem Verhaeltnis,
+        // oeffnete das Fenster verzerrt ("rechts abgeschnitten") und sprang
+        // erst beim Anfassen der Ecke in die richtige Groesse.
+        juce::ignoreUnused (savedH);
+        if (SPACEX_ROW2_VARIANT == 0 && savedW >= minW && savedW <= maxW)
+            setSize (savedW, juce::roundToInt ((double) savedW * kDesignH / kDesignW));
         else
             setSize (kDesignW, kDesignH);
     }
@@ -3597,6 +3603,15 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
 LCRMSAudioProcessorEditor::~LCRMSAudioProcessorEditor()
 {
+    // Fenstergroesse automatisch merken (User: "soll es sich von alleine
+    // merken") - beim Schliessen, nicht bei jedem Pixel waehrend des Ziehens.
+    if (SPACEX_ROW2_VARIANT == 0)
+    {
+        juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+        p.setValue ("windowWidth", getWidth());
+        p.setValue ("windowHeight", getHeight());
+        p.saveIfNeeded();
+    }
     if (stateChangeListener != nullptr)
         processor.apvts.state.removeListener (stateChangeListener.get());
     setLookAndFeel (nullptr);
@@ -4170,9 +4185,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
             if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
                 param->setValueNotifyingHost ((float) currentPos / 3.0f);
         }
+        // Leuchtet nur, wenn ueberhaupt ein Kanal umgepolt ist (User) - sonst
+        // sieht es so aus, als wuerde etwas passieren. Die Position bleibt
+        // trotzdem gespeichert.
+        const bool anyFlip = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_L)->load() > 0.5f
+                          || processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_R)->load() > 0.5f;
         for (int idx = 0; idx < 4; ++idx)
         {
-            const bool shouldBeOn = (idx == currentPos);
+            const bool shouldBeOn = anyFlip && (idx == currentPos);
             if (polPosButtons[idx]->getToggleState() != shouldBeOn)
                 polPosButtons[idx]->setToggleState (shouldBeOn, juce::dontSendNotification);
         }
@@ -4908,6 +4928,9 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
     // "Sci-Fi Dark" (6) gibt es nicht mehr - gespeicherte Einstellungen aus
     // aelteren Versionen landen jetzt auf dem zusammengelegten Sci-Fi (3).
     if (uiThemeIndex == 6) uiThemeIndex = 3;
+    // Das alte "Moon" (0) gibt es nicht mehr; wer es gespeichert hatte,
+    // landet auf dem neuen "Moon" (vorher "Silver", Index 5).
+    if (uiThemeIndex == 0) uiThemeIndex = 5;
     uiThemeRef() = (UiTheme) uiThemeIndex;
     {
         const auto pal = themePalette();
@@ -5269,6 +5292,20 @@ void LCRMSAudioProcessorEditor::resized()
 
     content.setTransform (juce::AffineTransform::scale (scale));
     content.setBounds (0, 0, kDesignW, kDesignH);
+
+    // Gibt der Host beim Oeffnen eine Groesse vor, die nicht zum
+    // Seitenverhaeltnis passt, wird sie hier einmal korrigiert - genau das,
+    // was bisher erst beim Ziehen an der Ecke passierte.
+    const int wantH = juce::roundToInt ((double) getWidth() * kDesignH / kDesignW);
+    if (std::abs (getHeight() - wantH) > 2)
+    {
+        juce::Component::SafePointer<LCRMSAudioProcessorEditor> safe (this);
+        juce::MessageManager::callAsync ([safe, wantH]
+        {
+            if (safe != nullptr && std::abs (safe->getHeight() - wantH) > 2)
+                safe->setSize (safe->getWidth(), wantH);
+        });
+    }
 }
 
 void LCRMSAudioProcessorEditor::layoutContent()

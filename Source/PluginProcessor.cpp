@@ -747,7 +747,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // VOR jeder Bearbeitung gemessen, beeinflusst die eigentliche
     // Verarbeitung nicht. Das GUI-Meter macht sein eigenes Attack/Decay,
     // hier wird nur der rohe Block-Peak abgelegt.
-    currentInputLevel.store (buffer.getMagnitude (0, numSamples), std::memory_order_relaxed);
+    const float inputPeakForGuard = buffer.getMagnitude (0, numSamples);
+    currentInputLevel.store (inputPeakForGuard, std::memory_order_relaxed);
 
     // "Chaos"-Button: einmal pro Block pruefen, ob von der GUI ein Duck
     // angefordert wurde (siehe chaosTriggerRequested-Kommentar im Header).
@@ -2068,6 +2069,50 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         demoDuck.store (1.0f, std::memory_order_relaxed);
     }
 
+    // ===== Sicherheitsnetz gegen den "Knall" (User: knallt nach einer Weile,
+    // wenn in der DAW nichts passiert) =====
+    // Die genaue Ursache ist beim Lesen des Codes nicht eindeutig zu finden.
+    // Deshalb zwei Netze, die jede der ueblichen Ursachen abfangen:
+    //  1) Ungueltige Zahlen (NaN/Inf) - ein einziger solcher Wert in einem
+    //     rueckgekoppelten Zustand wird zum Vollpegel-Knall. Dann: Block
+    //     stumm, alle Zustaende leer. Dazu eine harte Obergrenze bei +12 dBFS,
+    //     damit nie etwas Ohren- oder Boxen-Gefaehrliches durchkommt.
+    //  2) Nach 2 s echter Stille werden alle DSP-Zustaende einmal geleert.
+    //     Dann kann kein alter Rest (Feedback, Filterzustand, Ringpuffer)
+    //     spaeter unvermittelt herauskommen. Auto Gain bleibt unberuehrt.
+    {
+        bool bad = false;
+        for (int ch = 0; ch < buffer.getNumChannels() && ! bad; ++ch)
+        {
+            auto* d = buffer.getWritePointer (ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                if (! std::isfinite (d[i])) { bad = true; break; }
+                d[i] = juce::jlimit (-4.0f, 4.0f, d[i]);
+            }
+        }
+        if (bad)
+        {
+            buffer.clear();
+            clearProcessingState();
+        }
+
+        if (inputPeakForGuard < 1.0e-6f)   // ca. -120 dBFS
+        {
+            silentSeconds += (double) numSamples / currentSampleRate;
+            if (silentSeconds > 2.0 && ! silenceCleared)
+            {
+                clearDspTails();
+                silenceCleared = true;
+            }
+        }
+        else
+        {
+            silentSeconds = 0.0;
+            silenceCleared = false;
+        }
+    }
+
     currentOutputLevel.store (buffer.getMagnitude (0, numSamples), std::memory_order_relaxed);
 
     // Lebenszeichen fuer das Starfield - siehe lastProcessBlockMs im Header.
@@ -2101,6 +2146,18 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 // Siehe wasFullyBypassed im Header.
 void LCRMSAudioProcessor::clearProcessingState() noexcept
 {
+    clearDspTails();
+    // Auto Gain danach neu einpegeln - die alten Energien stammen von vor
+    // dem Bypass und passen nicht mehr.
+    kwInHpL = {}; kwInShelfL = {}; kwInHpR = {}; kwInShelfR = {};
+    kwOutHpL = {}; kwOutShelfL = {}; kwOutHpR = {}; kwOutShelfR = {};
+    std::fill (autoGainInDelay.begin(), autoGainInDelay.end(), 0.0f);
+    autoGainInPos = 0;
+    autoGainMeasureSamples = (int) (currentSampleRate * 1.0);
+}
+
+void LCRMSAudioProcessor::clearDspTails() noexcept
+{
     lcrExtractor.reset();
     delayL.reset();
     delayR.reset();
@@ -2116,13 +2173,6 @@ void LCRMSAudioProcessor::clearProcessingState() noexcept
     std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
     std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
     lcrDryWritePos = 0;
-    // Auto Gain danach neu einpegeln - die alten Energien stammen von vor
-    // dem Bypass und passen nicht mehr.
-    kwInHpL = {}; kwInShelfL = {}; kwInHpR = {}; kwInShelfR = {};
-    kwOutHpL = {}; kwOutShelfL = {}; kwOutHpR = {}; kwOutShelfR = {};
-    std::fill (autoGainInDelay.begin(), autoGainInDelay.end(), 0.0f);
-    autoGainInPos = 0;
-    autoGainMeasureSamples = (int) (currentSampleRate * 1.0);
 }
 
 void LCRMSAudioProcessor::passthroughWithLatencyCompensation (juce::AudioBuffer<float>& buffer)

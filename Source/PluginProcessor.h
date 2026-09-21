@@ -708,6 +708,12 @@ private:
     // Zustandsbehaftete geleert; die 25-ms-Ueberblendung deckt den Neustart.
     bool wasFullyBypassed = false;
     void clearProcessingState() noexcept;
+    // Nur die DSP-Zustaende (Delays, Filter, Phaser, STFT) - OHNE Auto Gain.
+    // Wird nach laengerer Stille aufgerufen; Auto Gain soll dabei seinen
+    // Wert behalten, sonst pumpt der Pegel beim Weiterspielen.
+    void clearDspTails() noexcept;
+    double silentSeconds = 0.0;
+    bool   silenceCleared = false;
 
     // One-Pole-Tiefpass fuer "Distance" (Naehe/Ferne) - Koeffizient ebenfalls
     // nur einmal pro Block neu berechnet.

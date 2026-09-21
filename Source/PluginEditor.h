@@ -231,7 +231,7 @@ private:
     class SettingsPanelComponent : public juce::Component
     {
     public:
-        static constexpr int kThemes  = 6;
+        static constexpr int kThemes  = 5;
         static constexpr int kLayouts = 3;
         static constexpr int kSmart   = 2;
         static constexpr int kBehav   = 4;
@@ -247,7 +247,7 @@ private:
         std::function<void()>     onClose;
 
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
-        static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeModern, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
+        static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
         static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
         static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idGalaxyDefault }; return a; }
@@ -270,7 +270,7 @@ private:
             head (behavHead,  "BEHAVIOUR", 13.0f, juce::Colour (0xff8f96a4));
             title.setTooltip ("Click to close");
 
-            static const char* const themeNames[kThemes]  = { "Silver", "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };
+            static const char* const themeNames[kThemes]  = { "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };   // altes "Moon" geloescht, "Silver" heisst jetzt "Moon" (User)
             static const char* const layoutNames[kLayouts] = { "3D", "Flat", "Outline" };
             // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
@@ -296,11 +296,10 @@ private:
             // sonst das gerade aktive - man kann also durchfahren und sehen,
             // was einen erwartet, ohne etwas umzustellen.
             themeShot[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_silver_png,    SpaceXManualData::theme_silver_pngSize);
-            themeShot[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_moon_png,      SpaceXManualData::theme_moon_pngSize);
-            themeShot[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
-            themeShot[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
-            themeShot[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
-            themeShot[5] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
+            themeShot[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
+            themeShot[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
+            themeShot[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
+            themeShot[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kSmart;   ++i) setup (smartBtn[i],  smartNames[i],  smartIds()[i]);
@@ -358,7 +357,7 @@ private:
 
             // Farbtupfer links neben jedem Theme-Namen - schneller zu treffen
             // als eine reine Textliste.
-            static const juce::uint32 dots[kThemes] = { 0xffc9d3e2, 0xff93a9d6, 0xffe3b25f, 0xff9a7bff, 0xff5be3ff, 0xffff5fa8 };
+            static const juce::uint32 dots[kThemes] = { 0xffc9d3e2, 0xffe3b25f, 0xff9a7bff, 0xff5be3ff, 0xffff5fa8 };
             for (int i = 0; i < kThemes; ++i)
             {
                 auto r = themeBtn[i].getBounds().toFloat();
@@ -414,9 +413,12 @@ private:
 
                 auto row1 = r.removeFromBottom (30);
                 r.removeFromBottom (11);
-                const int n = 4;
+                // "Save Window Size" ist weg - die Groesse merkt sich das
+                // Plugin jetzt selbst.
+                sizeBtn.setVisible (false);
+                const int n = 3;
                 const int w1 = (row1.getWidth() - gap * (n - 1)) / n;
-                juce::TextButton* row[n] = { &sizeBtn, &stateBtn, &folderBtn, &manualBtn };
+                juce::TextButton* row[n] = { &stateBtn, &folderBtn, &manualBtn };
                 int x = row1.getX();
                 for (int i = 0; i < n; ++i) { row[i]->setBounds (x, row1.getY(), w1, row1.getHeight()); x += w1 + gap; }
             }

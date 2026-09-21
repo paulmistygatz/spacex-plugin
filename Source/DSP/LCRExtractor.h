@@ -244,12 +244,16 @@ private:
                 else if (f < loHz)     m = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::pi
                                                                    * std::log (f / a) * invLogEdge);
             }
+            // Obere Bandgrenze (AIR): Butterworth 2. Ordnung als Betrag,
+            // also -3 dB bei hiHz und 12 dB pro Oktave darueber - dieselbe
+            // Kurve, die Bertom Phantom Center zeigt (User-Messung mit EQ
+            // Curve Analyzer). Vorher fiel die Maske innerhalb einer halben
+            // Oktave auf null; das klang haerter. Bleibt linearphasig und
+            // summentreu, weil es nur eine Gewichtung pro Bin ist.
             if (cutHi && m > 0.0f)
             {
-                const float z = hiHz * edge;
-                if (f >= z)            m = 0.0f;
-                else if (f > hiHz)     m *= 0.5f + 0.5f * std::cos (juce::MathConstants<float>::pi
-                                                                    * std::log (f / hiHz) * invLogEdge);
+                const float r = f / hiHz;
+                m *= 1.0f / std::sqrt (1.0f + r * r * r * r);
             }
             mask[(size_t) b] = m;
         }
