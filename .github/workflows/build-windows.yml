@@ -15,6 +15,22 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # Vier Builds parallel: das normale SpaceX plus die drei Layout-Varianten
+    # (siehe build_variants.sh auf dem Mac). Jede Variante ist ein eigenes
+    # Plugin mit eigenem Namen und landet als eigener Download am Lauf.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: ""
+            product: SpaceX
+          - variant: A
+            product: SpaceX-A
+          - variant: B
+            product: SpaceX-B
+          - variant: C
+            product: SpaceX-C
+    name: ${{ matrix.product }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +52,7 @@ jobs:
       # Visual-Studio-Version hebt. Ohne -G nimmt CMake die neueste
       # installierte Version, -A x64 legt nur die Architektur fest.
       - name: Configure
-        run: cmake -B build -A x64
+        run: cmake -B build -A x64 "-DSPACEX_VARIANT=${{ matrix.variant }}"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -47,11 +63,12 @@ jobs:
       - name: Collect
         shell: pwsh
         run: |
-          $found = Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -Directory -Filter "SpaceX.vst3" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $name  = "${{ matrix.product }}.vst3"
+          $found = Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -Directory -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $found) {
-            Write-Host "SpaceX.vst3 nicht gefunden - Inhalt von build\LCRMSPlugin_artefacts:"
+            Write-Host "$name nicht gefunden - Inhalt von build\LCRMSPlugin_artefacts:"
             Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-            throw "SpaceX.vst3 nicht gefunden"
+            throw "$name nicht gefunden"
           }
           Write-Host "Gefunden: $($found.FullName)"
           New-Item -ItemType Directory -Force -Path out | Out-Null
@@ -59,6 +76,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SpaceX-VST3-Windows
+          name: ${{ matrix.product }}-VST3-Windows
           path: out/
           if-no-files-found: error
