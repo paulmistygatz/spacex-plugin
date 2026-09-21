@@ -206,7 +206,7 @@ public:
     static constexpr auto ID_LCR_ENABLED = "lcrEnabled";
     static constexpr auto ID_LCR_SENS    = "lcrSensitivity";
     static constexpr auto ID_LCR_BLEND   = "lcrBlend";
-    static constexpr auto ID_LCR_HORIZON = "lcrHorizon";
+    static constexpr auto ID_LCR_HORIZON = "lcrAir";   // sichtbarer Name: AIR
     static constexpr auto ID_POL_L       = "polarityL";
     static constexpr auto ID_POL_R       = "polarityR";
     // Position des Polarity-Flips im Signalfluss, waehlbar ueber 4 Buttons

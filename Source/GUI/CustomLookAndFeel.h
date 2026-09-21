@@ -2730,10 +2730,8 @@ public:
         g.setColour (boxOutline);
         g.drawRoundedRectangle (bounds, 6.0f, (glow || goldBox) ? 1.6f : 1.0f);
 
-        // Ohne Pfeil, wenn gewuenscht (User: "jeder kapiert, dass das ein
-        // Dropdown ist") - spart Breite, und der Text sitzt dann mittig.
         if (box.getProperties().getWithDefault ("noArrow", false))
-            return;
+            return;   // ohne Pfeil (User: jeder erkennt ein Dropdown)
         juce::Rectangle<int> arrowZone (width - 22, 0, 18, height);
         juce::Path path;
         path.startNewSubPath ((float) arrowZone.getX() + 3.0f, (float) arrowZone.getCentreY() - 3.0f);
@@ -2743,8 +2741,7 @@ public:
         g.strokePath (path, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // Ohne Pfeil gehoert die ganze Breite dem Text, und er steht mittig -
-    // sonst klebt er links neben einer leeren Pfeil-Zone.
+    // Ohne Pfeil gehoert die ganze Breite dem Text, und er steht mittig.
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
     {
         if (box.getProperties().getWithDefault ("noArrow", false))

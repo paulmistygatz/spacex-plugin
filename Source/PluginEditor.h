@@ -90,17 +90,7 @@ private:
     // wieder weg - siehe Header-Kommentar in layoutContent(): zwei halb
     // leere Zeilen uebereinander waren der Grund, warum das Plugin
     // "vollgepackt" wirkte, obwohl kaum etwas dazugekommen war.
-    static constexpr int kDesignH = 710;
-    // 604 -> 710. Der Grund, warum das Plugin "zu breit" wirkte, war nicht
-    // die Breite, sondern das SEITENVERHAELTNIS (1,72 : 1). Das Sternenfeld
-    // ist quadratisch und bekommt seine Groesse aus der HOEHE; die rechte
-    // Spalte bekommt einfach, was an Breite uebrig bleibt. Mehr Hoehe heisst
-    // also: groesseres Sternenfeld, automatisch schmalere Sektionen - bei
-    // gleicher Gesamtbreite. Jetzt 1,46 : 1.
-    //   Sternenfeld   361 -> ~467 px
-    //   Sektionen     612 -> ~506 px breit
-    // Ausserdem passen die Kategorie-Chips darueber wieder in die Spalte
-    // (sie brauchen ~446 px und liefen bei 361 unter den Galaxy-Rahmen).
+    static constexpr int kDesignH = 604;
     // 736 -> 604: exakt die Hoehe der weggefallenen vierten Zeile (116 px
     // Rahmen + 16 px Abstand). Alles andere behaelt damit seine bisherige
     // Groesse, es verschiebt sich nichts. Die Breite bleibt vorerst bei

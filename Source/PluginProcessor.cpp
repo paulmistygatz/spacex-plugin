@@ -495,14 +495,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // nichts, es verschiebt nur, was Orbit ueberhaupt anfassen kann.
     // Voller Ausschlag = aus.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { ID_LCR_HORIZON, 1 }, "Horizon",
-        juce::NormalisableRange<float> (500.0f, 20000.0f, 1.0f, 0.3f), 20000.0f,
+        // AIR (war HORIZON), UMGEDREHT (User): aufdrehen heisst "mehr",
+        // nicht "Filter runter". 0 % = aus, 100 % = Bandgrenze bei 500 Hz.
+        // Dazwischen logarithmisch: 20 kHz * 0.025^(Wert/100).
+        juce::ParameterID { ID_LCR_HORIZON, 1 }, "Air",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction (
             [] (float v, int) -> juce::String
             {
-                if (v >= 19990.0f) return "Off";
-                if (v >= 1000.0f)  return juce::String (v / 1000.0f, v >= 10000.0f ? 1 : 2) + " kHz";
-                return juce::String ((int) std::round (v)) + " Hz";
+                if (v < 0.5f) return "Off";
+                const float hz = 20000.0f * std::pow (0.025f, v * 0.01f);
+                if (hz >= 1000.0f) return juce::String (hz / 1000.0f, hz >= 10000.0f ? 1 : 2) + " kHz";
+                return juce::String ((int) std::round (hz)) + " Hz";
             })));
     // Skew 0.25 -> logarithmisches Regelgefuehl ueber den Hoerbereich, sonst
     // liegt die halbe Reglerstrecke oberhalb von 10 kHz.
@@ -1355,9 +1359,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     {
         // >= 19990 heisst "aus": weit ueber Nyquist schicken, damit auch die
         // weiche Flanke der Maske komplett oberhalb des Hoerbaren liegt.
-        const float hz = pHorizon->load();
+        const float air = pHorizon->load();   // 0..100 %, siehe AIR
         lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f,
-                                         hz >= 19990.0f ? 96000.0f : hz);
+                                         air < 0.5f ? 96000.0f
+                                                    : 20000.0f * std::pow (0.025f, air * 0.01f));
     }
     const bool  autoGainOn = pAutoGain->load() > 0.5f;
     const float agFrom = autoGainApplied;
