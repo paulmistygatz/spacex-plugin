@@ -5850,13 +5850,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int knobD = juce::jlimit (34, 190, juce::jmin (knobAreaH, colW));
 
         auto horCol = lcrInner.removeFromLeft (colW);
-        horizonLabel.setBounds (horCol.removeFromBottom (14));
-        horizonSlider.setBounds (horCol.withSizeKeepingCentre (knobD, juce::jmin (horCol.getHeight(), knobD)));
+        // Reihenfolge Orbit - Gravity - Air (User). Die mittlere Spalte
+        // traegt jetzt Gravity, die rechte Air.
+        gravityLabel.setBounds (horCol.removeFromBottom (14));
+        gravitySlider.setBounds (horCol.withSizeKeepingCentre (knobD, juce::jmin (horCol.getHeight(), knobD)));
         lcrInner.removeFromLeft (gap);
 
         auto gravCol = lcrInner;
-        gravityLabel.setBounds (gravCol.removeFromBottom (14));
-        gravitySlider.setBounds (gravCol.withSizeKeepingCentre (knobD, juce::jmin (gravCol.getHeight(), knobD)));
+        horizonLabel.setBounds (gravCol.removeFromBottom (14));
+        horizonSlider.setBounds (gravCol.withSizeKeepingCentre (knobD, juce::jmin (gravCol.getHeight(), knobD)));
 
         // Der Starfield-Mond orientiert sich an der Reglergroesse dieser Sektion.
         goniometer.setGravityKnobDiameter ((float) knobD);
