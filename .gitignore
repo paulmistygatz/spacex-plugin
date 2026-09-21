@@ -5,3 +5,4 @@ build_log.txt
 tools/latency-test/LCRExtractor_local.h
 tools/latency-test/latency-test
 dist/
+build_*/

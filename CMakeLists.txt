@@ -39,12 +39,38 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# ===== Layout-Vergleichsbuilds =====
+# Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
+# (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
+# geladen werden koennen. Siehe build_variants.sh.
+set(SPACEX_VARIANT "" CACHE STRING "Layout-Vergleichsbuild: leer, A, B oder C")
+set(SPX_PRODUCT "SpaceX")
+set(SPX_CODE    "Lcrm")
+set(SPX_ROW2    0)
+set(SPX_EXTRA   "")
+if (SPACEX_VARIANT STREQUAL "A")
+    set(SPX_ROW2 1)
+elseif (SPACEX_VARIANT STREQUAL "B")
+    set(SPX_ROW2 2)
+elseif (SPACEX_VARIANT STREQUAL "C")
+    set(SPX_ROW2 3)
+elseif (NOT SPACEX_VARIANT STREQUAL "")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, A, B oder C sein")
+endif()
+if (SPX_ROW2 GREATER 0)
+    set(SPX_PRODUCT "SpaceX-${SPACEX_VARIANT}")
+    set(SPX_CODE    "Spx${SPACEX_VARIANT}")
+    string(TOLOWER "com.yourcompany.spacex${SPACEX_VARIANT}" SPX_BUNDLE)
+    set(SPX_EXTRA BUNDLE_ID "${SPX_BUNDLE}")
+endif()
+
 juce_add_plugin(LCRMSPlugin
     COMPANY_NAME "YourCompany"
     PLUGIN_MANUFACTURER_CODE Ycmp
-    PLUGIN_CODE Lcrm
+    PLUGIN_CODE ${SPX_CODE}
     FORMATS VST3
-    PRODUCT_NAME "SpaceX"
+    PRODUCT_NAME "${SPX_PRODUCT}"
+    ${SPX_EXTRA}
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -82,6 +108,7 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
+    SPACEX_ROW2_VARIANT=${SPX_ROW2}
 )
 
 target_link_libraries(LCRMSPlugin

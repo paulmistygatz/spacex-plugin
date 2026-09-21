@@ -49,6 +49,16 @@ enum SpaceXSettingsId
     idBassGuard
 };
 
+// ===== Varianten-Builds fuer den Layout-Vergleich (User) =====
+// 0 = normales SpaceX (unveraendert)
+// 1 = A: Tilt/Depth klein UNTER den beiden Hauptreglern (Dreieck)
+// 2 = B: Tilt/Depth klein, gleicher Platz (dritter Regler)
+// 3 = C: alle sechs Regler gleich gross, kleiner
+// Gesetzt ueber CMake: -DSPACEX_VARIANT=A|B|C (siehe build_variants.sh).
+#ifndef SPACEX_ROW2_VARIANT
+ #define SPACEX_ROW2_VARIANT 0
+#endif
+
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -90,7 +100,11 @@ private:
     // wieder weg - siehe Header-Kommentar in layoutContent(): zwei halb
     // leere Zeilen uebereinander waren der Grund, warum das Plugin
     // "vollgepackt" wirkte, obwohl kaum etwas dazugekommen war.
-    static constexpr int kDesignH = 604;
+    static constexpr int kDesignH = (SPACEX_ROW2_VARIANT == 0) ? 604 : 700;
+    // Varianten-Builds (A/B/C) sind 700 hoch: das Sternenfeld ist quadratisch
+    // und waechst mit der Hoehe (~361 -> ~457 px), die Sektionen werden
+    // dadurch automatisch ~95 px schmaler. Das normale SpaceX (Variante 0)
+    // bleibt exakt wie es ist.
     // 736 -> 604: exakt die Hoehe der weggefallenen vierten Zeile (116 px
     // Rahmen + 16 px Abstand). Alles andere behaelt damit seine bisherige
     // Groesse, es verschiebt sich nichts. Die Breite bleibt vorerst bei

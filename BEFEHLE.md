@@ -97,3 +97,14 @@ Danach DAW neu starten. Die DEMO-Plakette steht wieder neben dem Slogan.
 | Build hakt, Fehler ergeben keinen Sinn | `rm -rf build && ./install.sh` (dauert ~10 min) |
 | Push abgelehnt | Token-Rechte prüfen: braucht **Contents** und **Workflows** je „Read and write" |
 | Plugin taucht in der DAW nicht auf | `./tools/check_binary.sh` – meist zu hohe Mindest-macOS-Version |
+
+## Layout-Varianten zum Vergleichen (A / B / C)
+
+```bash
+cd "/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin"
+./build_variants.sh        # baut SpaceX-A, SpaceX-B, SpaceX-C
+./build_variants.sh B      # nur eine Variante neu
+```
+
+Drei eigene Plugins, im Host parallel ladbar. Das normale SpaceX
+(`./install.sh`) bleibt davon unberuehrt.
