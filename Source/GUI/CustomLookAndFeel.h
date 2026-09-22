@@ -129,6 +129,16 @@ inline ThemePalette themePalette()
                      juce::Colour (0xffd6b975), juce::Colour (0xffc9c5be), juce::Colour (0xffc9c5be), juce::Colour (0xff1a1a1d) };
     }
 }
+
+// Farbe der RAYE-Pair-Kopplung (Pair-Knopf + gekoppelte Hyperdrive-Teile).
+// Sci-Fi (User, Runde 38): die blaue Akzentfarbe - sonst war Pair genau so
+// pink wie Sync in Hyperdrive und nicht zu unterscheiden.
+inline juce::Colour pairAccentColour()
+{
+    if (isSciFiTheme())
+        return themePalette().knob;
+    return themePalette().frameRaye.withMultipliedSaturation (isWaterTheme() ? 0.6f : 1.0f);
+}
 inline juce::Colour iconOffColour()
 {
     // EIN einziges "grayed out" fuer alle Themes (User: "einheitliches grayed
@@ -468,7 +478,7 @@ public:
             const float wish      = radius + (isComicTheme() ? juce::jmax (7.0f, radius * 0.16f)
                                                              : juce::jmax (4.0f, radius * 0.09f));
             const float pr = juce::jmin (wish, maxRadius);
-            g.setColour (themePalette().frameRaye);
+            g.setColour (pairAccentColour());
             g.drawEllipse (centre.x - pr, centre.y - pr, pr * 2.0f, pr * 2.0f, th);
         }
     }
@@ -898,7 +908,7 @@ public:
         // RAYE-Pair: Gold statt Violett fuer den Pair-Knopf selbst und fuer
         // Sync in Hyperdrive, solange die Kopplung aktiv ist.
         const bool gold = button.getProperties().getWithDefault ("pairedGold", false);
-        const juce::Colour btnAccent = gold ? themePalette().frameRaye.withMultipliedSaturation (isWaterTheme() ? 0.6f : 1.0f) : glowAccent;   // Pair je Theme (User)
+        const juce::Colour btnAccent = gold ? pairAccentColour() : glowAccent;   // Pair je Theme (User)
 
         // View-Panel-Knoepfe ohne den Leucht-Hof (User: "leuchtende Kaesten").
         if ((isOn || gold) && ! button.getProperties().getWithDefault ("noGlow", false))
@@ -2724,7 +2734,7 @@ public:
         const bool goldBox = box.getProperties().getWithDefault ("pairedGold", false);
         const juce::Colour boxOutline = isComicTheme() ? comicInk()
                                       : boxSectionOff ? iconOffColour().withAlpha (0.35f)
-                                      : goldBox       ? themePalette().frameRaye
+                                      : goldBox       ? pairAccentColour()
                                       : glow          ? glowAccent
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);

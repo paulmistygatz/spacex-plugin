@@ -258,6 +258,10 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_DRY),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION),
+        // Runde 38: Amount/Modus sind nur Bedienhilfen fuer Drift/Shift -
+        // gewuerfelt wird Drift/Shift selbst.
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT),
         galaxyActivateParam,
         // ===== PRISM WIRD NICHT MITGEWUERFELT (jedenfalls nicht so) =====
         // User-Frage: "Soll Prism auch randomisiert werden? Oder eher nicht?"
@@ -297,6 +301,10 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
         // MIX: nie im generischen Pool, optional gezielt (siehe unten).
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX)
     };
+    // Show Advanced Modulation an: die Sektions-Tiefen werden sichtbar
+    // gewuerfelt - Life zusaetzlich zu wuerfeln waere doppelt (User, Runde 38).
+    if (advancedModVisible)
+        excluded.add (processor.apvts.getParameter (LCRMSAudioProcessor::ID_LIFE));
     // Regel (User, Runde 26): Smart schaltet NIE die Galaxy-Engine scharf -
     // eine Latenzaenderung darf nie aus einem Wuerfelwurf kommen. Solange die
     // Engine aus ist, bleibt die ganze Sektion unberuehrt (frueher wurde nur
@@ -1417,6 +1425,11 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
 // neu gezeichnet, damit es nichts kostet.
 void LCRMSAudioProcessorEditor::updateHintBar()
 {
+    // Runde 38 (User): solange eine Maustaste gedrueckt ist (Regler ziehen),
+    // bleibt der Hinweis stehen - sonst springt er auf alles, woran die Maus
+    // beim Ziehen vorbeifaehrt.
+    if (juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown())
+        return;
     juce::String want;
     if (helpButton.getToggleState())
     {
@@ -2401,13 +2414,15 @@ void LCRMSAudioProcessorEditor::stepPreset (int direction)
 // PARALLAX (Runde 34), vorlaeufig: Modus -> feste Drift/Shift-Werte,
 // Amount skaliert sie linear. PLATZHALTER-Werte - werden durch die
 // Einstellungen des Users (MicroPitch / altes Parallax) ersetzt.
+struct ParallaxMode { float driftPct, shiftCt; };
+static const ParallaxMode kParallaxModes[4] = { { 25.0f, 2.0f },    // Tight
+                                                { 55.0f, 4.0f },    // Wide
+                                                { 40.0f, 7.0f },    // Deep
+                                                { 80.0f, 10.0f } }; // Wild
+
 void LCRMSAudioProcessorEditor::applyParallaxMode()
 {
-    struct Mode { float driftPct, shiftCt; };
-    static const Mode modes[4] = { { 25.0f, 2.0f },    // Tight
-                                   { 55.0f, 4.0f },    // Wide
-                                   { 40.0f, 7.0f },    // Deep
-                                   { 80.0f, 10.0f } }; // Wild
+    const auto* modes = kParallaxModes;
     const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
     const float amt = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT)->load() / 100.0f;
     auto setParam = [this] (const char* id, float v)
@@ -4128,9 +4143,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // "Show Modulation"-Menue-Schalter (User-Wunsch) - schaltet die
         // beweglichen Live-Anzeigen komplett ab, unabhaengig vom eigentlichen
         // Modulationsstatus.
-        auto applyLive = [this] (juce::Slider& slider, bool active, float liveValue)
+        // LIFE auf 0 = keine Modulation -> auch keine Mod-Punkte (User, Runde 38).
+        const float lifePct = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LIFE)->load();
+        const bool lifeOn = lifePct > 0.05f;
+        auto applyLive = [this, lifeOn] (juce::Slider& slider, bool active, float liveValue)
         {
-            active = active && modulationVisualsEnabled;
+            active = active && modulationVisualsEnabled && lifeOn;
             const bool wasActive = slider.getProperties().getWithDefault ("modLiveActive", false);
             slider.getProperties().set ("modLiveActive", active);
             if (active)
@@ -4171,6 +4189,36 @@ void LCRMSAudioProcessorEditor::timerCallback()
                    processor.currentDistanceLivePercent.load (std::memory_order_relaxed));
         applyLive (elevateSlider, isPosOn && positionModOnRaw && std::abs (elevatePctRaw) > 0.05f,
                    processor.currentElevateLivePercent.load (std::memory_order_relaxed));
+
+        // PARALLAX Amount (Runde 38): Punkt zeigt, wohin die Modulation das
+        // Drift gerade schiebt - umgerechnet auf die Amount-Skala des Modus.
+        {
+            const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+            const float modeDrift = kParallaxModes[mode].driftPct;
+            const float amountRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT)->load();
+            const float liveAmount = modeDrift > 0.0f
+                ? std::abs (processor.currentDriftLivePercent.load (std::memory_order_relaxed)) / modeDrift * 100.0f
+                : amountRaw;
+            applyLive (parallaxAmountSlider, isDriftOn && timewarpModOnRaw && amountRaw > 0.05f
+                                                && std::abs (driftPctRaw) > 0.001f, liveAmount);
+        }
+
+        // Show Advanced Modulation + LIFE unter 100 %: die Tiefe-Regler in den
+        // Sektionskoepfen zeigen per Punkt die WIRKSAME Tiefe (Tiefe x Life) -
+        // der Punkt wandert beim Drehen an Life sichtbar mit (User, Runde 38).
+        {
+            const float life01 = juce::jlimit (0.0f, 1.0f, lifePct * 0.01f);
+            const bool lifeScaled = advancedModVisible && life01 < 0.999f;
+            auto depthDot = [&] (juce::Slider& s, bool modOn, const char* depthId)
+            {
+                const float d = processor.apvts.getRawParameterValue (depthId)->load();
+                applyLive (s, lifeScaled && modOn && d > 0.05f, d * life01);
+            };
+            depthDot (galaxyModDepthSlider,     galaxyModOnRaw,     LCRMSAudioProcessor::ID_GALAXY_DEPTH);
+            depthDot (driftModDepthSlider,      timewarpModOnRaw,   LCRMSAudioProcessor::ID_TIMEWARP_DEPTH);
+            depthDot (dimensionModDepthSlider,  dimensionModOnRaw,  LCRMSAudioProcessor::ID_DIMENSION_DEPTH);
+            depthDot (hyperdriveModDepthSlider, hyperdriveModOnRaw, LCRMSAudioProcessor::ID_HYPERDRIVE_DEPTH);
+        }
     }
 
     // Solo-Icons mit dem gemeinsamen Choice-Parameter synchron halten -

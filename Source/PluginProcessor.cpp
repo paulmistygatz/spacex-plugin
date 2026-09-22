@@ -588,6 +588,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     delayR.prepare (sampleRate, 25.0f);
     bendL.prepare (sampleRate);
     bendR.prepare (sampleRate);
+    lastBendForRatio = -1.0e9f;
     lcrExtractor.prepare (sampleRate);
 
     // Bug-Fix (User-Feedback: "Latenz wird nicht korrekt uebermittelt. Ist
@@ -1600,8 +1601,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // ein sauberer 1:1-Durchlauf), das Ergebnis wird nur weich mit dem
         // Original ueberblendet - so entsteht beim Ein-/Ausschalten kein
         // Knacksen und der Puffer bleibt "warm".
-        bendL.setRatio (std::pow (2.0f, -bendS / 1200.0f));
-        bendR.setRatio (std::pow (2.0f,  bendS / 1200.0f));
+        // Runde 38 (CPU): Verhaeltnis nur neu rechnen, wenn sich Shift
+        // tatsaechlich geaendert hat - gleiches Ergebnis, bei stehendem Regler
+        // aber keine zwei Potenzen pro Sample mehr.
+        if (bendS != lastBendForRatio)
+        {
+            lastBendForRatio = bendS;
+            bendL.setRatio (std::exp2 (-bendS / 1200.0f));
+            bendR.setRatio (std::exp2 ( bendS / 1200.0f));
+        }
         {
             const float lDrift = bendL.process (delayL.process (l));
             const float rDrift = bendR.process (delayR.process (r));

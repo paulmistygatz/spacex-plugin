@@ -475,6 +475,7 @@ private:
     ChannelDelayLine delayL, delayR;
 
     SimplePitchShifter bendL, bendR;
+    float lastBendForRatio = -1.0e9f;   // Cache fuer setRatio (Runde 38)
     StereoSTFTExtractor lcrExtractor;
 
     std::atomic<float>* pGalaxyActivate = nullptr;
