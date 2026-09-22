@@ -2939,12 +2939,12 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     };
     {
         // Runde 45: fuenf Modi aus den User-Presets (Namen folgen).
-        static const char* modeNames[kPxModes] = { "A", "B", "C", "MACRO", "WIDENER" };
-        static const char* modeTips[kPxModes]  = { "A: Amount blends it in",
-                                                   "B: Amount blends it in",
-                                                   "C: Amount grows it, then morphs further",
-                                                   "Macro: from a subtle double to full stretch",
-                                                   "Widener: walks through four widening steps" };
+        static const char* modeNames[kPxModes] = { "DOUBLE", "PITCH", "WIDE", "ULTRA", "FLUX" };
+        static const char* modeTips[kPxModes]  = { "Double: Amount blends in a wide double",
+                                                   "Pitch: Amount blends in a pitched double",
+                                                   "Wide: Amount grows it, then widens further",
+                                                   "Ultra: very tight and very wide - check mono",
+                                                   "Flux: a different kind of movement" };
         for (int i = 0; i < kPxModes; ++i)
         {
             auto& b = parallaxModeButtons[i];
@@ -2982,6 +2982,16 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
                 applyParallaxMode();
             };
             for (int i = 1; i < kPxModes; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
+           #if SPACEX_RAYE_UI != 1
+            pxModeDots.count = kPxModes;
+            pxModeDots.setTooltip ("Parallax mode: click a dot to pick it directly");
+            pxModeDots.onPick = [this] (int i)
+            {
+                if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE))
+                    prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
+            };
+            content.addAndMakeVisible (pxModeDots);
+           #endif
         }
        #endif
     }
@@ -3971,6 +3981,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (driftBalanceButton, isDriftOn);
     setSectionOff (parallaxAmountSlider, isDriftOn);
     for (auto& b : parallaxModeButtons) setSectionOff (b, isDriftOn);
+    {
+        const bool dotsOff = uiBypassed || ! isDriftOn;
+        if (pxModeDots.off != dotsOff) { pxModeDots.off = dotsOff; pxModeDots.repaint(); }
+    }
     setSectionOff (galaxyFilterButton, isLcrOn);
     setSectionOff (dimFilterButton, isWidthBoostOn);
     setSectionOff (posFilterButton, isPosOn);
@@ -4346,7 +4360,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     {
         const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
-        static const char* const modeNames[kPxModes] = { "A", "B", "C", "MACRO", "WIDENER" };
+        static const char* const modeNames[kPxModes] = { "DOUBLE", "PITCH", "WIDE", "ULTRA", "FLUX" };
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
         {
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
@@ -4356,7 +4370,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
             parallaxModeButtons[0].repaint();
            #else
             // Variante A (SpaceXclick): Punkte unter dem Knopf.
-            content.repaint (pxModeDotsArea.expanded (4));
+            pxModeDots.index = mode;
+            pxModeDots.repaint();
            #endif
         }
         if (! parallaxModeButtons[0].getToggleState())
@@ -5427,25 +5442,6 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
 {
     drawHintBar (g);
-   #if SPACEX_PARALLAX_UI == 2 && SPACEX_RAYE_UI != 1
-    // Variante A (Runde 45): kleine Punkte unter dem Parallax-Klick-Knopf,
-    // der aktuelle leuchtet.
-    if (! pxModeDotsArea.isEmpty() && parallaxModeButtons[0].isVisible())
-    {
-        const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
-        const float d = 4.0f, gapD = 7.0f;
-        const float totalW = kPxModes * d + (kPxModes - 1) * gapD;
-        float x = (float) pxModeDotsArea.getCentreX() - totalW * 0.5f;
-        const float y = (float) pxModeDotsArea.getCentreY() - d * 0.5f;
-        const bool off = parallaxModeButtons[0].getProperties().getWithDefault ("sectionOff", false);
-        for (int i = 0; i < kPxModes; ++i, x += d + gapD)
-        {
-            g.setColour (i == mode ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
-                                   : juce::Colours::white.withAlpha (0.16f));
-            g.fillEllipse (x, y, d, d);
-        }
-    }
-   #endif
     auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
 
     // View-Panel offen: die Sektionsspalte rechts abdunkeln, damit das Panel
@@ -6441,6 +6437,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
                                           blockW, btnH);
         for (int i = 1; i < kPxModes; ++i) parallaxModeButtons[i].setBounds ({});
         pxModeDotsArea = { block.getX(), parallaxModeButtons[0].getBottom() + 5, blockW, 6 };
+        // Klickflaeche etwas hoeher als die Punkte selbst.
+        pxModeDots.setBounds (pxModeDotsArea.withSizeKeepingCentre (juce::jmin (blockW, kPxModes * 16), 14));
        #else
         const int gridH = btnH * 2 + btnGap;
         const int gridY = parallaxAmountSlider.getBounds().getCentreY() - gridH / 2;

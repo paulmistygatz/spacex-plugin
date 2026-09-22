@@ -381,8 +381,10 @@ public:
                 value.addCentredArc (centre.x, centre.y, radius - trackThickness, radius - trackThickness,
                                       0.0f, fillStart, fillEnd, true);
         }
-        else
+        else if (angle - rotaryStartAngle > 0.001f)
         {
+            // Runde 46 (User): bei 0 KEIN Bogen - die runde Linienkappe
+            // zeichnete sonst einen leuchtenden Punkt, der wie "1 %" aussah.
             value.addCentredArc (centre.x, centre.y, radius - trackThickness, radius - trackThickness,
                                   0.0f, rotaryStartAngle, angle, true);
         }

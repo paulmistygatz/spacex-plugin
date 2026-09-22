@@ -201,22 +201,22 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
 const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef (int mode) noexcept
 {
     static const ParallaxModeDef defs[kParallaxModes] = {
-        // 1 A  (Amount = Mix bis 36,7 %)
+        // 1 DOUBLE (Amount = Mix bis 36,7 %)
         { 1, true,  true,  { { -100.0f, 0.00f, 27.5f,  36.7f, 0.0f } } },
-        // 2 B  (Amount = Mix bis 100 %)
+        // 2 PITCH  (Amount = Mix bis 100 %)
         { 1, true,  true,  { {    0.0f, 6.39f,  0.0f, 100.0f, 0.0f } } },
-        // 3 C  (0 -> Pos 1 bei 50 %, dann Morph -> Pos 2 bei 100 %)
+        // 3 WIDE   (0 -> Pos 1 bei 50 %, dann Morph -> Pos 2 bei 100 %)
         { 2, false, true,  { {  -38.6f, 6.58f,  0.0f,  30.7f, 0.0f },
                              { -100.0f, 6.39f,  6.9f,  32.9f, 0.0f } } },
-        // 4 MACRO (0 -> 4.2 -> 4.3 -> 4.4 max)
-        { 3, false, false, { {    5.1f, 0.00f, -7.0f,  41.0f, 0.0f },
-                             {    5.1f, 0.00f, -7.0f, 100.0f, 0.0f },
-                             {  100.0f, 6.45f, -7.0f,  43.9f, 0.0f } } },
-        // 5 WIDENER (0 -> 222.1 -> 222.2 -> 222.3 -> 222.4)
+        // 4 ULTRA (frueher Widener: 0 -> 222.1 -> 222.2 -> 222.3 -> 222.4)
         { 4, false, false, { {   -6.6f, 0.88f,  0.0f,  30.7f, 1.60f },
                              {   -6.6f, 0.88f, 27.5f,  30.7f, 1.60f },
                              { -100.0f, 0.00f, 27.5f,  38.8f, 0.00f },
-                             {   -6.6f, 0.88f,  0.0f,  39.9f, 2.33f } } }
+                             {   -6.6f, 0.88f,  0.0f,  39.9f, 2.33f } } },
+        // 5 FLUX (frueher Macro): 0 -> 4.2 -> 4.3. Runde 46 (User): Amount
+        // endet VOR dem Punkt, an dem Shift dazukommt - 4.3 ist das neue Max.
+        { 2, false, false, { {    5.1f, 0.00f, -7.0f,  41.0f, 0.0f },
+                             {    5.1f, 0.00f, -7.0f, 100.0f, 0.0f } } }
     };
     return defs[juce::jlimit (0, kParallaxModes - 1, mode)];
 }
@@ -393,7 +393,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "A", "B", "C", "Macro", "Widener" }, 0));
+        juce::StringArray { "Double", "Pitch", "Wide", "Ultra", "Flux" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));

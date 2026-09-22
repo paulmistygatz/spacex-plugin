@@ -1500,6 +1500,33 @@ private:
     static constexpr int kPxModes = 5;   // A, B, C, Macro, Widener (Runde 45)
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
+    // Runde 46: die Punkte sind klickbar - Klick auf einen Punkt waehlt den Modus.
+    struct ModeDots : public juce::Component
+    {
+        int count = 5, index = 0;
+        bool off = false;
+        std::function<void (int)> onPick;
+        int dotAt (float x) const
+        {
+            const float step = (float) getWidth() / (float) count;
+            return juce::jlimit (0, count - 1, (int) (x / step));
+        }
+        void paint (juce::Graphics& g) override
+        {
+            const float step = (float) getWidth() / (float) count;
+            const float d = 4.0f;
+            for (int i = 0; i < count; ++i)
+            {
+                const float cx = step * ((float) i + 0.5f);
+                const float cy = (float) getHeight() * 0.5f;
+                g.setColour (i == index ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
+                                        : juce::Colours::white.withAlpha (0.16f));
+                g.fillEllipse (cx - d * 0.5f, cy - d * 0.5f, d, d);
+            }
+        }
+        void mouseDown (const juce::MouseEvent& e) override { if (onPick) onPick (dotAt ((float) e.x)); }
+    };
+    ModeDots pxModeDots;
     // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;

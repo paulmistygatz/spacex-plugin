@@ -2,12 +2,10 @@
 # Baut die Vergleichs-Plugins als EIGENE Plugins, damit man sie im Host
 # neben dem normalen SpaceX oeffnen kann:
 #   SpaceXparaCPU  Parallax mit drei Reglern (Drift/Shift/Tilt)
-#   SpaceXpresets  Parallax: Amount + 4 Knoepfe
 #   SpaceXclick    Parallax: Amount + Klick-Knopf
-#   SpaceXraye     wie click, dazu RAYE mit Amount + Charakter
 # Das normale SpaceX baut weiter install.sh.
 #
-#   ./build_variants.sh          -> alle vier
+#   ./build_variants.sh          -> beide
 #   ./build_variants.sh paraCPU  -> nur SpaceXparaCPU
 set -e
 cd "$(dirname "$0")"
@@ -19,10 +17,10 @@ if [ ! -d "$JUCE_SRC" ]; then
     exit 1
 fi
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-VARIANTS="${*:-paraCPU presets click raye}"
+VARIANTS="${*:-paraCPU click}"
 
-# Alte Varianten (A/B/C, noV, SpaceFX) aus dem Plugin-Ordner raeumen.
-sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST/SpaceXnoV.vst3" "$DST/SpaceFX.vst3" "$DST/SpaceXpara.vst3"
+# Alte Varianten (A/B/C, noV, SpaceFX, para, presets, raye) aus dem Plugin-Ordner raeumen.
+sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST/SpaceXnoV.vst3" "$DST/SpaceFX.vst3" "$DST/SpaceXpara.vst3" "$DST/SpaceXpresets.vst3" "$DST/SpaceXraye.vst3"
 
 for V in $VARIANTS; do
     case "$V" in
@@ -50,4 +48,4 @@ for V in $VARIANTS; do
 done
 
 echo ""
-echo "Fertig. Im Host neu scannen: SpaceXparaCPU, SpaceXpresets, SpaceXclick, SpaceXraye."
+echo "Fertig. Im Host neu scannen: SpaceXparaCPU, SpaceXclick."

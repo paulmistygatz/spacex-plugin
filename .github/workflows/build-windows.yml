@@ -26,12 +26,8 @@ jobs:
             product: SpaceX
           - variant: paraCPU
             product: SpaceXparaCPU
-          - variant: presets
-            product: SpaceXpresets
           - variant: click
             product: SpaceXclick
-          - variant: raye
-            product: SpaceXraye
     name: ${{ matrix.product }}
     steps:
       - uses: actions/checkout@v4
