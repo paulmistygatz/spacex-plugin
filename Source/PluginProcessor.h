@@ -413,6 +413,13 @@ public:
     static constexpr auto ID_RAY_RATE     = "rayRate";
     static constexpr auto ID_RAY_PAIR     = "rayPair";
 
+    // PARALLAX neu (Runde 34, User: "1 Regler + 4 Buttons"): Modus waehlt
+    // eine feste Einstellung, Amount skaliert sie. Vorlaeufig schreibt die
+    // GUI daraus Drift/Shift - die echten Werte der vier Modi liefert der
+    // User noch (MicroPitch / altes Parallax).
+    static constexpr auto ID_PARALLAX_MODE   = "parallaxMode";
+    static constexpr auto ID_PARALLAX_AMOUNT = "parallaxAmount";
+
 
     // Aktueller LFO-Wert des Phasers (-1..1, 0 wenn aus) fuer das Starfield
     // (goldene Linien, die mit dem Phaser mitschwingen).

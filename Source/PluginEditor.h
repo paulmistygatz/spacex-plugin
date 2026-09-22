@@ -1472,6 +1472,12 @@ private:
     // Gain-Kompensation fuer den Haas-Praezedenzeffekt (User-Feedback,
     // siehe ID_TIMEWARP_BALANCE im Processor).
     juce::TextButton driftBalanceButton;
+    // PARALLAX neu: ein Regler + vier Modus-Knoepfe (Runde 34).
+    juce::Slider parallaxAmountSlider;
+    juce::Label  parallaxAmountLabel;
+    juce::TextButton parallaxModeButtons[4];
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> parallaxAmountAttachment;
+    void applyParallaxMode();
     // Filter-Bypass je Sektion (siehe LookAndFeel "filterIcon").
     juce::TextButton galaxyFilterButton, dimFilterButton, posFilterButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> galaxyFilterAttachment, dimFilterAttachment, posFilterAttachment;

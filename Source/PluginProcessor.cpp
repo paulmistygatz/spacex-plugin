@@ -314,6 +314,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_TIMEWARP_BALANCE, 1 }, "Balance", false));
 
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
+        juce::StringArray { "Tight", "Wide", "Deep", "Wild" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_DRIFT, 1 }, "Drift",
         juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -1794,8 +1801,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 // Dritter Anlauf (User: "wieder bisschen staerker, aber nicht
                 // zu viel"): zwischen der ersten und der zweiten Fassung.
                 const float sweepOct = 1.3f + depth01 * 1.7f;      // 1,3 .. 3,0 Oktaven (urspruenglich 1,6 .. 3,8; zuletzt 1,1 .. 2,5)
-                const float feedback = 0.08f + depth01 * 0.22f;    // 0,08 .. 0,30
-                const float mix      = 0.20f + depth01 * 0.20f;    // 0,20 .. 0,40 (0,5 = volle Kerben)
+                // Runde 34 (User: "Raye ist auf Minimum schon zu viel - die
+                // Haelfte reicht; insgesamt runter skalieren"): Anteil und
+                // Rueckkopplung aller Stufen halbiert.
+                const float feedback = 0.04f + depth01 * 0.11f;    // 0,04 .. 0,15 (vorher 0,08 .. 0,30)
+                const float mix      = 0.10f + depth01 * 0.10f;    // 0,10 .. 0,20 (vorher 0,20 .. 0,40; 0,5 = volle Kerben)
                 constexpr float centreHz = 900.0f;
 
                 auto coeffFor = [&] (float lfo) -> float

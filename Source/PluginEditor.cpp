@@ -2413,8 +2413,57 @@ void LCRMSAudioProcessorEditor::stepPreset (int direction)
     int index = names.indexOf (currentPresetName, true);
     if (index < 0)
         index = (direction > 0) ? -1 : 0;
-    index = (index + direction + names.size() * 2) % names.size();
-    loadPreset (names[index]);
+
+    // Galaxy global AUS (User): Presets, die Galaxy benutzen, beim
+    // Durchblaettern ueberspringen - sonst wuerde das Preset Galaxy
+    // scharfschalten (Latenz-Interrupt). Ueber die Liste bleiben sie ladbar.
+    const bool galaxyArmed =
+        processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
+    auto usesGalaxy = [] (const juce::ValueTree& tree)
+    {
+        bool act = false, on = false;
+        for (int i = 0; i < tree.getNumChildren(); ++i)
+        {
+            auto c = tree.getChild (i);
+            if (! c.hasType ("PARAM")) continue;
+            const auto id = c.getProperty ("id").toString();
+            const bool v = (float) c.getProperty ("value", 0.0f) > 0.5f;
+            if (id == LCRMSAudioProcessor::ID_GALAXY_ACTIVATE) act = v;
+            else if (id == LCRMSAudioProcessor::ID_LCR_ENABLED) on = v;
+        }
+        return act && on;
+    };
+
+    for (int tries = 0; tries < names.size(); ++tries)
+    {
+        index = (index + direction + names.size() * 2) % names.size();
+        if (galaxyArmed || ! usesGalaxy (presetTree (names[index])))
+        {
+            loadPreset (names[index]);
+            return;
+        }
+    }
+}
+
+// PARALLAX (Runde 34), vorlaeufig: Modus -> feste Drift/Shift-Werte,
+// Amount skaliert sie linear. PLATZHALTER-Werte - werden durch die
+// Einstellungen des Users (MicroPitch / altes Parallax) ersetzt.
+void LCRMSAudioProcessorEditor::applyParallaxMode()
+{
+    struct Mode { float driftPct, shiftCt; };
+    static const Mode modes[4] = { { 25.0f, 2.0f },    // Tight
+                                   { 55.0f, 4.0f },    // Wide
+                                   { 40.0f, 7.0f },    // Deep
+                                   { 80.0f, 10.0f } }; // Wild
+    const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+    const float amt = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT)->load() / 100.0f;
+    auto setParam = [this] (const char* id, float v)
+    {
+        if (auto* prm = processor.apvts.getParameter (id))
+            prm->setValueNotifyingHost (prm->convertTo0to1 (v));
+    };
+    setParam (LCRMSAudioProcessor::ID_DRIFT, modes[mode].driftPct * amt);
+    setParam (LCRMSAudioProcessor::ID_BEND,  modes[mode].shiftCt  * amt);
 }
 
 // Pruefsumme des LIVE-Zustands - ueber denselben Baum-Weg wie die A/B-Slots,
@@ -2890,6 +2939,49 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (bendLabel);
     bendAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_BEND, bendSlider);
     bendSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+
+    // PARALLAX neu (Runde 34): ein Regler (Amount) + vier Modus-Knoepfe.
+    // Vorlaeufig: der Modus waehlt feste Drift/Shift-Werte, Amount skaliert
+    // sie (siehe applyParallaxMode). Die echten Modi folgen mit den Werten
+    // vom User.
+    styleRotary (parallaxAmountSlider, false);
+    content.addAndMakeVisible (parallaxAmountSlider);
+    styleLabel (parallaxAmountLabel, "Amount");
+    content.addAndMakeVisible (parallaxAmountLabel);
+    parallaxAmountAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PARALLAX_AMOUNT, parallaxAmountSlider);
+    parallaxAmountSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+    // Nur echte Bedienung schreibt Drift/Shift - nicht das Nachziehen durch
+    // Preset/Automation, sonst wuerden alte Presets (Amount 0) ihr Drift
+    // verlieren.
+    parallaxAmountSlider.onValueChange = [this]
+    {
+        if (parallaxAmountSlider.isMouseOverOrDragging())
+            applyParallaxMode();
+    };
+    {
+        static const char* modeNames[4] = { "TIGHT", "WIDE", "DEEP", "WILD" };
+        static const char* modeTips[4]  = { "Tight: a close, subtle double",
+                                            "Wide: a clearly wider double",
+                                            "Deep: more pitch, less time",
+                                            "Wild: everything at full stretch" };
+        for (int i = 0; i < 4; ++i)
+        {
+            auto& b = parallaxModeButtons[i];
+            b.setButtonText (modeNames[i]);
+            b.setTooltip (modeTips[i]);
+            b.setClickingTogglesState (true);
+            b.getProperties().set ("thinOnFrame", true);
+            b.setRadioGroupId (4343, juce::dontSendNotification);
+            b.setWantsKeyboardFocus (false);
+            content.addAndMakeVisible (b);
+            b.onClick = [this, i]
+            {
+                if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE))
+                    prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
+                applyParallaxMode();
+            };
+        }
+    }
 
     // --- Polarity -----------------------------------------------------------
     setupPowerButton (polPowerButton, LCRMSAudioProcessor::ID_POL_ON, polOnAttachment, LCRMSAudioProcessor::SOLO_POLARITY);
@@ -3831,6 +3923,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (driftSlider, isDriftOn);
     setSectionOff (bendSlider, isDriftOn);
     setSectionOff (driftBalanceButton, isDriftOn);
+    setSectionOff (parallaxAmountSlider, isDriftOn);
+    for (auto& b : parallaxModeButtons) setSectionOff (b, isDriftOn);
     setSectionOff (galaxyFilterButton, isLcrOn);
     setSectionOff (dimFilterButton, isWidthBoostOn);
     setSectionOff (posFilterButton, isPosOn);
@@ -4169,6 +4263,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // bestehenden Glow-Rahmen oben, der nur den Rand betrifft.
     speedBox.setColour (juce::ComboBox::textColourId,
                          isSyncOn ? juce::Colours::white : juce::Colour (0xff6a6e78));
+
+    // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
+    {
+        const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+        for (int i = 0; i < 4; ++i)
+            if (parallaxModeButtons[i].getToggleState() != (i == mode))
+                parallaxModeButtons[i].setToggleState (i == mode, juce::dontSendNotification);
+    }
 
     // Polarity-Positions-Buttons mit dem aktuellen Parameterwert synchron
     // halten (z.B. nach Preset-Wechsel oder Host-Automation).
@@ -5885,6 +5987,23 @@ void LCRMSAudioProcessorEditor::layoutContent()
         }
     }
 
+    int sharedRayColW = juce::roundToInt ((float) rightColumn.getWidth() * 0.34f);
+    // Runde 34 (User): links und rechts vom Bars-Kasten war noch Luft -
+    // HYPERDRIVE ein kleines bisschen enger, RAYE bekommt das (nicht viel,
+    // hoechstens 28 px) nach links dazu. Rechnung wie im Flow-Layout unten.
+    // Vorab gerechnet, weil PARALLAX (Reihe 2) dieselbe Breite bekommt.
+    {
+        const int hyperW   = rightColumn.getWidth() - sharedRayColW - frameGap;
+        const int knobH    = juce::jmin (110, hyperW > 0 ? row3H - 20 - headerH - 4 - 14 : 0);
+        const int mvS      = juce::jmin (knobH, (kVariant == 0) ? 88 : kBig);
+        const int gapH     = (kVariant == 0) ? 12 : 6;
+        const int spdW     = (kVariant == 0) ? juce::jmin (72, knobH + 14) : mvS;
+        const int used     = 20 + mvS + gapH + 28 + gapH + spdW + gapH + 28 + ((kVariant == 0) ? 10 : 6) + 80;
+        const int spare    = hyperW - used;          // Luft links+rechts vom Kasten
+        const int take     = juce::jlimit (0, 28, spare - 20);   // 10 px je Seite bleiben
+        sharedRayColW += take;
+    }
+
     // ===== Reihe 1: LCR (links) + Polarity (rechts) =========================
     auto row1 = rightColumn.removeFromTop (row1H);
     juce::Rectangle<int> lcrFrame, polFrame;
@@ -6014,7 +6133,21 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
     // ===== Reihe 2: Warp/Drift (links) + Size (rechts) ======================
     auto row2 = rightColumn.removeFromTop (row2H);
-    auto [driftFrame, wbFrame] = splitFrame (row2);
+    juce::Rectangle<int> driftFrame, wbFrame;
+    if (kVariant == 0)
+    {
+        // Runde 34 (User): DIMENSION links gross, PARALLAX rechts so breit
+        // wie RAYE (ein Regler + vier Modus-Knoepfe).
+        auto r = row2;
+        driftFrame = r.removeFromRight (sharedRayColW);
+        r.removeFromRight (frameGap);
+        wbFrame = r;
+    }
+    else
+    {
+        auto [a, b] = splitFrame (row2);
+        driftFrame = a; wbFrame = b;
+    }
     groupDriftArea = driftFrame;
     groupWidthBoostArea = wbFrame;
 
@@ -6036,13 +6169,23 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Jetzt wird EIN gemeinsamer Wert aus dem GROESSEREN der beiden
     // Zwischenraeume berechnet und in beiden Rahmen benutzt.
     const int row2InnerH   = driftFrame.getHeight() - 20 - headerH; // reduced(10) oben+unten, minus Header
-    const int row2InnerW   = driftFrame.getWidth() - 20;
+    // Reglergroesse wie bisher aus der HALBEN Reihenbreite - Dimension ist
+    // in Variante 0 jetzt breiter, die Regler sollen dadurch nicht wachsen.
+    const int row2InnerW   = (kVariant == 0) ? (row2.getWidth() - frameGap) / 2 - 20
+                                             : driftFrame.getWidth() - 20;
     const int row2KnobArea = juce::jmin (110, row2InnerH - kKnobLabelH);
     // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
     const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
     const int wbGap        = 14;
     const int row2KnobSize = (kVariant == 3) ? kBig
                                              : juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
+
+    if (kVariant != 0)   // neues PARALLAX (Runde 34) nur im normalen Build
+    {
+        parallaxAmountSlider.setVisible (false);
+        parallaxAmountLabel.setVisible (false);
+        for (auto& b : parallaxModeButtons) b.setVisible (false);
+    }
 
     if (kVariant == 1 || kVariant == 2)
     {
@@ -6100,6 +6243,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     else
     {
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
+    if (kVariant != 0)
     {
         // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die
         // Restbreite links und rechts gleich gross ist.
@@ -6120,14 +6264,45 @@ void LCRMSAudioProcessorEditor::layoutContent()
                                        driftSlider.getBounds().getCentreY() - balanceIconSize / 2,
                                        balanceIconSize, balanceIconSize);
     }
+    else
+    {
+        // PARALLAX (Runde 34): links der Amount-Regler, rechts vier
+        // Modus-Knoepfe im 2x2-Raster. Drift/Shift/Tilt und Balance sind
+        // aus der Oberflaeche raus (Parameter bleiben bestehen).
+        for (auto* c : std::initializer_list<juce::Component*> {
+                 &driftSlider, &driftLabel, &bendSlider, &bendLabel,
+                 &offsetSlider, &offsetLabel, &driftBalanceButton })
+        {
+            c->setVisible (false);
+            c->setBounds ({});
+        }
+
+        const int gap    = 10;
+        const int knobS  = juce::jmin (row2KnobSize, driftInner.getHeight() - kKnobLabelH,
+                                       (driftInner.getWidth() - gap) / 2);
+        const int btnW   = juce::jmin (64, (driftInner.getWidth() - knobS - gap - 6) / 2);
+        const int btnH   = 24, btnGap = 6;
+        auto block = driftInner.withSizeKeepingCentre (knobS + gap + btnW * 2 + btnGap, driftInner.getHeight());
+        auto knobSlot = block.removeFromLeft (knobS);
+        block.removeFromLeft (gap);
+        placeKnobWithLabel (knobSlot, parallaxAmountSlider, parallaxAmountLabel, knobS);
+
+        const int gridH = btnH * 2 + btnGap;
+        const int gridY = parallaxAmountSlider.getBounds().getCentreY() - gridH / 2;
+        for (int i = 0; i < 4; ++i)
+            parallaxModeButtons[i].setBounds (block.getX() + (i % 2) * (btnW + btnGap),
+                                              gridY + (i / 2) * (btnH + btnGap), btnW, btnH);
+    }
 
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
     {
-        auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + wbGap * 2, wbInner.getHeight());
+        // Breiterer Rahmen (Runde 34): gleiche Reglergroesse, mehr Luft.
+        const int dimGap = (kVariant == 0) ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
+        auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + dimGap * 2, wbInner.getHeight());
         auto swSlot = trio.removeFromLeft (row2KnobSize);
-        trio.removeFromLeft (wbGap);
+        trio.removeFromLeft (dimGap);
         auto sbSlot = trio.removeFromLeft (row2KnobSize);
-        trio.removeFromLeft (wbGap);
+        trio.removeFromLeft (dimGap);
         auto dpSlot = trio.removeFromLeft (row2KnobSize);
 
         placeKnobWithLabel (swSlot, sideWidthSlider, sideWidthLabel, row2KnobSize);
@@ -6144,7 +6319,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto row3 = rightColumn.removeFromTop (row3H);
     // RAYE rueckt hier herein - ein Drittel der Breite, genau wie in den
     // beiden Zeilen darueber eine grosse und eine kleine Sektion stehen.
-    const int rayColW = juce::roundToInt (row3.getWidth() * 0.34f);
+    const int rayColW = sharedRayColW;
     rayRowArea = row3.removeFromRight (rayColW);
     row3.removeFromRight (frameGap);
     groupFlowArea = row3;
