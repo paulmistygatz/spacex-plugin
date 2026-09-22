@@ -429,6 +429,11 @@ public:
             const float dy = centre.y - dotRadius * std::cos (liveAngle);
             g.setColour (glowAccent.withAlpha (0.30f));
             g.fillEllipse (dx - 6.0f, dy - 6.0f, 12.0f, 12.0f);
+            // Runde 47 (User-Bug): auf dem eigenen Wertbogen verschwand der
+            // Punkt, weil beide fast dieselbe Farbe haben - dunkler Ring
+            // darum, dann bleibt er ueberall sichtbar.
+            g.setColour (juce::Colour (0xcc0a0b0e));
+            g.fillEllipse (dx - 4.6f, dy - 4.6f, 9.2f, 9.2f);
             g.setColour (glowAccent);
             g.fillEllipse (dx - 3.0f, dy - 3.0f, 6.0f, 6.0f);
         }

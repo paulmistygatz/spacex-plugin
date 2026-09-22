@@ -2939,11 +2939,12 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     };
     {
         // Runde 45: fuenf Modi aus den User-Presets (Namen folgen).
-        static const char* modeNames[kPxModes] = { "DOUBLE", "PITCH", "WIDE", "ULTRA", "FLUX" };
+        static const char* modeNames[kPxModes] = { "DOUBLE", "WIDE", "ILLUSION", "3D", "DRIFT", "FLUX" };
         static const char* modeTips[kPxModes]  = { "Double: Amount blends in a wide double",
-                                                   "Pitch: Amount blends in a pitched double",
-                                                   "Wide: Amount grows it, then widens further",
-                                                   "Ultra: very tight and very wide - check mono",
+                                                   "Wide: Amount blends in a wide, close double",
+                                                   "Illusion: Amount grows it, then widens further",
+                                                   "3D: Amount blends in a deep, wide image",
+                                                   "Drift: Amount blends in a long drift, tilted back to the centre",
                                                    "Flux: a different kind of movement" };
         for (int i = 0; i < kPxModes; ++i)
         {
@@ -4360,7 +4361,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     {
         const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
-        static const char* const modeNames[kPxModes] = { "DOUBLE", "PITCH", "WIDE", "ULTRA", "FLUX" };
+        static const char* const modeNames[kPxModes] = { "DOUBLE", "WIDE", "ILLUSION", "3D", "DRIFT", "FLUX" };
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
         {
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
@@ -6418,7 +6419,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
                                        (driftInner.getWidth() - gap) / 2);
         const int btnGap = 6;
        #if SPACEX_PARALLAX_UI == 2
-        const int btnW   = juce::jmin (78, (driftInner.getWidth() - knobS - gap - 6) / 2);   // "WIDENER" passt rein
+        const int btnW   = juce::jmin (66, (driftInner.getWidth() - knobS - gap - 6) / 2);   // schmaler (User, Runde 47)
         const int blockW = btnW * 2 + btnGap;
        #else
         // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
@@ -6446,7 +6447,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             const int row = (i < 3) ? 0 : 1;
             const int col = (i < 3) ? i : i - 3;
-            const int rowX = block.getX() + (row == 0 ? 0 : (btnW + btnGap) / 2);   // untere Reihe mittig
+            const int lower = kPxModes - 3;   // Anzahl in der unteren Reihe
+            const int rowX = block.getX() + ((row == 0 || lower >= 3) ? 0 : (btnW + btnGap) / 2);
             parallaxModeButtons[i].setBounds (rowX + col * (btnW + btnGap), gridY + row * (btnH + btnGap), btnW, btnH);
         }
        #endif
@@ -6550,8 +6552,6 @@ void LCRMSAudioProcessorEditor::layoutContent()
         rayHeader.removeFromLeft (8);
         rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
-    const auto rayHeaderForChar = rayHeader;   // SpaceXraye: Charakter-Knopf rechts im Kopf
-    juce::ignoreUnused (rayHeaderForChar);
     fitTitle (rayTitleLabel, rayHeader);
     rayFrame.removeFromTop (6);
 
@@ -6567,13 +6567,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         rayFrame.removeFromLeft (gap);
         const int iconSize = juce::jmin (slotW, rayKnobAreaH);
        #if SPACEX_RAYE_UI == 1
-        // Amount statt Stufen-Icon; der Charakter-Knopf sitzt rechts im Kopf.
+        // Runde 47 (User: Knopf sah oben im Kopf nicht gut aus): Amount statt
+        // Stufen-Icon, und der Charakter-Knopf sitzt jetzt UEBER dem
+        // Pair-Knopf im dritten Slot - gleiche Pillenform, gleiche Spalte.
         rayStrengthButton.setBounds ({});
+        rayCharButton.setBounds ({});   // Kopf bleibt frei
         placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, iconSize);
-        {
-            auto head = rayHeaderForChar;
-            rayCharButton.setBounds (head.removeFromRight (juce::jmin (84, head.getWidth() / 2)).withSizeKeepingCentre (juce::jmin (84, head.getWidth() / 2), juce::jmin (22, head.getHeight())));
-        }
        #else
         rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
        #endif
@@ -6583,6 +6582,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
         placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, juce::jmin (slotW, rayKnobAreaH));
 
         auto slotC = rayFrame;
+       #if SPACEX_RAYE_UI == 1
+        {
+            const int pw = juce::jmin (74, slotW);
+            const int ph = juce::jmin (24, (rayKnobAreaH - 6) / 2);
+            auto col = slotC.withSizeKeepingCentre (pw, ph * 2 + 6).translated (0, -6);
+            rayCharButton.setBounds (col.removeFromTop (ph));
+            col.removeFromTop (6);
+            rayPairButton.setBounds (col.removeFromTop (ph));
+        }
+       #else
         rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (60, slotW), juce::jmin (32, rayKnobAreaH)).translated (0, -6));
+       #endif
     }
 }

@@ -1497,11 +1497,11 @@ private:
     // PARALLAX neu: ein Regler + vier Modus-Knoepfe (Runde 34).
     juce::Slider parallaxAmountSlider;
     juce::Label  parallaxAmountLabel;
-    static constexpr int kPxModes = 5;   // A, B, C, Macro, Widener (Runde 45)
+    static constexpr int kPxModes = 6;   // Double, Wide, Illusion, 3D, Drift, Flux (Runde 47)
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
     // Runde 46: die Punkte sind klickbar - Klick auf einen Punkt waehlt den Modus.
-    struct ModeDots : public juce::Component
+    struct ModeDots : public juce::Component, public juce::SettableTooltipClient
     {
         int count = 5, index = 0;
         bool off = false;
