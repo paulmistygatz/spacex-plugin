@@ -46,7 +46,8 @@ enum SpaceXSettingsId
     idSaveSettings,
     idActivate,
     idAutoGain,
-    idBassGuard
+    idBassGuard,
+    idShowAdvancedMod
 };
 
 // ===== Varianten-Builds fuer den Layout-Vergleich (User) =====
@@ -81,7 +82,7 @@ public:
         bool autoGain = true;
         bool bassGuard = true;
         bool prism = true, mix = false, cats = true, clickEdge = false,
-             galaxyStart = false, keepSolo = true, modVis = true, showHz = false;
+             galaxyStart = false, keepSolo = true, modVis = true, showHz = false, advMod = false;
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -237,7 +238,7 @@ private:
         static constexpr int kThemes  = 5;
         static constexpr int kLayouts = 3;
         static constexpr int kSmart   = 2;
-        static constexpr int kBehav   = 4;
+        static constexpr int kBehav   = 5;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
@@ -253,7 +254,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
         static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idGalaxyDefault }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault }; return a; }
 
         SettingsPanelComponent()
         {
@@ -282,6 +283,7 @@ private:
             static const char* const smartNames[kSmart]   = { "Changes Mix", "Show Categories" };
             static const char* const behavNames[kBehav]   = { "Auto Gain", "Bass Guard 120 Hz",
                                                               "Show Modulation",
+                                                              "Show Advanced Modulation",
                                                               "Galaxy On Startup (Latency)" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
@@ -321,7 +323,8 @@ private:
             smartBtn[0].setTooltip ("Smart also moves the Mix knob");
             behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
             behavBtn[1].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
-            behavBtn[3].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
+            behavBtn[3].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
+            behavBtn[4].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }
@@ -1376,6 +1379,9 @@ private:
     juce::TextButton globalABButton;
     // Eigener Inhalt (Sinuswelle + "OFF") statt Text, siehe drawModBypassContent().
     juce::TextButton globalModBypassButton;
+    // LIFE: globaler Regler neben dem Mod-Bypass, skaliert alle Tiefen.
+    juce::Slider lifeSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lifeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> globalModBypassAttachment;
 
     // "BYP": neuer globaler Bypass-Button (User-Wunsch, sitzt links von
@@ -1599,7 +1605,8 @@ private:
     static juce::Path wobblyRoundedRect (juce::Rectangle<float> r, float corner, float amp, int seed);
     // ===== Mutate-Kategorie (Chips ueber dem Sternenfeld) =====
     // 0 = keine, 1..6 = Drums, Vocals, Backings, Plucked, Keys, Pads.
-    juce::TextButton categoryBtn[6];
+    static constexpr int kNumCategories = 4;   // Vocal, Backing, Adlib, FX
+    juce::TextButton categoryBtn[kNumCategories];
     int mutateCategoryValue = 0;
     bool showMutateCategories = true;   // Menue "Show Mutate Categories"
     int  mutateCategory() const;
@@ -1790,6 +1797,9 @@ private:
     // ueber einen eigenen Live-Button, da es rein dekorativ ist und selten
     // umgeschaltet werden duerfte.
     bool modulationVisualsEnabled = true;
+    // "Show Advanced Modulation" (Runde 37): Mod-Icons + Tiefe je Sektion.
+    bool advancedModVisible = false;
+    void applyAdvancedModVisibility();
     // Menue-Option, siehe showPresetMenu(): Solo bleibt stehen, auch wenn die
     // solierte Sektion ausgeschaltet wird.
     bool keepSoloWhenSectionOff = true;

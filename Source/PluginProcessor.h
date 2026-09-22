@@ -376,6 +376,9 @@ public:
     // OHNE die einzelnen Mod-Icons selbst zu veraendern - beim Ausschalten
     // springen alle 3 wieder genau dorthin zurueck, wo sie vorher standen.
     static constexpr auto ID_GLOBAL_MOD_BYPASS = "globalModBypass";
+    // LIFE (Runde 37): globaler Regler, skaliert ALLE Modulationstiefen
+    // gemeinsam (0..100 %, Default 100 = wie bisher).
+    static constexpr auto ID_LIFE = "life";
 
     static constexpr auto ID_SOLO_SECTION = "soloSection";
     static constexpr int SOLO_NONE       = 0;
@@ -547,6 +550,7 @@ private:
     std::atomic<float>* pVolTrim = nullptr;
     std::atomic<float>* pMix = nullptr;
     std::atomic<float>* pGlobalModBypass = nullptr;
+    std::atomic<float>* pLife = nullptr;
 
     // Per-Sample-Glaettung fuer alle Regler, die direkt als Gain/Multiplikator
     // in die Signalkette eingehen - verhindert Zipper-/Knisterrauschen, wenn
@@ -570,6 +574,12 @@ private:
     // dabei die gemeldete Latenz aendert (siehe ID_GALAXY_ACTIVATE-
     // Kommentar im Header sowie processBlock()).
     juce::SmoothedValue<float> lcrWetGain;
+    // Runde 37 (CPU): ist die Galaxy-Sektion aus (und ausgeblendet), pausiert
+    // die FFT; nur die Dry-Verzoegerung laeuft weiter -> Latenz bleibt gleich.
+    // Beim Einschalten laeuft die Engine erst unhoerbar an (Warm-up), dann
+    // wird weich eingeblendet.
+    bool galaxyEnginePaused = false;
+    int  galaxyWarmupRemaining = 0;
     // 0..1 - wie stark die "Balance"-Gain-Kompensation (siehe
     // ID_TIMEWARP_BALANCE) gerade eingeblendet ist, weich statt hart
     // schaltend, damit das Icon klickfrei an/aus geht.

@@ -135,6 +135,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPositionMod     = apvts.getRawParameterValue (ID_POSITION_MOD);
     pPositionDepth   = apvts.getRawParameterValue (ID_POSITION_DEPTH);
     pGlobalModBypass = apvts.getRawParameterValue (ID_GLOBAL_MOD_BYPASS);
+    pLife = apvts.getRawParameterValue (ID_LIFE);
 
     // Preset-/Hamburger-Menue (User-Idee): App-weite Standardwerte fuer NEU
     // geoeffnete Plugin-Instanzen, per PropertiesFile (siehe
@@ -534,6 +535,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_GLOBAL_MOD_BYPASS, 1 }, "Global Mod Bypass", false));
 
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_LIFE, 1 }, "Life",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+
     // Ganz simpler Ausgangs-Trim, allerletzte Stufe der Kette.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_VOL_TRIM, 1 }, "Vol Trim",
@@ -650,6 +655,8 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     lcrWetGain.reset (sampleRate, 0.03);
     lcrWetGain.setCurrentAndTargetValue (
         (pGalaxyActivate->load() > 0.5f && pLcrEnabled->load() > 0.5f) ? 1.0f : 0.0f);
+    galaxyEnginePaused = false;
+    galaxyWarmupRemaining = 0;
 
     balanceOnGain.reset (sampleRate, 0.03);
     balanceOnGain.setCurrentAndTargetValue (pTimewarpBalance->load() > 0.5f ? 1.0f : 0.0f);
@@ -803,7 +810,34 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool lcrBypassOffRaw   = pLcrEnabled->load() > 0.5f;
     const bool lcrWetOn = galaxyActivateRaw && lcrBypassOffRaw
                           && (! soloActive || soloSection == SOLO_GALAXY);
-    lcrWetGain.setTargetValue (lcrWetOn ? 1.0f : 0.0f);
+    if (! lcrWetOn)
+    {
+        lcrWetGain.setTargetValue (0.0f);
+        galaxyWarmupRemaining = 0;
+        // Erst pausieren, wenn Galaxy wirklich ganz ausgeblendet ist.
+        if (galaxyActivateRaw && ! galaxyEnginePaused
+            && ! lcrWetGain.isSmoothing() && lcrWetGain.getCurrentValue() <= 0.0f)
+            galaxyEnginePaused = true;
+    }
+    else
+    {
+        if (galaxyEnginePaused)
+        {
+            galaxyEnginePaused = false;
+            lcrExtractor.reset();   // sauber neu starten statt mit alten Spektren
+            galaxyWarmupRemaining = 3 * lcrExtractor.getLatencySamples();
+        }
+        if (galaxyWarmupRemaining > 0)
+        {
+            // Warm-up: Engine rechnet schon, hoerbar ist noch das Original.
+            lcrWetGain.setTargetValue (0.0f);
+            galaxyWarmupRemaining -= numSamples;
+        }
+        else
+        {
+            lcrWetGain.setTargetValue (1.0f);
+        }
+    }
 
     // Host-Latenz melden: 0 ohne aktivierte Galaxy-Engine, fftSize sobald
     // aktiviert. Haengt NUR an galaxyActivateRaw - weder am Solo-Status
@@ -937,11 +971,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // gemeinsame Kurve (50% Reglerstellung = 20% der vollen Parameter-Range,
     // siehe modDepthCurve()). EIN Regler moduliert beide (bzw. bei Position
     // alle 4) zugehoerigen Parameter der Sektion gleichzeitig.
-    const float timewarpDepthFrac   = modDepthCurve (pTimewarpDepth->load()   * 0.01f);
-    const float dimensionDepthFrac  = modDepthCurve (pDimensionDepth->load()  * 0.01f);
-    const float hyperdriveDepthFrac = modDepthCurve (pHyperdriveDepth->load() * 0.01f);
-    const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f);
-    const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f);
+    // LIFE skaliert alle Tiefen gemeinsam (Runde 37).
+    const float life01 = juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f);
+    const float timewarpDepthFrac   = modDepthCurve (pTimewarpDepth->load()   * 0.01f * life01);
+    const float dimensionDepthFrac  = modDepthCurve (pDimensionDepth->load()  * 0.01f * life01);
+    const float hyperdriveDepthFrac = modDepthCurve (pHyperdriveDepth->load() * 0.01f * life01);
+    const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f * life01);
+    const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f * life01);
 
     // Kleine Toleranz, um "Regler steht auf 0/Neutral" robust gegen
     // Rundungsfehler zu erkennen (User-Entscheidung: Modulation bleibt aus,
@@ -1494,8 +1530,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         float mixDryL = l, mixDryR = r;
         if (galaxyActivateRaw)
         {
-            float lOnly, center, rOnly;
-            lcrExtractor.processSample (l, r, sensS, lOnly, center, rOnly);
+            float lOnly = 0.0f, center = 0.0f, rOnly = 0.0f;
+            if (! galaxyEnginePaused)
+                lcrExtractor.processSample (l, r, sensS, lOnly, center, rOnly);
             const float wetL = lOnly * gL + center * gC;
             const float wetR = rOnly * gR + center * gC;
 

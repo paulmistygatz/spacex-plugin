@@ -736,14 +736,14 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
 // Wurf. Gesperrte Sektionen (Lock) werden auch hier nicht angefasst.
 int LCRMSAudioProcessorEditor::mutateCategory() const
 {
-    return juce::jlimit (0, 6, mutateCategoryValue);
+    return juce::jlimit (0, kNumCategories, mutateCategoryValue);
 }
 
 void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
 {
-    mutateCategoryValue = juce::jlimit (0, 6, cat);
+    mutateCategoryValue = (cat < 0 || cat > kNumCategories) ? 0 : cat;   // alte Sessions (5/6) -> aus
     processor.apvts.state.setProperty ("mutateCategory", mutateCategoryValue, nullptr);   // Session-Recall
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < kNumCategories; ++i)
     {
         categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
         categoryBtn[i].repaint();
@@ -863,205 +863,127 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
 
     switch (category)
     {
-        case 1: // DRUMS - Transienten vertragen keinen Haas, Bass bleibt mono
+        // Runde 37 (User): vier einfache Kategorien, geordnet danach, wie viel
+        // veraendert werden darf - VOCAL am wenigsten, FX am meisten.
+        // Tilt = ID_POS_OFFSET, Depth = ID_DEPTH (- = Ferne, + = Hoehe).
+        case 1: // VOCAL - Lead/Mono-Vocal breit machen, Mitte bleibt stehen
         {
             if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 30))
-            {
-                roll (P::ID_LCR_SENS, 40.0f, 15.0f, 15.0f, 65.0f);
-                roll (P::ID_LCR_BLEND, 15.0f, 12.0f, 0.0f, 35.0f);
-            }
-            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 40))
-            {
-                driftMs (0.4f, 0.4f, 1.0f);
-                set (P::ID_BEND, 0.0f);
-                set (P::ID_TIMEWARP_BALANCE, 1.0f);
-            }
-            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
-            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
-            {
-                roll (P::ID_SIDE_WIDTH, 115.0f, 15.0f, 100.0f, 135.0f);
-                roll (P::ID_SIDE_BOOST, 0.5f, 1.0f, 0.0f, 2.0f);
-            }
-            if (! locked (P::SOLO_HYPERDRIVE)) set (P::ID_FLOW_ON, 0.0f);
-            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
-                set (P::ID_POS_OFFSET, 0.0f);
-                roll (P::ID_POS_WIDTH, 105.0f, 10.0f, 100.0f, 120.0f);
-                set (P::ID_POS_DISTANCE, 0.0f);
-                roll (P::ID_POS_ELEVATE, 0.0f, 15.0f, -20.0f, 20.0f);
-            }
-            raye (0, 100, 0, 0);
-            prism (250.0f, 500.0f);
-            break;
-        }
-        case 2: // VOCALS (Lead) - Mitte bleibt stehen, alles dezent
-        {
-            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 50))
             {
                 roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
                 roll (P::ID_LCR_BLEND, 10.0f, 10.0f, 0.0f, 30.0f);
             }
-            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 60))
+            // Mono wird nur durch PARALLAX stereo - deshalb fast immer an.
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 90))
             {
-                driftMs (1.2f, 0.9f, 2.5f);
-                roll (P::ID_BEND, 1.0f, 1.5f, 0.0f, 3.0f);
+                driftMs (1.5f, 0.8f, 3.0f);
+                roll (P::ID_BEND, 2.0f, 1.5f, 0.0f, 4.0f);
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
             if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
             {
-                roll (P::ID_SIDE_WIDTH, 112.0f, 10.0f, 100.0f, 128.0f);
-                roll (P::ID_SIDE_BOOST, 0.5f, 1.0f, 0.0f, 2.5f);
+                roll (P::ID_SIDE_WIDTH, 115.0f, 10.0f, 100.0f, 130.0f);
+                roll (P::ID_SIDE_BOOST, 0.5f, 1.0f, 0.0f, 2.0f);
+                roll (P::ID_DEPTH, 0.0f, 8.0f, -10.0f, 15.0f);
             }
             if (! locked (P::SOLO_HYPERDRIVE)) set (P::ID_FLOW_ON, 0.0f);
             if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
                 set (P::ID_POS_OFFSET, 0.0f);
-                roll (P::ID_POS_WIDTH, 105.0f, 8.0f, 100.0f, 118.0f);
-                roll (P::ID_POS_DISTANCE, 5.0f, 8.0f, 0.0f, 20.0f);
-                roll (P::ID_POS_ELEVATE, 15.0f, 15.0f, -10.0f, 40.0f);
-            }
-            raye (20, 100, 0, 0);
+            raye (10, 100, 0, 0);
             prism (200.0f, 350.0f);
             break;
         }
-        case 3: // BACKINGS - der Kern des Plugins, hier darf am meisten passieren
+        case 2: // BACKING - Backing-Stacks/Bus: breit, aber noch geordnet
         {
             if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 60))
             {
                 roll (P::ID_LCR_SENS, 50.0f, 20.0f, 20.0f, 80.0f);
-                roll (P::ID_LCR_BLEND, 45.0f, 25.0f, 15.0f, 80.0f);
+                roll (P::ID_LCR_BLEND, 40.0f, 20.0f, 15.0f, 70.0f);
             }
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 80))
             {
-                driftMs (4.0f, 2.0f, 6.5f);
-                roll (P::ID_BEND, 3.0f, 2.0f, 0.0f, 6.0f);
+                driftMs (3.5f, 1.8f, 6.0f);
+                roll (P::ID_BEND, 2.5f, 1.5f, 0.0f, 5.0f);
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
-            polarityRare (15);   // User: 5 % war zu selten
+            polarityRare (10);
             if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
             {
-                roll (P::ID_SIDE_WIDTH, 140.0f, 20.0f, 115.0f, 165.0f);
-                roll (P::ID_SIDE_BOOST, 1.0f, 1.5f, 0.0f, 3.0f);
+                roll (P::ID_SIDE_WIDTH, 135.0f, 15.0f, 115.0f, 160.0f);
+                roll (P::ID_SIDE_BOOST, 1.0f, 1.2f, 0.0f, 3.0f);
+                roll (P::ID_DEPTH, -15.0f, 15.0f, -40.0f, 15.0f);
             }
-            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 30))
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 25))
             {
-                roll (P::ID_MOVEMENT, 25.0f, 15.0f, 8.0f, 45.0f);
+                roll (P::ID_MOVEMENT, 20.0f, 10.0f, 8.0f, 35.0f);
                 slowSync (5, 7);   // 2 .. 8 Takte
             }
             if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
-                roll (P::ID_POS_OFFSET, 0.0f, 5.0f, -8.0f, 8.0f);
-                roll (P::ID_POS_WIDTH, 110.0f, 10.0f, 100.0f, 125.0f);
-                roll (P::ID_POS_DISTANCE, 20.0f, 12.0f, 5.0f, 40.0f);
-                roll (P::ID_POS_ELEVATE, 0.0f, 20.0f, -30.0f, 30.0f);
-            }
-            raye (55, 60, 40, 25);
+                roll (P::ID_POS_OFFSET, 0.0f, 4.0f, -6.0f, 6.0f);
+            raye (45, 60, 40, 20);
             prism (200.0f, 260.0f);
             break;
         }
-        case 4: // PLUCKED - Haas funktioniert hier hervorragend
+        case 3: // ADLIB - darf viel: Raum, Bewegung, deutliche Seiten
         {
-            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 25))
+            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 50))
             {
-                roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
-                roll (P::ID_LCR_BLEND, 25.0f, 15.0f, 0.0f, 50.0f);
+                roll (P::ID_LCR_SENS, 50.0f, 20.0f, 20.0f, 80.0f);
+                roll (P::ID_LCR_BLEND, 50.0f, 25.0f, 20.0f, 85.0f);
             }
-            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 85))
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 90))
             {
-                driftMs (5.5f, 2.5f, 8.5f);
-                set (P::ID_BEND, chance (20) ? juce::jlimit (0.0f, 4.0f, 2.0f + bell() * 1.5f) : 0.0f);
+                driftMs (6.0f, 3.0f, 10.0f);
+                roll (P::ID_BEND, 4.0f, 2.5f, 0.0f, 8.0f);
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
-            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
+            polarityRare (20);
             if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
             {
-                roll (P::ID_SIDE_WIDTH, 120.0f, 15.0f, 105.0f, 135.0f);
-                roll (P::ID_SIDE_BOOST, 0.8f, 1.0f, 0.0f, 2.5f);
+                roll (P::ID_SIDE_WIDTH, 150.0f, 20.0f, 120.0f, 180.0f);
+                roll (P::ID_SIDE_BOOST, 1.5f, 1.5f, 0.0f, 4.0f);
+                roll (P::ID_DEPTH, -25.0f, 20.0f, -60.0f, 20.0f);
             }
-            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 35))
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 60))
             {
-                roll (P::ID_MOVEMENT, 25.0f, 10.0f, 15.0f, 35.0f);
-                slowSync (3, 5);   // 1/2 .. 2 Takte
+                roll (P::ID_MOVEMENT, 35.0f, 15.0f, 15.0f, 55.0f);
+                slowSync (3, 6);   // 1/2 .. 4 Takte
             }
             if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
-                roll (P::ID_POS_OFFSET, 0.0f, 7.0f, -10.0f, 10.0f);
-                roll (P::ID_POS_WIDTH, 105.0f, 10.0f, 100.0f, 120.0f);
-                roll (P::ID_POS_DISTANCE, 8.0f, 8.0f, 0.0f, 20.0f);
-                roll (P::ID_POS_ELEVATE, 0.0f, 15.0f, -20.0f, 20.0f);
-            }
-            raye (40, 100, 0, 15);
+                roll (P::ID_POS_OFFSET, 0.0f, 8.0f, -15.0f, 15.0f);
+            raye (60, 40, 40, 30);
             prism (150.0f, 300.0f);
             break;
         }
-        case 5: // KEYS - breit, aber ruhig; RAYE darf Rhodes spielen
-        {
-            if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 20))
-            {
-                roll (P::ID_LCR_SENS, 45.0f, 15.0f, 20.0f, 70.0f);
-                roll (P::ID_LCR_BLEND, 20.0f, 15.0f, 0.0f, 45.0f);
-            }
-            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 50))
-            {
-                driftMs (0.7f, 0.5f, 1.4f);
-                set (P::ID_BEND, 0.0f);
-                set (P::ID_TIMEWARP_BALANCE, 1.0f);
-            }
-            if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
-            if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
-            {
-                roll (P::ID_SIDE_WIDTH, 125.0f, 15.0f, 110.0f, 140.0f);
-                roll (P::ID_SIDE_BOOST, 0.8f, 1.0f, 0.0f, 2.5f);
-            }
-            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 20))
-            {
-                roll (P::ID_MOVEMENT, 17.0f, 8.0f, 10.0f, 25.0f);
-                slowSync (5, 7);
-            }
-            if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
-                roll (P::ID_POS_OFFSET, 0.0f, 4.0f, -5.0f, 5.0f);
-                roll (P::ID_POS_WIDTH, 105.0f, 8.0f, 100.0f, 118.0f);
-                roll (P::ID_POS_DISTANCE, 6.0f, 6.0f, 0.0f, 15.0f);
-                set (P::ID_POS_ELEVATE, 0.0f);
-            }
-            raye (50, 40, 60, 20);
-            prism (120.0f, 250.0f);
-            break;
-        }
-        case 6: // PADS - alles darf, nur langsam
+        case 4: // FX - Throws, Wet-Spuren, FX-Returns: alles erlaubt
         {
             if (section (P::ID_LCR_ENABLED, P::SOLO_GALAXY, 60))
             {
-                roll (P::ID_LCR_SENS, 50.0f, 20.0f, 20.0f, 80.0f);
-                roll (P::ID_LCR_BLEND, 55.0f, 25.0f, 30.0f, 80.0f);
+                roll (P::ID_LCR_SENS, 55.0f, 20.0f, 20.0f, 85.0f);
+                roll (P::ID_LCR_BLEND, 60.0f, 25.0f, 25.0f, 90.0f);
             }
-            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 70))
+            if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 85))
             {
-                driftMs (6.0f, 4.0f, 10.0f);
-                roll (P::ID_BEND, 5.0f, 2.5f, 3.0f, 8.0f);
+                driftMs (8.0f, 4.0f, 14.0f);
+                roll (P::ID_BEND, 6.0f, 3.0f, 2.0f, 10.0f);
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
-            polarityRare (8);
+            polarityRare (25);
             if (section (P::ID_WIDTHBOOST_ON, P::SOLO_DIMENSION, 100))
             {
-                roll (P::ID_SIDE_WIDTH, 155.0f, 25.0f, 130.0f, 180.0f);
-                roll (P::ID_SIDE_BOOST, 2.0f, 2.0f, 0.0f, 4.0f);
+                roll (P::ID_SIDE_WIDTH, 165.0f, 25.0f, 130.0f, 190.0f);
+                roll (P::ID_SIDE_BOOST, 2.0f, 2.0f, 0.0f, 4.5f);
+                roll (P::ID_DEPTH, -40.0f, 25.0f, -80.0f, 20.0f);
             }
-            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 70))
+            if (section (P::ID_FLOW_ON, P::SOLO_HYPERDRIVE, 75))
             {
-                roll (P::ID_MOVEMENT, 35.0f, 15.0f, 20.0f, 50.0f);
-                slowSync (5, 7);
+                roll (P::ID_MOVEMENT, 40.0f, 15.0f, 20.0f, 60.0f);
+                slowSync (4, 7);   // 1 .. 8 Takte
             }
             if (section (P::ID_POS_ON, P::SOLO_POSITION, 100))
-            {
-                roll (P::ID_POS_OFFSET, 0.0f, 6.0f, -8.0f, 8.0f);
-                roll (P::ID_POS_WIDTH, 115.0f, 15.0f, 100.0f, 130.0f);
-                roll (P::ID_POS_DISTANCE, 35.0f, 15.0f, 20.0f, 50.0f);
-                roll (P::ID_POS_ELEVATE, 0.0f, 25.0f, -40.0f, 40.0f);
-            }
-            raye (70, 20, 50, 50);
+                roll (P::ID_POS_OFFSET, 0.0f, 10.0f, -20.0f, 20.0f);
+            raye (70, 30, 40, 50);
             prism (100.0f, 200.0f);
             break;
         }
@@ -1145,6 +1067,20 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
         if (! wasOn && paramId == LCRMSAudioProcessor::ID_LCR_ENABLED) // wurde gerade eingeschaltet
             activateGalaxyIfNeeded();
     }
+}
+
+// "Show Advanced Modulation" (Runde 37): Mod-Icon + Tiefe-Regler in den
+// Sektionskoepfen nur bei Bedarf. Ausgeblendet laeuft die Modulation weiter
+// wie eingestellt; LIFE skaliert sie gemeinsam, die Mod-Punkte auf den
+// Reglern bleiben sichtbar.
+void LCRMSAudioProcessorEditor::applyAdvancedModVisibility()
+{
+    for (auto* c : std::initializer_list<juce::Component*> {
+             &galaxyModButton, &galaxyModDepthSlider,
+             &driftModButton, &driftModDepthSlider,
+             &dimensionModButton, &dimensionModDepthSlider,
+             &hyperdriveModButton, &hyperdriveModDepthSlider })
+        c->setVisible (advancedModVisible);
 }
 
 void LCRMSAudioProcessorEditor::activateGalaxyIfNeeded()
@@ -1376,6 +1312,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (globalChaosSectionsButton,  "Smart+: rolls a new setting and decides which sections belong in it");
     tip (globalBreatheButton,        "Breathe: injects life into every section by bringing modulation in at fresh depths");
     tip (globalModBypassButton,      "Mod: switch every modulation on or off at once");
+    tip (lifeSlider,                 "Life: how much all modulation moves, scaled together");
     tip (globalGalaxyActivateButton, "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
     tip (undoButton,                 "Undo: step back through your changes");
     tip (redoButton,                 "Redo: step forward again");
@@ -1633,6 +1570,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.showHz      = p.getBoolValue ("showFocusHz", false);
     settingsSnap.keepSolo    = keepSoloWhenSectionOff;
     settingsSnap.modVis      = modulationVisualsEnabled;
+    settingsSnap.advMod      = advancedModVisible;
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -1652,6 +1590,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (p.getBoolValue ("galaxyActivateDefault", false),settingsSnap.galaxyStart, idGalaxyDefault);
     flipIf (keepSoloWhenSectionOff,                         settingsSnap.keepSolo,    idKeepSolo);
     flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
+    flipIf (advancedModVisible,                             settingsSnap.advMod,      idShowAdvancedMod);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
@@ -1707,7 +1646,8 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[1].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
     settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[3].setToggleState (advancedModVisible,                              juce::dontSendNotification);
+    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
     settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
@@ -1901,6 +1841,11 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                 case idShowModulation:
                     modulationVisualsEnabled = ! modulationVisualsEnabled;
                     writeProps.setValue ("modulationVisualsDisabled", ! modulationVisualsEnabled);
+                    break;
+                case idShowAdvancedMod:
+                    advancedModVisible = ! advancedModVisible;
+                    writeProps.setValue ("showAdvancedModulation", advancedModVisible);
+                    applyAdvancedModVisibility();
                     break;
                 case idDisableModMovement:
                     starfieldModMovementOn = ! starfieldModMovementOn;
@@ -2745,6 +2690,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (globalModBypassButton);
     globalModBypassAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS, globalModBypassButton);
 
+    // LIFE (Runde 37): kleiner Regler direkt neben dem Mod-Bypass - skaliert
+    // alle Modulationstiefen gemeinsam. Gleicher Stil wie die Tiefe-Regler
+    // in den Sektionskoepfen.
+    styleRotary (lifeSlider, false);
+    content.addAndMakeVisible (lifeSlider);
+    lifeAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LIFE, lifeSlider);
+    lifeSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
+
     // "BYP": neuer globaler Bypass-Button (User-Wunsch: "BYP Button links
     // von Chaos/Mutate") - schaltet denselben rein GUI-seitigen Bypass wie
     // der bestehende Logo-Klick (siehe logoButton.onClick oben,
@@ -3563,18 +3516,18 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
     // ===== Kategorie-Chips (Mutate-Profile) links ueber dem Sternenfeld =====
     {
-        static const char* const catNames[6] = { "Drums", "Vocals", "Backings", "Plucked", "Keys", "Pads" };
+        // Runde 37 (User): vier einfache Kategorien, geordnet danach, wie viel
+        // veraendert werden darf.
+        static const char* const catNames[kNumCategories] = { "Vocal", "Backing", "Adlib", "FX" };
         // Die Hinweise sagen, WAS unter die Kategorie faellt - "Plucked" allein
         // beantwortet die Frage nicht (User).
-        static const char* const catHints[6] = {
-            "Drums: drums and percussion. No time offsets, no polarity flips - the hits stay where they are",
-            "Vocals: lead vocals. Careful width, the centre stays intact",
-            "Backings: backing vocals and ad-libs. The widest of the six",
-            "Plucked: guitars, plucks and fast synths - anything with a sharp attack",
-            "Keys: keys, synths and organs - sustained, but still articulate",
-            "Pads: pads and anything slow with little or no attack. Slow movement, more RAYE"
+        static const char* const catHints[kNumCategories] = {
+            "Vocal: lead or mono vocals made wide - the centre stays intact",
+            "Backing: backing stacks and busses - wide, but still tidy",
+            "Adlib: ad-libs - space, movement and clear sides",
+            "FX: throws, wet tracks and FX returns - anything goes"
         };
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < kNumCategories; ++i)
         {
             categoryBtn[i].setButtonText (catNames[i]);
             categoryBtn[i].getProperties().set ("chipBtn", true);
@@ -3659,7 +3612,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     {
         juce::PropertiesFile modVisProps (LCRMSAudioProcessor::appPropertiesOptions());
         modulationVisualsEnabled = ! modVisProps.getBoolValue ("modulationVisualsDisabled", false);
+        advancedModVisible = modVisProps.getBoolValue ("showAdvancedModulation", false);
     }
+    applyAdvancedModVisibility();
 
     // Initialen Zustand der Polarity-Positions-Buttons setzen (z.B. beim
     // Laden eines Presets, das nicht den Default-Wert hat).
@@ -5481,9 +5436,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Zeile 1:  BYP M M B ~ GALAXY | Undo Redo | Menu
         // Zeile 2:  < [ Name ] > | Save Delete | A/B Copy Reset
         constexpr int kLiveW   = kIconBtnW * 5 + kGap * 4;
-        constexpr int kGalaxyGap = 18;
+        constexpr int kGalaxyGap = 12;
+        constexpr int kLifeW   = 26;   // LIFE-Regler neben dem Mod-Bypass
+        constexpr int kLifeGap = 4;
         constexpr int kGalaxyW = 62;
-        constexpr int kRow1W   = kLiveW + kGalaxyGap + kGalaxyW + kSepBlockW + (kUndoBtnW * 2 + kGap) + kSepBlockW + kHamburgerW;
+        constexpr int kRow1W   = kLiveW + kLifeGap + kLifeW + kGalaxyGap + kGalaxyW + kSepBlockW + (kUndoBtnW * 2 + kGap) + kSepBlockW + kHamburgerW;
 
         // Zeile 2 gleich breit. Das Namensfeld bekommt den Rest - deutlich
         // kleiner als vorher, und das ist so gewollt (User: "kann theoretisch
@@ -5524,6 +5481,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         globalBreatheButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
         globalModBypassButton.setBounds (live);
+
+        row1.removeFromLeft (kLifeGap);
+        lifeSlider.setBounds (row1.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));
 
         row1.removeFromLeft (kGalaxyGap);
         globalGalaxyActivateButton.setBounds (row1.removeFromLeft (kGalaxyW));
@@ -5650,15 +5610,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             const auto f = CustomLookAndFeel::globalRowFont();
             int textTotal = 0;
-            int widths[6];
-            for (int i = 0; i < 6; ++i)
+            int widths[kNumCategories];
+            for (int i = 0; i < kNumCategories; ++i)
             {
                 widths[i] = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, categoryBtn[i].getButtonText().toUpperCase())) + 28;
                 textTotal += widths[i];
             }
-            const int chipGap = juce::jlimit (6, 18, (chipRow.getWidth() - textTotal) / 5);
+            const int chipGap = juce::jlimit (6, 18, (chipRow.getWidth() - textTotal) / (kNumCategories - 1));
             int cx = chipRow.getX();
-            for (int i = 0; i < 6; ++i)
+            for (int i = 0; i < kNumCategories; ++i)
             {
                 categoryBtn[i].setBounds (cx, chipRow.getY(), widths[i], chipRow.getHeight());
                 categoryBtn[i].setVisible (showMutateCategories);
