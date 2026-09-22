@@ -351,7 +351,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_BEND, 1 }, "Bend",
-        juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 0.0f, "ct"));
+        // Runde 43 (User): "3 Uhr = neues Max" - der alte Bereich 0..10 ct
+        // endet jetzt bei 8 ct (dort stand bisher die 3-Uhr-Stellung).
+        juce::NormalisableRange<float> (0.0f, 8.0f, 0.01f), 0.0f, "ct"));
 
     // "Size" darf auf der Minus-Seite (verschmaelern) nur noch bis 50%
     // gehen, nicht mehr ganz bis Mono/0% (User-Feedback: "soll gar nicht so

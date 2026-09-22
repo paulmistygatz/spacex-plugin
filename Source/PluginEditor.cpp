@@ -974,7 +974,7 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 85))
             {
                 driftMs (8.0f, 4.0f, 14.0f);
-                roll (P::ID_BEND, 6.0f, 3.0f, 2.0f, 10.0f);
+                roll (P::ID_BEND, 5.5f, 2.5f, 2.0f, 8.0f);
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             polarityRare (25);
@@ -2434,7 +2434,7 @@ struct ParallaxMode { float driftPct, shiftCt; };
 static const ParallaxMode kParallaxModes[4] = { { 25.0f, 2.0f },    // Tight
                                                 { 55.0f, 4.0f },    // Wide
                                                 { 40.0f, 7.0f },    // Deep
-                                                { 80.0f, 10.0f } }; // Wild
+                                                { 80.0f, 8.0f } };  // Wild
 
 void LCRMSAudioProcessorEditor::applyParallaxMode()
 {

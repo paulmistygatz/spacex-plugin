@@ -243,7 +243,7 @@ public:
     // proportional zum Drift-Betrag an, um das Wandern zur Mitte zurueckzuholen.
     static constexpr auto ID_TIMEWARP_BALANCE = "timewarpBalance";
     static constexpr auto ID_DRIFT       = "drift";
-    static constexpr auto ID_BEND        = "bend";         // Micro-Pitch (0-10 Cent, L runter/R rauf)
+    static constexpr auto ID_BEND        = "bend";         // Micro-Pitch (0-8 Cent, L runter/R rauf)
     static constexpr auto ID_SIDE_WIDTH  = "sideWidth";
     static constexpr auto ID_SIDE_BOOST  = "sideBoost";
     static constexpr auto ID_MOVEMENT    = "movement";
