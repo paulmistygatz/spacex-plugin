@@ -139,6 +139,8 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPositionDepth   = apvts.getRawParameterValue (ID_POSITION_DEPTH);
     pGlobalModBypass = apvts.getRawParameterValue (ID_GLOBAL_MOD_BYPASS);
     pLife = apvts.getRawParameterValue (ID_LIFE);
+    pParallaxMode   = apvts.getRawParameterValue (ID_PARALLAX_MODE);
+    pParallaxAmount = apvts.getRawParameterValue (ID_PARALLAX_AMOUNT);
 
     // Preset-/Hamburger-Menue (User-Idee): App-weite Standardwerte fuer NEU
     // geoeffnete Plugin-Instanzen, per PropertiesFile (siehe
@@ -191,6 +193,50 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
         }
         juce::ignoreUnused (appliedFullDefault);
     });
+}
+
+// ===== PARALLAX-MODI (Runde 44) =====
+// Werte aus den Presets des Users (Drift %, Shift ct, Tilt %, Mix %, Pegel dB).
+// Mix war beim Einstellen der GLOBALE Mix - hier ist es der Parallax-eigene.
+const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef (int mode) noexcept
+{
+    static const ParallaxModeDef defs[4] = {
+        // 1 TIGHT (Platzhalter, User: "Amount einfach Mix")
+        { 1, true,  { { 25.0f, 2.0f, 0.0f, 100.0f, 0.0f } } },
+        // 2 WIDE  (Platzhalter, User: "Amount einfach Mix")
+        { 1, true,  { { 55.0f, 4.0f, 0.0f, 100.0f, 0.0f } } },
+        // 3 WIDENER - vier Wegpunkte 222.1 .. 222.4
+        { 4, false, { {   -6.6f, 0.88f,  0.0f, 30.7f, 1.60f },
+                      {   -6.6f, 0.88f, 27.5f, 30.7f, 1.60f },
+                      { -100.0f, 0.00f, 27.5f, 38.8f, 0.00f },
+                      {   -6.6f, 0.88f,  0.0f, 39.9f, 2.33f } } },
+        // 4 MACRO - 4.2 -> 4.3 -> 4.4 max
+        { 3, false, { {   5.1f, 0.00f, -7.0f,  41.0f, 0.0f },
+                      {   5.1f, 0.00f, -7.0f, 100.0f, 0.0f },
+                      { 100.0f, 6.45f, -7.0f,  43.9f, 0.0f } } }
+    };
+    return defs[juce::jlimit (0, 3, mode)];
+}
+
+LCRMSAudioProcessor::ParallaxPoint LCRMSAudioProcessor::evalParallaxMode (int mode, float amount01) noexcept
+{
+    const auto& d = parallaxModeDef (mode);
+    amount01 = juce::jlimit (0.0f, 1.0f, amount01);
+    if (d.amountIsMix || d.numPoints <= 1)
+    {
+        ParallaxPoint p = d.pts[0];
+        if (d.amountIsMix)
+            p.mixPct = d.pts[0].mixPct * amount01;
+        return p;
+    }
+    const float pos = amount01 * (float) (d.numPoints - 1);
+    const int   i0  = juce::jlimit (0, d.numPoints - 2, (int) std::floor (pos));
+    const float t   = pos - (float) i0;
+    const auto& a = d.pts[i0];
+    const auto& b = d.pts[i0 + 1];
+    auto lerp = [t] (float x, float y) { return x + (y - x) * t; };
+    return { lerp (a.driftPct, b.driftPct), lerp (a.bendCt, b.bendCt), lerp (a.tiltPct, b.tiltPct),
+             lerp (a.mixPct, b.mixPct), lerp (a.gainDb, b.gainDb) };
 }
 
 // SpaceXraye (Runde 41): vier Charaktere. Sweep = das bisherige RAYE.
@@ -340,7 +386,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Tight", "Wide", "Deep", "Wild" }, 0));
+        juce::StringArray { "Tight", "Wide", "Widener", "Macro" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -705,6 +751,12 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     movementSmoothed.reset (sampleRate, knobRampSeconds);
     movementSmoothed.setCurrentAndTargetValue (pMovement->load() * 0.01f);
     bendSmoothed.reset (sampleRate, knobRampSeconds);
+    for (auto* sv : { &pxMixSmoothed, &pxGainSmoothed, &pxTiltLSmoothed, &pxTiltRSmoothed })
+        sv->reset (sampleRate, knobRampSeconds);
+    pxMixSmoothed.setCurrentAndTargetValue (0.0f);
+    pxGainSmoothed.setCurrentAndTargetValue (1.0f);
+    pxTiltLSmoothed.setCurrentAndTargetValue (1.0f);
+    pxTiltRSmoothed.setCurrentAndTargetValue (1.0f);
     bendSmoothed.setCurrentAndTargetValue (pBend->load());
     offsetSmoothed.reset (sampleRate, knobRampSeconds);
     offsetSmoothed.setCurrentAndTargetValue (pPosOffset->load() * 0.01f);
@@ -960,7 +1012,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // decken 0-2ms ab (dort ist der Haas-Effekt am staerksten), die
     // restlichen 20% decken 2-20ms ab. Die ChannelDelayLine glaettet das
     // Ziel intern bereits selbst weich nach.
-    const float driftPct = pDrift->load();
+    float driftPct = pDrift->load();
 
     // --- Mod-LFOs (Timewarp/Dimension/Hyperdrive) --------------------------
     // Sehr langsame, sanfte Modulation (~8s Zyklus) - bei so tiefen Frequenzen
@@ -1014,6 +1066,29 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f * life01);
     const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f * life01);
 
+    // ===== PARALLAX-MODI (Runde 44) =====
+    // In allen Builds ausser SpaceXparaCPU kommen Drift/Shift/Tilt/Mix/Pegel
+    // aus Modus + Amount. Die Parallax-Modulation bewegt dann nur Amount.
+    constexpr bool pxModes = (SPACEX_PARALLAX_UI != 1);
+    float pxBend = 0.0f;
+    if (pxModes)
+    {
+        const int pxMode = juce::jlimit (0, 3, (int) std::round (pParallaxMode->load()));
+        float pxAmt = juce::jlimit (0.0f, 1.0f, pParallaxAmount->load() * 0.01f);
+        if (pTimewarpMod->load() > 0.5f && ! globalModBypass && pxAmt > 0.001f && timewarpDepthFrac > 0.001f)
+            pxAmt = juce::jlimit (0.0f, 1.0f, pxAmt + timewarpSine * pxAmt * timewarpDepthFrac);
+        currentParallaxAmountLive.store (pxAmt * 100.0f, std::memory_order_relaxed);
+        const auto pt = evalParallaxMode (pxMode, pxAmt);
+        driftPct = pt.driftPct;
+        pxBend   = pt.bendCt;
+        pxMixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pt.mixPct * 0.01f));
+        pxGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (pt.gainDb));
+        const float panPos = juce::jlimit (-1.0f, 1.0f, pt.tiltPct * 0.01f);
+        const float angle  = (panPos + 1.0f) * (juce::MathConstants<float>::pi * 0.25f);
+        pxTiltLSmoothed.setTargetValue (std::cos (angle) * juce::MathConstants<float>::sqrt2);
+        pxTiltRSmoothed.setTargetValue (std::sin (angle) * juce::MathConstants<float>::sqrt2);
+    }
+
     // Kleine Toleranz, um "Regler steht auf 0/Neutral" robust gegen
     // Rundungsfehler zu erkennen (User-Entscheidung: Modulation bleibt aus,
     // wenn der jeweilige Basis-Regler auf seinem Neutralwert steht - sonst
@@ -1039,7 +1114,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Regler grundsaetzlich funktioniert.
     const float driftAbsPct = std::abs (driftPct);
     float driftAbsPctMod = driftAbsPct;
-    if (timewarpModOn && driftAbsPct > kNeutralEps && timewarpDepthFrac > kNeutralEps)
+    if (! pxModes && timewarpModOn && driftAbsPct > kNeutralEps && timewarpDepthFrac > kNeutralEps)
     {
         // Ausschlag jetzt relativ zum eingestellten Wert selbst (max. +-20%
         // davon bei vollem Tiefe-Regler), nicht mehr relativ zur vollen
@@ -1203,9 +1278,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     // Timewarp moduliert zusaetzlich Shift/Bend, aus wenn Shift=0ct oder
     // Regler auf 0 steht.
-    const float bendRawBase = pBend->load();
+    const float bendRawBase = pxModes ? pxBend : pBend->load();
     float bendTarget = bendRawBase;
-    if (timewarpModOn && bendRawBase > kNeutralEps && timewarpDepthFrac > kNeutralEps)
+    if (! pxModes && timewarpModOn && bendRawBase > kNeutralEps && timewarpDepthFrac > kNeutralEps)
     {
         const float bendModDepth = bendRawBase * timewarpDepthFrac;
         bendTarget = juce::jmax (0.0f, bendRawBase + timewarpSine * bendModDepth);
@@ -1218,7 +1293,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // (Offset/Elevate: 0%, Width: 100%, Distance: 0% = untere Grenze) -
     // identisches Prinzip wie bei den anderen Mod-Sektionen (User-Feedback:
     // "Einfluss auf alle Regler, gleiches Prinzip wie bei den anderen").
-    const float offsetRawBase = pPosOffset->load() * 0.01f; // -1..1
+    // In den Modus-Builds sitzt Tilt IN der Parallax-Stufe (siehe dort).
+    const float offsetRawBase = pxModes ? 0.0f : pPosOffset->load() * 0.01f; // -1..1
     float offsetTarget = offsetRawBase;
     if (positionModOn && std::abs (offsetRawBase) > kNeutralEps && positionDepthFrac > kNeutralEps)
     {
@@ -1668,8 +1744,25 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const float lDriftBal = balanceBoostsLeft ? lDrift * balanceGain : lDrift;
             const float rDriftBal = balanceBoostsLeft ? rDrift : rDrift * balanceGain;
 
+           #if SPACEX_PARALLAX_UI != 1
+            // Modus-Builds: Tilt auf das Parallax-Signal, dann der eigene Mix
+            // gegen das Original und der Pegelausgleich des Wegpunkts -
+            // entspricht (1-Mix)*Original + Mix*Tilt(Parallax) wie beim
+            // Einstellen mit dem globalen Mix.
+            {
+                const float pxM  = pxMixSmoothed.getNextValue();
+                const float pxG  = pxGainSmoothed.getNextValue();
+                const float pxTL = pxTiltLSmoothed.getNextValue();
+                const float pxTR = pxTiltRSmoothed.getNextValue();
+                const float outL = (l + (lDriftBal * pxTL - l) * pxM) * pxG;
+                const float outR = (r + (rDriftBal * pxTR - r) * pxM) * pxG;
+                l = l + (outL - l) * dGain;
+                r = r + (outR - r) * dGain;
+            }
+           #else
             l = l + (lDriftBal - l) * dGain;
             r = r + (rDriftBal - r) * dGain;
+           #endif
             // Das MIX-Original bekommt KEINE Drift-Verzoegerung mehr (User:
             // "Timewarp ist wet auch wenn Mix auf 0") - bei 0 % ist es das
             // reine Original. Preis: mit Drift entsteht in Zwischenstellungen

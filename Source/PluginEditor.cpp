@@ -2430,24 +2430,11 @@ void LCRMSAudioProcessorEditor::stepPreset (int direction)
 // PARALLAX (Runde 34), vorlaeufig: Modus -> feste Drift/Shift-Werte,
 // Amount skaliert sie linear. PLATZHALTER-Werte - werden durch die
 // Einstellungen des Users (MicroPitch / altes Parallax) ersetzt.
-struct ParallaxMode { float driftPct, shiftCt; };
-static const ParallaxMode kParallaxModes[4] = { { 25.0f, 2.0f },    // Tight
-                                                { 55.0f, 4.0f },    // Wide
-                                                { 40.0f, 7.0f },    // Deep
-                                                { 80.0f, 8.0f } };  // Wild
-
 void LCRMSAudioProcessorEditor::applyParallaxMode()
 {
-    const auto* modes = kParallaxModes;
-    const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
-    const float amt = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT)->load() / 100.0f;
-    auto setParam = [this] (const char* id, float v)
-    {
-        if (auto* prm = processor.apvts.getParameter (id))
-            prm->setValueNotifyingHost (prm->convertTo0to1 (v));
-    };
-    setParam (LCRMSAudioProcessor::ID_DRIFT, modes[mode].driftPct * amt);
-    setParam (LCRMSAudioProcessor::ID_BEND,  modes[mode].shiftCt  * amt);
+    // Runde 44: Modus + Amount wertet jetzt der Processor selbst aus
+    // (Wegpunkte, siehe evalParallaxMode) - damit wirken auch Automation und
+    // Modulation. Hier gibt es nichts mehr zu schreiben.
 }
 
 // Pruefsumme des LIVE-Zustands - ueber denselben Baum-Weg wie die A/B-Slots,
@@ -2951,11 +2938,11 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             applyParallaxMode();
     };
     {
-        static const char* modeNames[4] = { "TIGHT", "WIDE", "DEEP", "WILD" };
-        static const char* modeTips[4]  = { "Tight: a close, subtle double",
-                                            "Wide: a clearly wider double",
-                                            "Deep: more pitch, less time",
-                                            "Wild: everything at full stretch" };
+        static const char* modeNames[4] = { "TIGHT", "WIDE", "WIDENER", "MACRO" };
+        static const char* modeTips[4]  = { "Tight: Amount blends in a close double",
+                                            "Wide: Amount blends in a wider double",
+                                            "Widener: Amount walks through four widening steps",
+                                            "Macro: Amount goes from a subtle double to full stretch" };
         for (int i = 0; i < 4; ++i)
         {
             auto& b = parallaxModeButtons[i];
@@ -4273,17 +4260,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
         applyLive (elevateSlider, isPosOn && positionModOnRaw && std::abs (elevatePctRaw) > 0.05f,
                    processor.currentElevateLivePercent.load (std::memory_order_relaxed));
 
-        // PARALLAX Amount (Runde 38): Punkt zeigt, wohin die Modulation das
-        // Drift gerade schiebt - umgerechnet auf die Amount-Skala des Modus.
+        // PARALLAX Amount: Punkt zeigt das modulierte Amount (Runde 44 aus dem
+        // Processor, der die Modulation jetzt direkt auf Amount anwendet).
         {
-            const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
-            const float modeDrift = kParallaxModes[mode].driftPct;
             const float amountRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_AMOUNT)->load();
-            const float liveAmount = modeDrift > 0.0f
-                ? std::abs (processor.currentDriftLivePercent.load (std::memory_order_relaxed)) / modeDrift * 100.0f
-                : amountRaw;
-            applyLive (parallaxAmountSlider, isDriftOn && timewarpModOnRaw && amountRaw > 0.05f
-                                                && std::abs (driftPctRaw) > 0.001f, liveAmount);
+            applyLive (parallaxAmountSlider, isDriftOn && timewarpModOnRaw && amountRaw > 0.05f,
+                       processor.currentParallaxAmountLive.load (std::memory_order_relaxed));
         }
 
         // Show Advanced Modulation + LIFE unter 100 %: die Tiefe-Regler in den
@@ -4362,7 +4344,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     {
         const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
-        static const char* const modeNames[4] = { "TIGHT", "WIDE", "DEEP", "WILD" };
+        static const char* const modeNames[4] = { "TIGHT", "WIDE", "WIDENER", "MACRO" };
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
         if (! parallaxModeButtons[0].getToggleState())
@@ -6407,7 +6389,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int gap    = 10;
         const int knobS  = juce::jmin (row2KnobSize, driftInner.getHeight() - kKnobLabelH,
                                        (driftInner.getWidth() - gap) / 2);
-        const int btnW   = juce::jmin (64, (driftInner.getWidth() - knobS - gap - 6) / 2);
+        const int btnW   = juce::jmin (78, (driftInner.getWidth() - knobS - gap - 6) / 2);   // "WIDENER" passt rein
         const int btnH   = 30, btnGap = 6;   // so hoch wie EARLY/LATE (User)
         auto block = driftInner.withSizeKeepingCentre (knobS + gap + btnW * 2 + btnGap, driftInner.getHeight());
         auto knobSlot = block.removeFromLeft (knobS);

@@ -27,6 +27,9 @@ struct GonioRingBuffer
 #ifndef SPACEX_RAYE_UI
  #define SPACEX_RAYE_UI 0     // 1 = SpaceXraye: Amount + Charakter
 #endif
+#ifndef SPACEX_PARALLAX_UI
+ #define SPACEX_PARALLAX_UI 0   // 1 = drei Regler (SpaceXparaCPU), sonst Modi + Amount
+#endif
 #ifndef SPACEX_CPU_OPT
  #define SPACEX_CPU_OPT 1     // 1 = SpaceXparaCPU: optimierte DSP
 #endif
@@ -161,6 +164,7 @@ public:
     // Rueckfluss in die Verarbeitung.
     std::atomic<float> currentDriftLivePercent { 0.0f };
     std::atomic<float> currentBendLiveCt { 0.0f };
+    std::atomic<float> currentParallaxAmountLive { 0.0f };   // Mod-Punkt auf Amount
     std::atomic<float> currentExpandLivePercent { 100.0f };
     std::atomic<float> currentBoostLiveDb { 0.0f };
     std::atomic<float> currentMovementLivePercent { 0.0f };
@@ -433,6 +437,13 @@ public:
     // User noch (MicroPitch / altes Parallax).
     static constexpr auto ID_PARALLAX_MODE   = "parallaxMode";
     static constexpr auto ID_PARALLAX_AMOUNT = "parallaxAmount";
+    // Runde 44: Parallax-Modi als WEGPUNKTE. Amount faehrt der Reihe nach
+    // von Punkt zu Punkt (gleichmaessig verteilt). amountIsMix: nur ein
+    // Punkt, Amount ist dann der Parallax-Mix (0..100 %).
+    struct ParallaxPoint { float driftPct, bendCt, tiltPct, mixPct, gainDb; };
+    struct ParallaxModeDef { int numPoints; bool amountIsMix; ParallaxPoint pts[4]; };
+    static const ParallaxModeDef& parallaxModeDef (int mode) noexcept;
+    static ParallaxPoint evalParallaxMode (int mode, float amount01) noexcept;
 
 
     // Aktueller LFO-Wert des Phasers (-1..1, 0 wenn aus) fuer das Starfield
@@ -487,6 +498,12 @@ private:
 
     SimplePitchShifter bendL, bendR;
     float lastBendForRatio = -1.0e9f;   // Cache fuer setRatio (Runde 38)
+    // Parallax-Modi (Runde 44): eigener Mix, Pegelausgleich und Tilt INNERHALB
+    // der Parallax-Stufe (entspricht dem globalen Mix, mit dem die Punkte
+    // eingestellt wurden).
+    juce::SmoothedValue<float> pxMixSmoothed, pxGainSmoothed, pxTiltLSmoothed, pxTiltRSmoothed;
+    std::atomic<float>* pParallaxMode = nullptr;
+    std::atomic<float>* pParallaxAmount = nullptr;
     StereoSTFTExtractor lcrExtractor;
 
     std::atomic<float>* pGalaxyActivate = nullptr;
