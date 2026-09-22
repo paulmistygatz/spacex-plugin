@@ -6166,13 +6166,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto row2 = rightColumn.removeFromTop (row2H);
     juce::Rectangle<int> driftFrame, wbFrame;
     constexpr bool kNewParallax = (kVariant == 0) && (SPACEX_OLD_PARALLAX == 0);
-    if (kNewParallax)
+    if (kVariant == 0)
     {
-        // Runde 34 (User): DIMENSION links gross, PARALLAX rechts so breit
-        // wie RAYE (ein Regler + vier Modus-Knoepfe).
+        // Runde 40 (User): PARALLAX wieder LINKS - so kommt man zuerst an die
+        // Sektion, die ein Mono-Signal ueberhaupt breit macht, und Dimension
+        // hat danach etwas zu tun. Die Groessen bleiben bewusst vertauscht:
+        // Parallax klein (so breit wie RAYE), Dimension gross - das Auge
+        // orientiert sich daran. Gilt fuer SpaceX und SpaceFX.
         auto r = row2;
-        driftFrame = r.removeFromRight (sharedRayColW);
-        r.removeFromRight (frameGap);
+        driftFrame = r.removeFromLeft (sharedRayColW);
+        r.removeFromLeft (frameGap);
         wbFrame = r;
     }
     else
@@ -6209,8 +6212,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Jetzt DREI Regler je Rahmen: Drift/Shift/Tilt und Size/Boost/Depth.
     const int driftGap     = 30; // Platz fuer das 24x24px-Balance-Icon
     const int wbGap        = 14;
-    const int row2KnobSize = (kVariant == 3) ? kBig
-                                             : juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
+    int row2KnobSize = (kVariant == 3) ? kBig
+                                       : juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
+    // SpaceFX: die drei alten Parallax-Regler muessen in den schmalen Rahmen
+    // passen - Dimension nimmt dieselbe Groesse, damit beide gleich aussehen.
+    if (kVariant == 0 && ! kNewParallax)
+        row2KnobSize = juce::jmin (row2KnobSize, (driftFrame.getWidth() - 20 - driftGap - wbGap) / 3);
 
     if (! kNewParallax)   // neues PARALLAX (Runde 34) nur im normalen Build
     {
@@ -6329,7 +6336,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
     {
         // Breiterer Rahmen (Runde 34): gleiche Reglergroesse, mehr Luft.
-        const int dimGap = kNewParallax ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
+        const int dimGap = (kVariant == 0) ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
         auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + dimGap * 2, wbInner.getHeight());
         auto swSlot = trio.removeFromLeft (row2KnobSize);
         trio.removeFromLeft (dimGap);
