@@ -1,3 +1,4 @@
+#include "DSP/FastMath.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -102,6 +103,8 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pPosOn       = apvts.getRawParameterValue (ID_POS_ON);
     pRayOn       = apvts.getRawParameterValue (ID_RAY_ON);
     pRayStrength = apvts.getRawParameterValue (ID_RAY_STRENGTH);
+    pRayAmount   = apvts.getRawParameterValue (ID_RAY_AMOUNT);
+    pRayChar     = apvts.getRawParameterValue (ID_RAY_CHAR);
     pRayRate     = apvts.getRawParameterValue (ID_RAY_RATE);
     pRayPair     = apvts.getRawParameterValue (ID_RAY_PAIR);
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
@@ -188,6 +191,17 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
         }
         juce::ignoreUnused (appliedFullDefault);
     });
+}
+
+// SpaceXraye (Runde 41): vier Charaktere. Sweep = das bisherige RAYE.
+const LCRMSAudioProcessor::RayCharacter& LCRMSAudioProcessor::rayCharacterFor (int index) noexcept
+{
+    //                                   centreHz sweepMul fbMul mixMul stereoOffset rateMul
+    static const RayCharacter chars[4] = { {  900.0f, 1.00f, 1.00f, 1.00f, 0.25f,  1.00f },    // Sweep: breiter, langsamer Schwung
+                                           { 3200.0f, 0.60f, 0.80f, 0.90f, 0.25f,  2.00f },    // Shimmer: fein, oben rum, schneller
+                                           {  500.0f, 1.25f, 1.30f, 1.00f, 0.50f,  0.75f },    // Spin: tief, L/R gegenlaeufig -> Drehung
+                                           { 1400.0f, 1.10f, 1.00f, 1.00f, 0.125f, 0.50f } };  // Swirl: sehr langsam, weich
+    return chars[juce::jlimit (0, 3, index)];
 }
 
 // RAYE-Stufe (0..3) -> Tiefe 0..1: Off=0, Light=1/3, Medium=2/3, Strong=1.
@@ -314,6 +328,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // Reine An/Aus-Option, siehe ID_TIMEWARP_BALANCE-Kommentar im Header.
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_TIMEWARP_BALANCE, 1 }, "Balance", false));
+
+    // SpaceXraye (Runde 41): Amount stufenlos + Charakter. In den anderen
+    // Builds vorhanden, aber ohne Wirkung.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_RAY_AMOUNT, 1 }, "Ray Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 33.3f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ID_RAY_CHAR, 1 }, "Ray Character",
+        juce::StringArray { "Sweep", "Shimmer", "Spin", "Swirl" }, 0));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
@@ -722,7 +745,14 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rayOnGain.reset (sampleRate, onOffRampSeconds);
     rayOnGain.setCurrentAndTargetValue (pRayOn->load() > 0.5f ? 1.0f : 0.0f);
     rayDepthSmoothed.reset (sampleRate, knobRampSeconds);
+   #if SPACEX_RAYE_UI == 1
+    rayDepthSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pRayAmount->load() * 0.01f));
+   #else
     rayDepthSmoothed.setCurrentAndTargetValue (rayStrengthToDepth (pRayStrength->load()));
+   #endif
+    spacex::sinTable();   // Tabelle hier anlegen, nicht im Audio-Thread
+    rayCoefValid = false; rayCoefCountdown = 0;
+    offsetPanCachePos = -9.0f;
     rayLifeSmoothed.reset (sampleRate, knobRampSeconds);
     rayLifeSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
@@ -1257,7 +1287,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     flowOnGain.setTargetValue       ((pFlowOn->load()       > 0.5f && (! soloActive || soloSection == SOLO_HYPERDRIVE)) ? 1.0f : 0.0f);
     posOnGain.setTargetValue        ((pPosOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_POSITION))   ? 1.0f : 0.0f);
     rayOnGain.setTargetValue        ((pRayOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_RAY))        ? 1.0f : 0.0f);
+   #if SPACEX_RAYE_UI == 1
+    rayDepthSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pRayAmount->load() * 0.01f));   // Amount stufenlos
+   #else
     rayDepthSmoothed.setTargetValue (rayStrengthToDepth (pRayStrength->load()));
+   #endif
     // LIFE regelt auch RAYE (User, Runde 39): 0 % = alles steht still.
     rayLifeSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     // Mono-Check ist ein reines Monitoring-Utility, kein Solo-Ziel.
@@ -1375,7 +1409,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const double halfBarSeconds = (60.0 / bpm) * 2.0;
     const double rayCycle   = rayPair ? juce::jmax (cycleSeconds * 2.0, halfBarSeconds)
                                       : 1.0 / (double) juce::jmax (0.01f, pRayRate->load());
+   #if SPACEX_RAYE_UI == 1
+    // SpaceXraye (Runde 41): Charakter waehlt u. a. das Tempo relativ zu Speed.
+    const RayCharacter& rayChar = rayCharacterFor ((int) std::round (pRayChar->load()));
+    const double rayPhaseInc = (1.0 / rayCycle) / currentSampleRate * (double) rayChar.rateMul;
+   #else
     const double rayPhaseInc = (1.0 / rayCycle) / currentSampleRate;
+   #endif
     float lastRayLfo = 0.0f;
     // Vorberechnung fuer die Allpass-Koeffizienten: a = (t-1)/(t+1) mit
     // t = tan(pi*f/fs). Statt tan() je Sample und Stufe wird die Sweep-
@@ -1714,12 +1754,23 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             }
             else
             {
+               #if SPACEX_CPU_OPT
+                lfo = spacex::fastSinCycles (autoPanPhase);
+               #else
                 lfo = (float) std::sin (autoPanPhase * juce::MathConstants<double>::twoPi);
+               #endif
             }
             const float panPos = juce::jlimit (-1.0f, 1.0f, lfo * moveS);
+           #if SPACEX_CPU_OPT
+            // Winkel (panPos+1)*pi/4 in Umdrehungen = (panPos+1)/8.
+            const double turns = (double) (panPos + 1.0f) * 0.125;
+            const float gPanL = spacex::fastCosCycles (turns) * juce::MathConstants<float>::sqrt2;
+            const float gPanR = spacex::fastSinCycles (turns) * juce::MathConstants<float>::sqrt2;
+           #else
             const float angle = (panPos + 1.0f) * (juce::MathConstants<float>::pi * 0.25f);
             const float gPanL = std::cos (angle) * juce::MathConstants<float>::sqrt2;
             const float gPanR = std::sin (angle) * juce::MathConstants<float>::sqrt2;
+           #endif
             lFlow = l * gPanL;
             rFlow = r * gPanR;
             lastPanPos = panPos;
@@ -1743,11 +1794,24 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             // Offset: konstante-Leistung-Pan, identisch zum Auto-Pan-Ansatz.
             {
                 const float panPos = juce::jlimit (-1.0f, 1.0f, offsetS);
+               #if SPACEX_CPU_OPT
+                // Nur neu rechnen, wenn sich Tilt bewegt (exakt gleiches Ergebnis).
+                if (panPos != offsetPanCachePos)
+                {
+                    offsetPanCachePos = panPos;
+                    const float angle = (panPos + 1.0f) * (juce::MathConstants<float>::pi * 0.25f);
+                    offsetPanCacheL = std::cos (angle) * juce::MathConstants<float>::sqrt2;
+                    offsetPanCacheR = std::sin (angle) * juce::MathConstants<float>::sqrt2;
+                }
+                lPos *= offsetPanCacheL;
+                rPos *= offsetPanCacheR;
+               #else
                 const float angle = (panPos + 1.0f) * (juce::MathConstants<float>::pi * 0.25f);
                 const float gPanL = std::cos (angle) * juce::MathConstants<float>::sqrt2;
                 const float gPanR = std::sin (angle) * juce::MathConstants<float>::sqrt2;
                 lPos *= gPanL;
                 rPos *= gPanR;
+               #endif
             }
 
             // TILT gehoert jetzt zu PARALLAX und haengt deshalb an DESSEN
@@ -1836,9 +1900,19 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 // (Pair). Rechter Kanal eine Viertelperiode voraus -> die
                 // Kerben kreisen durchs Stereobild statt nur zu wobbeln.
                 const double ph = rayPhase;   // Pair aendert nur das Tempo (siehe rayCycle)
-                const float lfoL = (float) std::sin (ph * juce::MathConstants<double>::twoPi);
-                const float lfoR = (float) std::sin ((ph + 0.25) * juce::MathConstants<double>::twoPi);
+               #if SPACEX_RAYE_UI == 1
+                const double stereoOff = (double) rayChar.stereoOffset;
+               #else
+                const double stereoOff = 0.25;
+               #endif
+               #if SPACEX_CPU_OPT
+                const float lfoL = spacex::fastSinCycles (ph);
                 lastRayLfo = lfoL;
+               #else
+                const float lfoL = (float) std::sin (ph * juce::MathConstants<double>::twoPi);
+                const float lfoR = (float) std::sin ((ph + stereoOff) * juce::MathConstants<double>::twoPi);
+                lastRayLfo = lfoL;
+               #endif
 
                 // Staerke skaliert drei Dinge gemeinsam: Sweep-Breite in
                 // Oktaven, Rueckkopplung und Wet-Anteil. Nur den Anteil zu
@@ -1849,13 +1923,23 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 // Kerben. Strong liegt jetzt etwa beim alten Light/Medium.
                 // Dritter Anlauf (User: "wieder bisschen staerker, aber nicht
                 // zu viel"): zwischen der ersten und der zweiten Fassung.
+               #if SPACEX_RAYE_UI == 1
+                const float sweepOct = (1.3f + depth01 * 1.7f) * rayChar.sweepMul;
+               #else
                 const float sweepOct = 1.3f + depth01 * 1.7f;      // 1,3 .. 3,0 Oktaven (urspruenglich 1,6 .. 3,8; zuletzt 1,1 .. 2,5)
+               #endif
                 // Runde 34 (User: "Raye ist auf Minimum schon zu viel - die
                 // Haelfte reicht; insgesamt runter skalieren"): Anteil und
                 // Rueckkopplung aller Stufen halbiert.
+               #if SPACEX_RAYE_UI == 1
+                const float feedback = (0.04f + depth01 * 0.11f) * rayChar.fbMul;
+                const float mix      = (0.10f + depth01 * 0.10f) * rayChar.mixMul;
+                const float centreHz = rayChar.centreHz;
+               #else
                 const float feedback = 0.04f + depth01 * 0.11f;    // 0,04 .. 0,15 (vorher 0,08 .. 0,30)
                 const float mix      = 0.10f + depth01 * 0.10f;    // 0,10 .. 0,20 (vorher 0,20 .. 0,40; 0,5 = volle Kerben)
                 constexpr float centreHz = 900.0f;
+               #endif
 
                 auto coeffFor = [&] (float lfo) -> float
                 {
@@ -1863,8 +1947,34 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                     const float t = std::tan (juce::jlimit (30.0f, 0.45f * (float) currentSampleRate, f) * rayPiOverFs);
                     return (t - 1.0f) / (t + 1.0f);
                 };
+               #if SPACEX_CPU_OPT
+                // CPU-Build: exp2/tan nur alle 8 Samples, exakt an den
+                // Rasterpunkten, dazwischen linear - bei LFO-Tempi unter
+                // 2 Hz liegt der Unterschied weit unter jeder Hoerschwelle.
+                if (rayCoefCountdown <= 0)
+                {
+                    constexpr int kStep = 8;
+                    if (! rayCoefValid)
+                    {
+                        rayAL = coeffFor (lfoL);
+                        rayAR = coeffFor (spacex::fastSinCycles (ph + stereoOff));
+                        rayCoefValid = true;
+                    }
+                    const double phNext = ph + rayPhaseInc * (double) kStep;
+                    const float tL = coeffFor (spacex::fastSinCycles (phNext));
+                    const float tR = coeffFor (spacex::fastSinCycles (phNext + stereoOff));
+                    rayAStepL = (tL - rayAL) / (float) kStep;
+                    rayAStepR = (tR - rayAR) / (float) kStep;
+                    rayCoefCountdown = kStep;
+                }
+                const float aL = rayAL, aR = rayAR;
+                rayAL += rayAStepL;
+                rayAR += rayAStepR;
+                --rayCoefCountdown;
+               #else
                 const float aL = coeffFor (lfoL);
                 const float aR = coeffFor (lfoR);
+               #endif
 
                 // ("Sides"-Modus - Phaser nur auf L-R - wieder entfernt: User
                 //  hoerte kaum einen Unterschied.)
@@ -1892,6 +2002,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 // Altes nachklingt.
                 for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
                 rayFbL = rayFbR = 0.0f;
+                rayCoefValid = false;
+                rayCoefCountdown = 0;
             }
 
             rayPhase += rayPhaseInc;

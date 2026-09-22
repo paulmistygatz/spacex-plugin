@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include "FastMath.h"
 
 // Sehr einfacher, guenstiger "Micro-Pitch"-Shifter (Eventide-MicroPitch-
 // Prinzip): klassische Zwei-Tap-Crossfade-Technik mit variabler Verzoegerung
@@ -50,15 +51,24 @@ public:
         if (phase >= 1.0f) phase -= 1.0f;
         if (phase < 0.0f) phase += 1.0f;
 
+       #if SPACEX_CPU_OPT
+        const float phaseB = (phase < 0.5f) ? phase + 0.5f : phase - 0.5f;   // = fmod(phase+0.5, 1)
+       #else
         const float phaseB = std::fmod (phase + 0.5f, 1.0f);
+       #endif
 
         const float outA = readTap (phase);
         const float outB = readTap (phaseB);
 
         // Runde 35: Hann- statt Dreiecksfenster (sin^2 + cos^2 = 1, gleiche
         // Lautstaerke, aber ohne Knick an den Uebergaengen -> weicher).
+       #if SPACEX_CPU_OPT
+        // sin^2(pi*p) = 0.5 - 0.5*cos(2*pi*p), Cosinus aus der Tabelle.
+        const float winA = 0.5f - 0.5f * spacex::fastCosCycles ((double) phase);
+       #else
         const float sA = std::sin (juce::MathConstants<float>::pi * phase);
         const float winA = sA * sA;
+       #endif
         const float winB = 1.0f - winA;
 
         writePos = (writePos + 1) % bufferSize;

@@ -1,4 +1,5 @@
 #pragma once
+#include "FastMath.h"   // nur fuer SPACEX_CPU_OPT
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <atomic>
@@ -169,7 +170,11 @@ public:
     {
         fifoInL[(size_t) fifoPos] = lIn;
         fifoInR[(size_t) fifoPos] = rIn;
+       #if SPACEX_CPU_OPT
+        if (++fifoPos == fftSize) fifoPos = 0;
+       #else
         fifoPos = (fifoPos + 1) % fftSize;
+       #endif
 
         // Verzoegertes Original (genau fftSize Samples: erst lesen, dann
         // an dieselbe Stelle schreiben).
@@ -177,11 +182,19 @@ public:
         const float dr = dryR[(size_t) dryPos];
         dryL[(size_t) dryPos] = lIn;
         dryR[(size_t) dryPos] = rIn;
+       #if SPACEX_CPU_OPT
+        if (++dryPos == fftSize) dryPos = 0;
+       #else
         dryPos = (dryPos + 1) % fftSize;
+       #endif
 
         const float c = outC[(size_t) outReadPos];
         outC[(size_t) outReadPos] = 0.0f;
+       #if SPACEX_CPU_OPT
+        if (++outReadPos == ringSize) outReadPos = 0;
+       #else
         outReadPos = (outReadPos + 1) % ringSize;
+       #endif
 
         centerOut = c;
         lOnlyOut  = dl - c;
@@ -265,6 +278,34 @@ private:
             rebuildMask();
 
         // --- Analyse ---------------------------------------------------------
+       #if SPACEX_CPU_OPT
+        // CPU-Build (Runde 41): L und R in EINER komplexen FFT (L = Real-,
+        // R = Imaginaerteil) statt zwei getrennten. Mathematisch dieselben
+        // Spektren, nur Rundungsunterschiede im Bereich 1e-7:
+        //   L[k] = (Z[k] + conj Z[N-k]) / 2,  R[k] = (Z[k] - conj Z[N-k]) / 2j
+        {
+            int idx = fifoPos;
+            for (int i = 0; i < fftSize; ++i)
+            {
+                cBuf[(size_t) i * 2]     = fifoInL[(size_t) idx] * window[(size_t) i];
+                cBuf[(size_t) i * 2 + 1] = fifoInR[(size_t) idx] * window[(size_t) i];
+                if (++idx == fftSize) idx = 0;
+            }
+            fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()),
+                          reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()), false);
+            const int nbHalf = fftSize / 2;
+            for (int b = 0; b <= nbHalf; ++b)
+            {
+                const int m = (b == 0) ? 0 : fftSize - b;
+                const float zr = cBuf[(size_t) b * 2], zi = cBuf[(size_t) b * 2 + 1];
+                const float wr = cBuf[(size_t) m * 2], wi = cBuf[(size_t) m * 2 + 1];
+                bufL[(size_t) b * 2]     = 0.5f * (zr + wr);
+                bufL[(size_t) b * 2 + 1] = 0.5f * (zi - wi);
+                bufR[(size_t) b * 2]     = 0.5f * (zi + wi);
+                bufR[(size_t) b * 2 + 1] = -0.5f * (zr - wr);
+            }
+        }
+       #else
         std::fill (bufL.begin(), bufL.end(), 0.0f);
         std::fill (bufR.begin(), bufR.end(), 0.0f);
         for (int i = 0; i < fftSize; ++i)
@@ -278,6 +319,7 @@ private:
                       reinterpret_cast<juce::dsp::Complex<float>*> (bufL.data()), false);
         fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (bufR.data()),
                       reinterpret_cast<juce::dsp::Complex<float>*> (bufR.data()), false);
+       #endif
 
         const int   nb    = fftSize / 2;
         const float a     = specAlpha;
@@ -326,8 +368,13 @@ private:
 
             float g = juce::jlimit (0.0f, 1.0f, align) * juce::jlimit (0.0f, 1.0f, coh)
                         * (1.0f - levelDiff);
+           #if SPACEX_CPU_OPT
+            if (g > 0.0f && power != 1.0f)   // pow(g, 1) = g: exakt gleich, nur ohne Rechnung
+                g = std::pow (g, power);
+           #else
             if (g > 0.0f)
                 g = std::pow (g, power);
+           #endif
             gain[s] = g * mask[s];
         }
 

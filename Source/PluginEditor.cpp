@@ -2956,6 +2956,28 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
                 applyParallaxMode();
             };
         }
+       #if SPACEX_PARALLAX_UI == 2
+        // SpaceXclick (Runde 41): EIN Knopf zeigt den Modus, Klick = weiter,
+        // Cmd+Klick = zurueck. Die anderen drei Knoepfe sind aus.
+        {
+            auto& b = parallaxModeButtons[0];
+            b.setRadioGroupId (0, juce::dontSendNotification);
+            b.setClickingTogglesState (false);
+            b.setTooltip ("Parallax mode: click for the next one, Cmd-click to go back");
+            b.onClick = [this]
+            {
+                if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE))
+                {
+                    const int cur = juce::jlimit (0, 3, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
+                    const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
+                    const int next = (cur + (back ? 3 : 1)) % 4;
+                    prm->setValueNotifyingHost (prm->convertTo0to1 ((float) next));
+                }
+                applyParallaxMode();
+            };
+            for (int i = 1; i < 4; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
+        }
+       #endif
     }
 
     // --- Polarity -----------------------------------------------------------
@@ -3213,6 +3235,34 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         const int current = juce::jlimit (0, 3, (int) std::round (stP->convertFrom0to1 (stP->getValue())));
         stP->setValueNotifyingHost (stP->convertTo0to1 ((float) ((current + 1) % 4)));
     };
+
+   #if SPACEX_RAYE_UI == 1
+    // SpaceXraye (Runde 41): Amount = wie stark (stufenlos, ersetzt die drei
+    // Stufen), Charakter-Knopf = welche Art von Bewegung.
+    rayStrengthButton.setVisible (false);
+    rayStrengthButton.setEnabled (false);
+    styleRotary (rayAmountSlider, false);
+    content.addAndMakeVisible (rayAmountSlider);
+    styleLabel (rayAmountLabel, "Amount");
+    content.addAndMakeVisible (rayAmountLabel);
+    rayAmountAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_AMOUNT, rayAmountSlider);
+    rayAmountSlider.setDoubleClickReturnValue (true, 33.3, juce::ModifierKeys::commandModifier);
+    rayAmountSlider.setTooltip ("Amount: how strong the movement is");
+    rayCharButton.setClickingTogglesState (false);
+    rayCharButton.setWantsKeyboardFocus (false);
+    rayCharButton.getProperties().set ("thinOnFrame", true);
+    rayCharButton.setTooltip ("Character: Sweep, Shimmer, Spin, Swirl. Click for the next one, Cmd-click to go back");
+    content.addAndMakeVisible (rayCharButton);
+    rayCharButton.onClick = [this]
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_CHAR))
+        {
+            const int cur = juce::jlimit (0, 3, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
+            const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) ((cur + (back ? 3 : 1)) % 4)));
+        }
+    };
+   #endif
 
     styleRotary (rayRateSlider, false);
     content.addAndMakeVisible (rayRateSlider);
@@ -3945,6 +3995,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (offsetSlider, isDriftOn);
     setSectionOff (distanceSlider, isWidthBoostOn);
     setSectionOff (rayStrengthButton, isRayOn);
+   #if SPACEX_RAYE_UI == 1
+    setSectionOff (rayAmountSlider, isRayOn);
+    setSectionOff (rayCharButton, isRayOn);
+   #endif
     setSectionOff (rayPairButton, isRayOn);
     // Regler-Beschriftungen: bei Sektion aus deutlich dunkler (User: "hilft
     // nochmal zu sehen, dass die Section off ist"). Farbe aus der Off-
@@ -4290,9 +4344,27 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
     {
         const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+       #if SPACEX_PARALLAX_UI == 2
+        static const char* const modeNames[4] = { "TIGHT", "WIDE", "DEEP", "WILD" };
+        if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
+            parallaxModeButtons[0].setButtonText (modeNames[mode]);
+        if (! parallaxModeButtons[0].getToggleState())
+            parallaxModeButtons[0].setToggleState (true, juce::dontSendNotification);
+       #else
         for (int i = 0; i < 4; ++i)
             if (parallaxModeButtons[i].getToggleState() != (i == mode))
                 parallaxModeButtons[i].setToggleState (i == mode, juce::dontSendNotification);
+       #endif
+       #if SPACEX_RAYE_UI == 1
+        {
+            static const char* const charNames[4] = { "SWEEP", "SHIMMER", "SPIN", "SWIRL" };
+            const int c = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_CHAR)->load()));
+            if (rayCharButton.getButtonText() != charNames[c])
+                rayCharButton.setButtonText (charNames[c]);
+            if (! rayCharButton.getToggleState())
+                rayCharButton.setToggleState (true, juce::dontSendNotification);
+        }
+       #endif
     }
 
     // Polarity-Positions-Buttons mit dem aktuellen Parameterwert synchron
@@ -6165,7 +6237,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // ===== Reihe 2: Warp/Drift (links) + Size (rechts) ======================
     auto row2 = rightColumn.removeFromTop (row2H);
     juce::Rectangle<int> driftFrame, wbFrame;
-    constexpr bool kNewParallax = (kVariant == 0) && (SPACEX_OLD_PARALLAX == 0);
+    constexpr bool kNewParallax = (kVariant == 0) && (SPACEX_PARALLAX_UI != 1);
     if (kVariant == 0)
     {
         // Runde 40 (User): PARALLAX wieder LINKS - so kommt man zuerst an die
@@ -6173,10 +6245,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // hat danach etwas zu tun. Die Groessen bleiben bewusst vertauscht:
         // Parallax klein (so breit wie RAYE), Dimension gross - das Auge
         // orientiert sich daran. Gilt fuer SpaceX und SpaceFX.
-        auto r = row2;
-        driftFrame = r.removeFromLeft (sharedRayColW);
-        r.removeFromLeft (frameGap);
-        wbFrame = r;
+        // Runde 41 (User): Parallax GLEICH GROSS wie Dimension, in allen Builds.
+        auto [a, b] = splitFrame (row2);
+        driftFrame = a; wbFrame = b;
     }
     else
     {
@@ -6326,11 +6397,18 @@ void LCRMSAudioProcessorEditor::layoutContent()
         block.removeFromLeft (gap);
         placeKnobWithLabel (knobSlot, parallaxAmountSlider, parallaxAmountLabel, knobS);
 
+       #if SPACEX_PARALLAX_UI == 2
+        // Ein Klick-Knopf statt 2x2 (so breit wie zwei der Rasterknoepfe).
+        parallaxModeButtons[0].setBounds (block.getX(), parallaxAmountSlider.getBounds().getCentreY() - btnH / 2,
+                                          btnW * 2 + btnGap, btnH);
+        for (int i = 1; i < 4; ++i) parallaxModeButtons[i].setBounds ({});
+       #else
         const int gridH = btnH * 2 + btnGap;
         const int gridY = parallaxAmountSlider.getBounds().getCentreY() - gridH / 2;
         for (int i = 0; i < 4; ++i)
             parallaxModeButtons[i].setBounds (block.getX() + (i % 2) * (btnW + btnGap),
                                               gridY + (i / 2) * (btnH + btnGap), btnW, btnH);
+       #endif
     }
 
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
@@ -6431,6 +6509,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         rayHeader.removeFromLeft (8);
         rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
+    const auto rayHeaderForChar = rayHeader;   // SpaceXraye: Charakter-Knopf rechts im Kopf
+    juce::ignoreUnused (rayHeaderForChar);
     fitTitle (rayTitleLabel, rayHeader);
     rayFrame.removeFromTop (6);
 
@@ -6445,7 +6525,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto slotA = rayFrame.removeFromLeft (slotW);
         rayFrame.removeFromLeft (gap);
         const int iconSize = juce::jmin (slotW, rayKnobAreaH);
+       #if SPACEX_RAYE_UI == 1
+        // Amount statt Stufen-Icon; der Charakter-Knopf sitzt rechts im Kopf.
+        rayStrengthButton.setBounds ({});
+        placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, iconSize);
+        {
+            auto head = rayHeaderForChar;
+            rayCharButton.setBounds (head.removeFromRight (juce::jmin (84, head.getWidth() / 2)).withSizeKeepingCentre (juce::jmin (84, head.getWidth() / 2), juce::jmin (22, head.getHeight())));
+        }
+       #else
         rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
+       #endif
 
         auto slotB = rayFrame.removeFromLeft (slotW);
         rayFrame.removeFromLeft (gap);

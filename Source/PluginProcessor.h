@@ -24,6 +24,13 @@ struct GonioRingBuffer
     }
 };
 
+#ifndef SPACEX_RAYE_UI
+ #define SPACEX_RAYE_UI 0     // 1 = SpaceXraye: Amount + Charakter
+#endif
+#ifndef SPACEX_CPU_OPT
+ #define SPACEX_CPU_OPT 0     // 1 = SpaceXparaCPU: optimierte DSP
+#endif
+
 class LCRMSAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -415,6 +422,10 @@ public:
     static constexpr auto ID_RAY_STRENGTH = "rayStrength";
     static constexpr auto ID_RAY_RATE     = "rayRate";
     static constexpr auto ID_RAY_PAIR     = "rayPair";
+    static constexpr auto ID_RAY_AMOUNT   = "rayAmount";   // SpaceXraye
+    static constexpr auto ID_RAY_CHAR     = "rayCharacter"; // SpaceXraye
+    struct RayCharacter { float centreHz, sweepMul, fbMul, mixMul, stereoOffset, rateMul; };
+    static const RayCharacter& rayCharacterFor (int index) noexcept;
 
     // PARALLAX neu (Runde 34, User: "1 Regler + 4 Buttons"): Modus waehlt
     // eine feste Einstellung, Amount skaliert sie. Vorlaeufig schreibt die
@@ -514,6 +525,8 @@ private:
 
     std::atomic<float>* pRayOn = nullptr;
     std::atomic<float>* pRayStrength = nullptr;
+    std::atomic<float>* pRayAmount = nullptr;
+    std::atomic<float>* pRayChar = nullptr;
     std::atomic<float>* pRayRate = nullptr;
     std::atomic<float>* pRayPair = nullptr;
 
@@ -529,6 +542,11 @@ private:
     float rayFbL = 0.0f, rayFbR = 0.0f;
     double rayPhase = 0.0;
     juce::SmoothedValue<float> rayOnGain, rayDepthSmoothed;
+    // CPU-Build (Runde 41): RAYE-Koeffizienten im 8er-Raster, Tilt-Pan-Cache.
+    float rayAL = 0.0f, rayAR = 0.0f, rayAStepL = 0.0f, rayAStepR = 0.0f;
+    int   rayCoefCountdown = 0;
+    bool  rayCoefValid = false;
+    float offsetPanCachePos = -9.0f, offsetPanCacheL = 1.0f, offsetPanCacheR = 1.0f;
     juce::SmoothedValue<float> rayLifeSmoothed;   // LIFE skaliert auch RAYE (Runde 39)
 
     std::atomic<float>* pPosOn = nullptr;

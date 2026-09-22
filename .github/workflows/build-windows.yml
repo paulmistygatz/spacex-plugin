@@ -24,8 +24,16 @@ jobs:
         include:
           - variant: ""
             product: SpaceX
-          - variant: FX
-            product: SpaceFX
+          - variant: para
+            product: SpaceXpara
+          - variant: paraCPU
+            product: SpaceXparaCPU
+          - variant: presets
+            product: SpaceXpresets
+          - variant: click
+            product: SpaceXclick
+          - variant: raye
+            product: SpaceXraye
     name: ${{ matrix.product }}
     steps:
       - uses: actions/checkout@v4

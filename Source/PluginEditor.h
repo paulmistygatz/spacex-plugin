@@ -59,8 +59,16 @@ enum SpaceXSettingsId
 #ifndef SPACEX_ROW2_VARIANT
  #define SPACEX_ROW2_VARIANT 0
 #endif
-#ifndef SPACEX_OLD_PARALLAX
- #define SPACEX_OLD_PARALLAX 0   // SpaceFX: alte Parallax-Regler
+// Vergleichs-Builds (Runde 41):
+//   SPACEX_PARALLAX_UI 0 = Amount + 4 Knoepfe (SpaceX, SpaceXpresets)
+//                      1 = drei Regler Drift/Shift/Tilt (SpaceXpara, SpaceXparaCPU)
+//                      2 = Amount + EIN Klick-Knopf (SpaceXclick, SpaceXraye)
+//   SPACEX_RAYE_UI     1 = RAYE mit Amount + Charakter-Klick (SpaceXraye)
+#ifndef SPACEX_PARALLAX_UI
+ #define SPACEX_PARALLAX_UI 0
+#endif
+#ifndef SPACEX_RAYE_UI
+ #define SPACEX_RAYE_UI 0
 #endif
 
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -1490,6 +1498,11 @@ private:
     juce::Slider parallaxAmountSlider;
     juce::Label  parallaxAmountLabel;
     juce::TextButton parallaxModeButtons[4];
+    // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
+    juce::Slider rayAmountSlider;
+    juce::Label  rayAmountLabel;
+    juce::TextButton rayCharButton;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rayAmountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> parallaxAmountAttachment;
     void applyParallaxMode();
     // Filter-Bypass je Sektion (siehe LookAndFeel "filterIcon").

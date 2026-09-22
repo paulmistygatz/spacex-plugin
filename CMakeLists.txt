@@ -43,11 +43,13 @@ FetchContent_MakeAvailable(JUCE)
 # Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
-set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, FX (alt: A, B, C)")
+set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, para, paraCPU, presets, click, raye (alt: A, B, C)")
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
-set(SPX_OLDPX   0)
+set(SPX_PXUI    0)   # Parallax: 0 = Amount + 4 Knoepfe, 1 = drei Regler, 2 = Klick-Knopf
+set(SPX_RAYEUI  0)   # RAYE: 1 = Amount + Charakter
+set(SPX_CPUOPT  0)   # 1 = optimierte DSP (Vergleich)
 set(SPX_NOVIS   0)
 set(SPX_EXTRA   "")
 set(SPX_OWN     "")
@@ -60,13 +62,25 @@ elseif (SPACEX_VARIANT STREQUAL "B")
 elseif (SPACEX_VARIANT STREQUAL "C")
     set(SPX_ROW2 3)
     set(SPX_OWN "SpaceX-C" "SpxC")
-elseif (SPACEX_VARIANT STREQUAL "FX")
-    # SpaceFX: heutiger Stand, aber PARALLAX mit den alten Reglern
-    # (Drift/Shift/Tilt/Balance) - zum Einstellen und Vergleichen.
-    set(SPX_OLDPX 1)
-    set(SPX_OWN "SpaceFX" "SpFX")
+elseif (SPACEX_VARIANT STREQUAL "para")
+    set(SPX_PXUI 1)
+    set(SPX_OWN "SpaceXpara" "SXpa")
+elseif (SPACEX_VARIANT STREQUAL "paraCPU")
+    set(SPX_PXUI 1)
+    set(SPX_CPUOPT 1)
+    set(SPX_OWN "SpaceXparaCPU" "SXpc")
+elseif (SPACEX_VARIANT STREQUAL "presets")
+    set(SPX_PXUI 0)
+    set(SPX_OWN "SpaceXpresets" "SXpr")
+elseif (SPACEX_VARIANT STREQUAL "click")
+    set(SPX_PXUI 2)
+    set(SPX_OWN "SpaceXclick" "SXcl")
+elseif (SPACEX_VARIANT STREQUAL "raye")
+    set(SPX_PXUI 2)
+    set(SPX_RAYEUI 1)
+    set(SPX_OWN "SpaceXraye" "SXry")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, FX, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, para, paraCPU, presets, click, raye, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)
@@ -120,7 +134,9 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
     SPACEX_ROW2_VARIANT=${SPX_ROW2}
-    SPACEX_OLD_PARALLAX=${SPX_OLDPX}
+    SPACEX_PARALLAX_UI=${SPX_PXUI}
+    SPACEX_RAYE_UI=${SPX_RAYEUI}
+    SPACEX_CPU_OPT=${SPX_CPUOPT}
     SPACEX_NO_VISUALS=${SPX_NOVIS}
 )
 
