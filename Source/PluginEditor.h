@@ -48,7 +48,8 @@ enum SpaceXSettingsId
     idAutoGain,
     idBassGuard,
     idShowAdvancedMod,
-    idTechnicalLabels
+    idTechnicalLabels,
+    idBackPanel
 };
 
 // ===== Varianten-Builds fuer den Layout-Vergleich (User) =====
@@ -89,6 +90,9 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void closeViewPanel();
     void closeSettingsPanel();
+    void startTour();
+    void showBackPanel();
+    void closeBackPanel();
     // Stand beim Oeffnen des Settings-Panels - "Cancel" stellt ihn wieder her
     // (gleiche Idee wie im View-Panel).
     struct SettingsSnapshot
@@ -260,6 +264,7 @@ private:
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
+                         aboutBtn { "Back Panel" },
                          resetBtn { "Reset" }, cancelBtn { "Cancel" }, saveBtn { "Save" },
                          licenceBtn { "Activate..." };
 
@@ -330,6 +335,7 @@ private:
             setup (stateBtn,  "Save State as Default", idSaveStateDefault);
             setup (folderBtn, "Preset Folder...",      idOpenPresetFolder);
             setup (manualBtn, "Manual",                idOpenManual);
+            setup (aboutBtn,  "Back Panel",            idBackPanel);
             setup (resetBtn,  "Reset",                 idResetSettings);
             setup (licenceBtn, "Activate...", idActivate);
             setup (cancelBtn, "Cancel", idCancelSettings);
@@ -445,9 +451,9 @@ private:
                 // "Save Window Size" ist weg - die Groesse merkt sich das
                 // Plugin jetzt selbst.
                 sizeBtn.setVisible (false);
-                const int n = 3;
+                const int n = 4;
                 const int w1 = (row1.getWidth() - gap * (n - 1)) / n;
-                juce::TextButton* row[n] = { &stateBtn, &folderBtn, &manualBtn };
+                juce::TextButton* row[n] = { &stateBtn, &folderBtn, &manualBtn, &aboutBtn };
                 int x = row1.getX();
                 for (int i = 0; i < n; ++i) { row[i]->setBounds (x, row1.getY(), w1, row1.getHeight()); x += w1 + gap; }
             }
@@ -490,6 +496,260 @@ private:
         int hoverTheme = -1;
         juce::Image themeShot[kThemes];
         juce::Rectangle<int> previewArea;
+    };
+
+
+    // ===== BACK PANEL =====
+    // Die Rueckseite des Geraetes (User-Wunsch). Hier wird nichts eingestellt:
+    // wer es gebaut hat, wie man ihn erreicht, und auf welchen Namen diese
+    // Kopie laeuft. Die Kontaktdaten stehen als Konstanten in
+    // PluginEditor.cpp (spacexContact) - eine Stelle zum Aendern.
+    class BackPanelComponent : public juce::Component
+    {
+    public:
+        juce::Label title, slogan, regHead, regName, byHead, byName,
+                    thanksHead, thanksText, footer, qrCaption;
+        juce::TextButton mailBtn, webBtn, instaBtn, coffeeBtn,
+                         tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" };
+        std::function<void()> onTour;
+        std::function<void()> onClose;
+        std::function<void()> onManual;
+        juce::Image qrImage;
+
+        BackPanelComponent()
+        {
+            auto lab = [this] (juce::Label& l, float size, juce::Colour col, bool bold,
+                               juce::Justification just = juce::Justification::centredLeft)
+            {
+                l.setFont (juce::Font (juce::FontOptions (size, bold ? juce::Font::bold : juce::Font::plain))
+                               .withExtraKerningFactor (0.06f));
+                l.setColour (juce::Label::textColourId, col);
+                l.setJustificationType (just);
+                l.setInterceptsMouseClicks (false, false);
+                addAndMakeVisible (l);
+            };
+            lab (title,      22.0f, juce::Colour (0xffe4e7ec), true,  juce::Justification::centred);
+            lab (slogan,     12.5f, juce::Colour (0xff8f96a4), false, juce::Justification::centred);
+            lab (regHead,    11.5f, juce::Colour (0xff8f96a4), true);
+            lab (regName,    15.0f, juce::Colour (0xff5be3c7), true);
+            lab (byHead,     11.5f, juce::Colour (0xff8f96a4), true);
+            lab (byName,     13.5f, juce::Colour (0xffd4d8e0), false);
+            lab (thanksHead, 11.5f, juce::Colour (0xff8f96a4), true);
+            lab (thanksText, 13.5f, juce::Colour (0xffd4d8e0), false);
+            lab (qrCaption,  11.0f, juce::Colour (0xff8f96a4), false, juce::Justification::centred);
+            lab (footer,     13.0f, juce::Colour (0xffb5b9c2), false, juce::Justification::centred);
+            title.setText ("SPACEX", juce::dontSendNotification);
+            slogan.setText ("Stereo imaging, built by one person", juce::dontSendNotification);
+            regHead.setText ("REGISTERED TO", juce::dontSendNotification);
+            byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
+            thanksHead.setText ("THANKS TO", juce::dontSendNotification);
+            footer.setText ("Thanks for your support - happy mixing.", juce::dontSendNotification);
+            qrCaption.setText ("Buy me a coffee", juce::dontSendNotification);
+
+            for (auto* b : { &mailBtn, &webBtn, &instaBtn, &coffeeBtn, &tourBtn, &manualBtn, &closeBtn })
+            {
+                b->setWantsKeyboardFocus (false);
+                b->getProperties().set ("thinOnFrame", true);
+                b->getProperties().set ("noGlow", true);
+                addAndMakeVisible (*b);
+            }
+            closeBtn.onClick = [this] { if (onClose)  onClose(); };
+            manualBtn.onClick = [this] { if (onManual) onManual(); };
+            tourBtn.onClick   = [this] { if (onTour)   onTour(); };
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            auto b = getLocalBounds().toFloat();
+            g.setColour (juce::Colour (0xff1e2128));
+            g.fillRoundedRectangle (b, 10.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.16f));
+            g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
+
+            // Feiner Trennstrich unter dem Kopf - wie auf einer echten
+            // Geraeterueckseite das Typenschild vom Rest getrennt ist.
+            g.setColour (juce::Colours::white.withAlpha (0.08f));
+            g.fillRect (b.getX() + 28.0f, b.getY() + 92.0f, b.getWidth() - 56.0f, 1.0f);
+
+            auto qr = qrArea.toFloat();
+            if (! qr.isEmpty())
+            {
+                if (qrImage.isValid())
+                {
+                    g.setOpacity (1.0f);
+                    g.drawImage (qrImage, qr, juce::RectanglePlacement::centred);
+                }
+                else
+                {
+                    // Noch kein QR-Bild hinterlegt: leeres Feld statt eines
+                    // gemalten Fantasie-Codes, den niemand scannen kann.
+                    g.setColour (juce::Colours::white.withAlpha (0.05f));
+                    g.fillRoundedRectangle (qr, 6.0f);
+                    g.setColour (juce::Colours::white.withAlpha (0.14f));
+                    g.drawRoundedRectangle (qr.reduced (0.5f), 6.0f, 1.0f);
+                }
+            }
+        }
+
+        void resized() override
+        {
+            auto r = getLocalBounds().reduced (28, 22);
+            title.setBounds (r.removeFromTop (30));
+            slogan.setBounds (r.removeFromTop (18));
+            r.removeFromTop (28);
+
+            auto bottom = r.removeFromBottom (34);
+            {
+                const int w = 118, gap = 10;
+                auto row = bottom.withSizeKeepingCentre (w * 3 + gap * 2, bottom.getHeight());
+                tourBtn.setBounds (row.removeFromLeft (w));
+                row.removeFromLeft (gap);
+                manualBtn.setBounds (row.removeFromLeft (w));
+                row.removeFromLeft (gap);
+                closeBtn.setBounds (row);
+            }
+            footer.setBounds (r.removeFromBottom (24));
+            r.removeFromBottom (12);
+
+            auto right = r.removeFromRight (juce::jmin (150, r.getWidth() / 3));
+            r.removeFromRight (18);
+            {
+                const int qs = juce::jmin (right.getWidth(), 116);
+                qrArea = { right.getCentreX() - qs / 2, right.getY() + 6, qs, qs };
+                qrCaption.setBounds (right.getX(), qrArea.getBottom() + 4, right.getWidth(), 16);
+                coffeeBtn.setBounds (right.getX(), qrCaption.getBottom() + 6, right.getWidth(), 28);
+            }
+
+            auto line = [&r] (juce::Label& head, juce::Component& value, int valueH)
+            {
+                head.setBounds (r.removeFromTop (15));
+                value.setBounds (r.removeFromTop (valueH));
+                r.removeFromTop (12);
+            };
+            line (regHead,    regName,    22);
+            line (byHead,     byName,     20);
+            line (thanksHead, thanksText, 20);
+
+            const int bh = 28;
+            mailBtn.setBounds  (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
+            r.removeFromTop (6);
+            webBtn.setBounds   (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
+            r.removeFromTop (6);
+            instaBtn.setBounds (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
+        }
+
+    private:
+        juce::Rectangle<int> qrArea;
+    };
+
+
+    // ===== TAKE THE TOUR =====
+    // Einmal durch die wichtigsten Punkte (User-Wunsch). Bewusst ein Overlay
+    // ueber der echten Oberflaeche statt einer Bilderstrecke: man sieht die
+    // Sektion, um die es geht, an ihrem echten Platz. Der Schleier hat ein
+    // Loch - das ist der ganze Trick, mehr braucht es nicht.
+    class TourOverlay : public juce::Component
+    {
+    public:
+        struct Step { juce::Rectangle<int> target; juce::String head, text; };
+        std::vector<Step> steps;
+        int index = 0;
+        std::function<void()> onFinish;
+        juce::TextButton backBtn { "Back" }, nextBtn { "Next" }, skipBtn { "Skip" };
+
+        TourOverlay()
+        {
+            for (auto* b : { &backBtn, &nextBtn, &skipBtn })
+            {
+                b->setWantsKeyboardFocus (false);
+                b->getProperties().set ("thinOnFrame", true);
+                b->getProperties().set ("noGlow", true);
+                addAndMakeVisible (*b);
+            }
+            backBtn.onClick = [this] { if (index > 0) { --index; refresh(); } };
+            nextBtn.onClick = [this]
+            {
+                if (index + 1 < (int) steps.size()) { ++index; refresh(); }
+                else if (onFinish) onFinish();
+            };
+            skipBtn.onClick = [this] { if (onFinish) onFinish(); };
+            setInterceptsMouseClicks (true, true);
+        }
+
+        void refresh()
+        {
+            backBtn.setEnabled (index > 0);
+            nextBtn.setButtonText (index + 1 < (int) steps.size() ? "Next" : "Done");
+            resized();
+            repaint();
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            if (steps.empty())
+                return;
+            auto hole = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)].target
+                            .expanded (6).getIntersection (getLocalBounds());
+
+            g.saveState();
+            if (! hole.isEmpty())
+                g.excludeClipRegion (hole);
+            g.setColour (juce::Colour (0xff0a0b0e).withAlpha (0.78f));
+            g.fillRect (getLocalBounds());
+            g.restoreState();
+
+            if (! hole.isEmpty())
+            {
+                g.setColour (juce::Colour (0xff5be3c7).withAlpha (0.85f));
+                g.drawRoundedRectangle (hole.toFloat().reduced (0.5f), 8.0f, 1.6f);
+            }
+
+            auto box = cardArea.toFloat();
+            g.setColour (juce::Colour (0xff1e2128));
+            g.fillRoundedRectangle (box, 10.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.16f));
+            g.drawRoundedRectangle (box.reduced (0.5f), 10.0f, 1.0f);
+
+            const auto& st = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)];
+            auto inner = cardArea.reduced (18, 14);
+            g.setColour (juce::Colour (0xff8f96a4));
+            g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.14f));
+            g.drawText (juce::String (index + 1) + " / " + juce::String ((int) steps.size()),
+                        inner.removeFromTop (14), juce::Justification::topRight);
+            g.setColour (juce::Colour (0xffe4e7ec));
+            g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)).withExtraKerningFactor (0.05f));
+            g.drawText (st.head, inner.removeFromTop (22), juce::Justification::topLeft);
+            inner.removeFromTop (4);
+            inner.removeFromBottom (36);
+            g.setColour (juce::Colour (0xffb5b9c2));
+            g.setFont (juce::Font (juce::FontOptions (13.0f)));
+            g.drawFittedText (st.text, inner, juce::Justification::topLeft, 5);
+        }
+
+        void resized() override
+        {
+            if (steps.empty())
+                return;
+            auto target = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)].target;
+            const int cw = 330, ch = 150, pad = 14;
+            // Die Karte sitzt neben dem markierten Bereich - rechts, wenn dort
+            // Platz ist, sonst links, sonst darunter.
+            int cx = target.getRight() + pad;
+            if (cx + cw > getWidth())  cx = target.getX() - pad - cw;
+            if (cx < 0)                cx = juce::jlimit (8, juce::jmax (8, getWidth() - cw - 8), target.getCentreX() - cw / 2);
+            int cy = juce::jlimit (8, juce::jmax (8, getHeight() - ch - 8), target.getCentreY() - ch / 2);
+            cardArea = { cx, cy, cw, ch };
+
+            auto row = cardArea.reduced (18, 14).removeFromBottom (26);
+            const int bw = 72, gap = 8;
+            skipBtn.setBounds (row.removeFromLeft (bw));
+            nextBtn.setBounds (row.removeFromRight (bw));
+            row.removeFromRight (gap);
+            backBtn.setBounds (row.removeFromRight (bw));
+        }
+
+    private:
+        juce::Rectangle<int> cardArea;
     };
 
     // Regler mit Rechtsklick-Aktion. Ein blosser MouseListener reicht nicht:
@@ -1882,6 +2142,8 @@ private:
     // beim Oeffnen erzeugt - ein Blur pro Frame waere zu teuer.
     juce::Image settingsBlur;
     SettingsPanelComponent settingsPanel;
+    BackPanelComponent     backPanel;
+    TourOverlay            tourOverlay;
     void applyViewSettings (bool persist);
     // ===== View-Einstellungen im Plugin-Zustand =====
     // Die Panel-Werte leben zusaetzlich als Kind "ViewSettings" im APVTS-

@@ -572,6 +572,11 @@ void GoniometerComponent::timerCallback()
 
     const float gravityRaw  = liveOrRaw (processor.currentGravityLivePercent,  LCRMSAudioProcessor::ID_LCR_SENS);    // 0..100
     const float orbitRaw    = liveOrRaw (processor.currentOrbitLivePercent,    LCRMSAudioProcessor::ID_LCR_BLEND);   // 0..100
+    // Runde 50 (User): AIR/Regain bekommt eine eigene Rolle im Sternenfeld
+    // (die blauen Linien), Orbit uebernimmt den Planeten, Gravity die
+    // Farbintensitaet. Air hat keinen Live-Wert (keine eigene Modulation),
+    // deshalb direkt der Reglerstand.
+    const float airRaw      = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_HORIZON)->load();  // 0..100
     // ID_POL_L/ID_POL_R/ID_POL_POS werden im Starfield nicht mehr gebraucht
     // (User-Wunsch: "Polarity Planeten Einfluss wieder loeschen") - die 3
     // neuen Planeten weiter unten sind komplett unabhaengig von Flip/Polarity.
@@ -589,6 +594,11 @@ void GoniometerComponent::timerCallback()
     // Bewegungs-/Groessen-Beitraege werden pro Sektion abgeschaltet.
     const float gravityNorm        = galaxyOn ? juce::jlimit (0.0f, 1.0f, gravityRaw / 100.0f) : 0.0f;
     const float orbitNorm          = galaxyOn ? juce::jlimit (0.0f, 1.0f, orbitRaw / 100.0f) : 0.0f;
+    const float airNorm            = galaxyOn ? juce::jlimit (0.0f, 1.0f, airRaw / 100.0f) : 0.0f;
+    // GRAVITY -> FARBINTENSITAET (User): der Regler faerbt das Feld, statt
+    // den Planeten zu schieben. 0 % laesst alles wie bisher, 100 % zieht die
+    // Linien deutlich kraeftiger und bunter.
+    const float colourIntensity    = 1.0f + gravityNorm * 0.9f;
     // Size wirkt jetzt staerker auf die Liniendicke (User-Wunsch: "Size soll
     // Linien noch ein bisschen dicker machen"). Nicht der Rohwert wird
     // skaliert, sondern seine ABWEICHUNG von 1.0 - dadurch bleibt die
@@ -599,7 +609,8 @@ void GoniometerComponent::timerCallback()
     // Obergrenze 2,8 -> 2,2 (User: "Size max Liniendicke etwas reduzieren").
     const float lineThicknessMult  = dimensionOn ? juce::jlimit (0.35f, 2.2f, sizeThickRaw) : 1.0f;      // "Size" (Dimension)
     const float dimBoostNorm       = dimensionOn ? juce::jlimit (0.0f, 1.0f, dimBoostRaw / 6.0f) : 0.0f;    // "Boost" (Dimension)
-    const float lineBrightnessMult = 1.0f + dimBoostNorm * 1.5f;
+    // Gravity faerbt ALLE Sternlinien, nicht nur die blauen (User Runde 50).
+    const float lineBrightnessMult = (1.0f + dimBoostNorm * 1.5f) * colourIntensity;
     // Sternlinien laufen auch bei DAW-Stop weiter (User) - kein motionScale
     // mehr, und der Speed-Regler wirkt hier ungedeckelt.
     const float lineSpeedMult      = (1.0f + dimBoostNorm * 1.0f) * viewSpeed;
@@ -1060,19 +1071,19 @@ void GoniometerComponent::timerCallback()
     }
     rayAngleOffset = 0.0f;
 
-    // Orbit: zusaetzliche kleine blaue Sterne, Staerke des Reglers steuert
-    // Anzahl, Groesse (Dicke/Laenge, jetzt doppelt so ausgepraegt - User-
-    // Wunsch: "Orbit -> grafischen Effekt doppelt so gross machen") und
-    // Leuchtkraft.
-    if (orbitNorm > 0.001f)
+    // AIR: die zusaetzlichen blauen Sterne (Runde 50, User: "Air -> blaue
+    // Linien"). Der Regler steuert Anzahl, Dicke/Laenge und Leuchtkraft;
+    // Gravity legt ueber colourIntensity die Farbstaerke darueber.
+    if (airNorm > 0.001f)
     {
-        int activeOrbitStars = juce::jlimit (0, (int) orbitStars.size(), (int) std::round (orbitNorm * (float) orbitStars.size()));
+        int activeOrbitStars = juce::jlimit (0, (int) orbitStars.size(), (int) std::round (airNorm * (float) orbitStars.size()));
         if (reducedAnimations)
             activeOrbitStars /= 2;
+        const auto airColour = juce::Colour (0xff6bb8ff).withMultipliedSaturation (juce::jmin (1.6f, colourIntensity));
         for (int i = 0; i < activeOrbitStars; ++i)
-            drawStarLine (orbitStars[(size_t) i], juce::Colour (0xff6bb8ff),
-                          lineBrightnessMult * (0.6f + orbitNorm * 0.8f),
-                          1.6f * (0.7f + orbitNorm * 0.6f));   // 2.0 -> 1.6 (User: Orbit max Dicke reduzieren)
+            drawStarLine (orbitStars[(size_t) i], airColour,
+                          lineBrightnessMult * (0.6f + airNorm * 0.8f),
+                          1.6f * (0.7f + airNorm * 0.6f));   // 2.0 -> 1.6 (User: max Dicke reduziert)
     }
 
     gCur = &gObject;
@@ -2214,7 +2225,11 @@ void GoniometerComponent::timerCallback()
         // im Header). Bei 30Hz entspricht 0.08 einer Angleichzeit von rund
         // einer halben Sekunde: schnell genug, dass Reglerbewegungen direkt
         // wirken, langsam genug, dass ein Schaltvorgang gleitet.
-        gravityVisSmoothed += (gravityNorm - gravityVisSmoothed) * 0.08f;
+        // Runde 50 (User): der Planet haengt jetzt an ORBIT, nicht mehr an
+        // Gravity - Gravity faerbt stattdessen das Feld (colourIntensity).
+        // Der geglaettete Wert und alles darunter bleiben unveraendert, nur
+        // die Quelle ist eine andere.
+        gravityVisSmoothed += (orbitNorm - gravityVisSmoothed) * 0.08f;
         gravVisSlow        += (gravityVisSmoothed - gravVisSlow) * 0.004f;   // ~8 s, folgt nur dem Reglerstand
         // Stars-Ansicht: nur noch 10 % der Modulationsbewegung (User).
         const float gravRaw  = gravityVisSmoothed;

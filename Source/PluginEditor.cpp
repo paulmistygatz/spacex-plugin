@@ -24,6 +24,21 @@ namespace
     juce::Font paramFont()  { return juce::Font (juce::FontOptions (12.0f, juce::Font::bold)).withExtraKerningFactor (0.06f); }
     juce::Font titleFont()  { return juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.12f); }
 
+    // ===== KONTAKTDATEN FUER DAS BACK PANEL =====
+    // TODO Paul: hier die echten Adressen eintragen. Sie stehen nur hier und
+    // sonst nirgends im Code.
+    namespace spacexContact
+    {
+        inline constexpr const char* email       = "hello@spacex-audio.com";
+        inline constexpr const char* website     = "www.spacex-audio.com";
+        inline constexpr const char* websiteUrl  = "https://www.spacex-audio.com";
+        inline constexpr const char* instagram   = "@spacex.audio";
+        inline constexpr const char* instagramUrl= "https://instagram.com/spacex.audio";
+        inline constexpr const char* coffeeUrl   = "https://buymeacoffee.com/spacexaudio";
+        inline constexpr const char* designer    = "Paul Misty";
+        inline constexpr const char* thanks      = "Everyone who tested SpaceX and sent feedback";
+    }
+
     void styleLabel (juce::Label& l, const juce::String& text)
     {
         l.setText (text.toUpperCase(), juce::dontSendNotification);
@@ -1708,6 +1723,97 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     }
 }
 
+// ===== TAKE THE TOUR =====
+// Die Schritte werden bei jedem Start neu aus den AKTUELLEN Rahmen gebaut -
+// so stimmt die Markierung auch nach Layout-/Variantenwechsel, ohne dass
+// irgendwo Koordinaten doppelt gepflegt werden muessen.
+void LCRMSAudioProcessorEditor::startTour()
+{
+    closeSettingsPanel();
+    closeBackPanel();
+    closeViewPanel();
+
+    const bool t = technicalLabels;
+    tourOverlay.steps.clear();
+    auto add = [this] (juce::Rectangle<int> target, const juce::String& head, const juce::String& text)
+    {
+        if (! target.isEmpty())
+            tourOverlay.steps.push_back ({ target, head, text });
+    };
+
+    add (groupLcrArea, t ? "LCR" : "Galaxy",
+         "Splits the signal into a real centre and real sides. Orbit decides how much of the sides you keep, "
+         "Gravity how strictly the centre is held. This is the only section with latency - it is off until you arm it.");
+    add (groupDriftArea, t ? "MicroPitch" : "Parallax",
+         "Makes a mono source stereo. Pick a style with the button, then use Amount as the single dial. "
+         "The dots under the button jump straight to a style.");
+    add (groupWidthBoostArea, t ? "Mid-Side" : "Dimension",
+         "Classic mid/side: Size opens or closes the sides, Boost lifts them, Depth pushes the source away or pulls it forward.");
+    add (groupPolArea, t ? "Polarity" : "Eclipse",
+         "Flips the polarity of one side. The biggest single change in the plugin - use it deliberately, and check mono.");
+    add (groupFlowArea, t ? "Autopan" : "Hyperdrive",
+         "Moves the image over time. Flow is how far it travels, Speed how fast - sync it to the host if you want it musical.");
+    add (groupRayArea, t ? "Phaser" : "Raye",
+         "A stereo phaser. Amount is the whole control; the character button picks how it moves. Pair locks it to the autopan.");
+    add (goniometer.getBounds(), "The field",
+         "Your stereo image, live. A tall shape is mono-ish, a wide one is spread out. "
+         "Everything drifting to one side means the balance is off.");
+    add (globalChaosButton.getBounds().getUnion (categoryBtn[kNumCategories - 1].getBounds()), "Smart",
+         "The dice builds a whole setting for you. Pick a category first (Vocal, Backing, Adlib, FX) "
+         "and the dice stays inside what makes sense for that source.");
+    add (lifeSlider.getBounds(), "Life",
+         "Scales every modulation at once. At zero nothing moves; turn it up and the whole plugin breathes.");
+
+    tourOverlay.index = 0;
+    tourOverlay.setBounds (content.getLocalBounds());
+    tourOverlay.setVisible (true);
+    tourOverlay.toFront (true);
+    tourOverlay.refresh();
+    content.repaint();
+}
+
+// ===== BACK PANEL =====
+void LCRMSAudioProcessorEditor::showBackPanel()
+{
+    if (backPanel.isVisible())
+    {
+        closeBackPanel();
+        return;
+    }
+    closeSettingsPanel();
+    closeViewPanel();
+
+    juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+    const bool lic = processor.licensed.load (std::memory_order_relaxed);
+    const auto owner = props.getValue ("licenceName", juce::String()).trim();
+    backPanel.regName.setText (! lic ? "Demo - not activated"
+                                     : owner.isNotEmpty() ? owner : "This copy is activated",
+                               juce::dontSendNotification);
+    backPanel.byName.setText (spacexContact::designer, juce::dontSendNotification);
+    backPanel.thanksText.setText (spacexContact::thanks, juce::dontSendNotification);
+    backPanel.mailBtn.setButtonText (spacexContact::email);
+    backPanel.webBtn.setButtonText (spacexContact::website);
+    backPanel.instaBtn.setButtonText (spacexContact::instagram);
+    backPanel.coffeeBtn.setButtonText ("Buy me a coffee");
+
+    settingsBackdrop.setVisible (true);
+    settingsBackdrop.toFront (false);
+    backPanel.setAlpha (1.0f);
+    backPanel.setVisible (true);
+    backPanel.toFront (false);
+    juce::Desktop::getInstance().getAnimator().fadeIn (&backPanel, 120);
+    content.repaint();
+}
+
+void LCRMSAudioProcessorEditor::closeBackPanel()
+{
+    if (! backPanel.isVisible())
+        return;
+    settingsBackdrop.setVisible (false);
+    juce::Desktop::getInstance().getAnimator().fadeOut (&backPanel, 120);
+    content.repaint();
+}
+
 void LCRMSAudioProcessorEditor::closeSettingsPanel()
 {
     if (! settingsPanel.isVisible())
@@ -1827,6 +1933,10 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     writeProps.setValue ("technicalLabels", technicalLabels);
                     writeProps.saveIfNeeded();
                     applyLabelStyle();
+                    break;
+                case idBackPanel:
+                    closeSettingsPanel();
+                    showBackPanel();
                     break;
                 case idOpenManual:
                     openManual();
@@ -2380,15 +2490,22 @@ void LCRMSAudioProcessorEditor::promptActivate()
                                                               juce::MessageBoxIconType::NoIcon);
     presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
     if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    // In der Seriennummer selbst steckt kein Name (sie ist nur Nutzlast +
+    // Pruefsumme) - fuer "Registered to" auf dem Back Panel wird er hier
+    // einmal abgefragt und lokal gemerkt.
+    presetNameDialog->addTextEditor ("owner", juce::String(), "Your name (shown on the back panel)");
     presetNameDialog->addButton ("Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
 
     presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
     {
-        juce::String entered;
+        juce::String entered, owner;
         if (result == 1 && presetNameDialog != nullptr)
+        {
             entered = presetNameDialog->getTextEditorContents ("name");
+            owner   = presetNameDialog->getTextEditorContents ("owner").trim();
+        }
         presetNameDialog.reset();
         if (result != 1)
             return;
@@ -2396,6 +2513,11 @@ void LCRMSAudioProcessorEditor::promptActivate()
         if (spacex::isValidSerial (entered))
         {
             processor.storeLicence (entered);
+            {
+                juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+                props.setValue ("licenceName", owner);
+                props.saveIfNeeded();
+            }
             refreshSettingsPanel();
             content.repaint();
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
@@ -3689,8 +3811,22 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (helpButton);
     content.addChildComponent (viewPanel);   // erst sichtbar per Zahnrad
     content.addChildComponent (settingsBackdrop);
-    settingsBackdrop.onClick = [this] { closeSettingsPanel(); };
+    settingsBackdrop.onClick = [this] { closeSettingsPanel(); closeBackPanel(); };
     content.addChildComponent (settingsPanel);
+    content.addChildComponent (backPanel);
+    backPanel.onClose  = [this] { closeBackPanel(); };
+    backPanel.onManual = [this] { openManual(); };
+    backPanel.onTour   = [this] { closeBackPanel(); startTour(); };
+    content.addChildComponent (tourOverlay);
+    tourOverlay.onFinish = [this]
+    {
+        tourOverlay.setVisible (false);
+        content.repaint();
+    };
+    backPanel.mailBtn.onClick   = [this] { juce::URL (juce::String ("mailto:") + spacexContact::email).launchInDefaultBrowser(); };
+    backPanel.webBtn.onClick    = [this] { juce::URL (spacexContact::websiteUrl).launchInDefaultBrowser(); };
+    backPanel.instaBtn.onClick  = [this] { juce::URL (spacexContact::instagramUrl).launchInDefaultBrowser(); };
+    backPanel.coffeeBtn.onClick = [this] { juce::URL (spacexContact::coffeeUrl).launchInDefaultBrowser(); };
     settingsPanel.onAction = [this] (int id) { handleSettingsAction (id); };
     settingsPanel.onClose  = [this] { closeSettingsPanel(); };
     content.addMouseListener (this, true);   // Klicks auf Titel-/Footer-Labels (mouseUp)
@@ -5590,10 +5726,10 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
     // Settings-Panel: alles dahinter abdunkeln, damit das Panel klar
     // hervortritt (dasselbe Prinzip wie beim View-Panel, nur ueber die ganze
     // Flaeche, weil das Panel mittig liegt).
-    if (settingsPanel.isVisible())
+    if (settingsPanel.isVisible() || backPanel.isVisible())
     {
         g.saveState();
-        g.excludeClipRegion (settingsPanel.getBounds());
+        g.excludeClipRegion (settingsPanel.isVisible() ? settingsPanel.getBounds() : backPanel.getBounds());
         if (settingsBlur.isValid())
         {
             g.setOpacity (1.0f);
@@ -5936,6 +6072,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
     {
         const int sw = 760, sh = 630;   // groesser, Platz fuer die Theme-Vorschau (User)
         settingsPanel.setBounds ((kDesignW - sw) / 2, (kDesignH - sh) / 2 - 8, sw, sh);
+        // Back Panel: etwas kleiner als die Einstellungen - es ist ein
+        // Typenschild, kein Arbeitsbereich.
+        const int bw = juce::jmin (620, kDesignW - 160);
+        const int bh = juce::jmin (430, kDesignH - 120);
+        backPanel.setBounds ((kDesignW - bw) / 2, (kDesignH - bh) / 2 - 8, bw, bh);
+        if (tourOverlay.isVisible())
+            tourOverlay.setBounds (content.getLocalBounds());
         settingsBackdrop.setBounds (0, 0, kDesignW, kDesignH);
     }
 
