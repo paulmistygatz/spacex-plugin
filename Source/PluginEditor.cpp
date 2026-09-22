@@ -1066,6 +1066,24 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
     const juce::String paramId = comp->getProperties()["titlePowerParam"].toString();
     const int soloValue = (int) comp->getProperties()["titleSoloValue"];
 
+    // Runde 48 (User): Cmd + Klick auf den Sektionsnamen schaltet Solo statt
+    // an/aus - dieselbe Wirkung wie das (ausgeblendete) Solo-Icon.
+    if (e.mods.isCommandDown())
+    {
+        if (auto* sp = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
+        {
+            const int current = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX,
+                                              (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+            const int next = (current == soloValue) ? LCRMSAudioProcessor::SOLO_NONE : soloValue;
+            sp->setValueNotifyingHost ((float) next / (float) LCRMSAudioProcessor::SOLO_MAX);
+            if (next != LCRMSAudioProcessor::SOLO_NONE)
+                if (auto* onP = processor.apvts.getParameter (paramId))
+                    if (onP->getValue() < 0.5f)
+                        onP->setValueNotifyingHost (1.0f);
+        }
+        return;
+    }
+
     if (auto* param = processor.apvts.getParameter (paramId))
     {
         const bool wasOn = param->getValue() > 0.5f;
@@ -3270,6 +3288,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayCharButton.getProperties().set ("thinOnFrame", true);
     rayCharButton.setTooltip ("Character: Sweep, Shimmer, Spin, Swirl. Click for the next one, Cmd-click to go back");
     content.addAndMakeVisible (rayCharButton);
+    rayModeDots.count = 4;
+    rayModeDots.setTooltip ("Character: click a dot to pick it directly");
+    rayModeDots.onPick = [this] (int i)
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_CHAR))
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
+    };
+    content.addAndMakeVisible (rayModeDots);
     rayCharButton.onClick = [this]
     {
         if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_RAY_CHAR))
@@ -4019,6 +4045,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
    #if SPACEX_RAYE_UI == 1
     setSectionOff (rayAmountSlider, isRayOn);
     setSectionOff (rayCharButton, isRayOn);
+    {
+        const bool dotsOff = uiBypassed || ! isRayOn;
+        if (rayModeDots.off != dotsOff) { rayModeDots.off = dotsOff; rayModeDots.repaint(); }
+    }
    #endif
     setSectionOff (rayPairButton, isRayOn);
     // Regler-Beschriftungen: bei Sektion aus deutlich dunkler (User: "hilft
@@ -4388,6 +4418,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
             const int c = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_CHAR)->load()));
             if (rayCharButton.getButtonText() != charNames[c])
                 rayCharButton.setButtonText (charNames[c]);
+            if (rayModeDots.index != c) { rayModeDots.index = c; rayModeDots.repaint(); }
             if (! rayCharButton.getToggleState())
                 rayCharButton.setToggleState (true, juce::dontSendNotification);
         }
@@ -6175,7 +6206,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int availW    = lcrInner.getWidth();
         const int gap       = 8;
 
-        const int orbitW = juce::jlimit (46, 78, juce::roundToInt ((float) availW * 0.24f));
+        // Runde 48 (User): Orbit sass zu dicht am Rahmen - der ganze Block
+        // rueckt nach rechts, die Regler werden entsprechend etwas schmaler.
+        const int leftInset = 14;
+        lcrInner.removeFromLeft (leftInset);
+        const int orbitW = juce::jlimit (42, 74, juce::roundToInt ((float) (availW - leftInset) * 0.22f));
         auto orbitCol = lcrInner.removeFromLeft (orbitW);
         orbitLabel.setBounds (orbitCol.removeFromBottom (14));
         orbitSlider.setBounds (orbitCol);
@@ -6552,6 +6587,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         rayHeader.removeFromLeft (8);
         rayLockButton.setBounds (lockArea.withSizeKeepingCentre (lockSize, lockSize));
     }
+    // Rechts im RAYE-Kopf ist Platz (kein Mod-Icon) - dort sitzt in
+    // SpaceXraye2 der Pair-Knopf.
+    const auto rayPairHeaderArea = rayHeader.removeFromRight (juce::jmin (60, rayHeader.getWidth() / 2));
+    juce::ignoreUnused (rayPairHeaderArea);
     fitTitle (rayTitleLabel, rayHeader);
     rayFrame.removeFromTop (6);
 
@@ -6583,13 +6622,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
         auto slotC = rayFrame;
        #if SPACEX_RAYE_UI == 1
+        // Runde 48 (User-Idee): Pair wandert in die Kopfzeile (dort ist kein
+        // Mod-Icon), dadurch wird der Charakter-Knopf groesser und bekommt
+        // wie Parallax vier Punkte darunter.
         {
-            const int pw = juce::jmin (74, slotW);
-            const int ph = juce::jmin (24, (rayKnobAreaH - 6) / 2);
-            auto col = slotC.withSizeKeepingCentre (pw, ph * 2 + 6).translated (0, -6);
-            rayCharButton.setBounds (col.removeFromTop (ph));
-            col.removeFromTop (6);
-            rayPairButton.setBounds (col.removeFromTop (ph));
+            const int pw = juce::jmin (86, slotW);
+            const int ph = juce::jmin (30, rayKnobAreaH - 14);
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, -10);
+            rayCharButton.setBounds (col);
+            rayModeDots.setBounds (col.getX(), col.getBottom() + 5, pw, 14);
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (54, rayPairHeaderArea.getWidth()),
+                                                                              juce::jmin (20, rayPairHeaderArea.getHeight())));
         }
        #else
         rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (60, slotW), juce::jmin (32, rayKnobAreaH)).translated (0, -6));

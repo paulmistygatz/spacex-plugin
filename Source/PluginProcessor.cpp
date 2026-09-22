@@ -252,10 +252,11 @@ LCRMSAudioProcessor::ParallaxPoint LCRMSAudioProcessor::evalParallaxMode (int mo
 const LCRMSAudioProcessor::RayCharacter& LCRMSAudioProcessor::rayCharacterFor (int index) noexcept
 {
     //                                   centreHz sweepMul fbMul mixMul stereoOffset rateMul
-    static const RayCharacter chars[4] = { {  900.0f, 1.00f, 1.00f, 1.00f, 0.25f,  1.00f },    // Sweep: breiter, langsamer Schwung
-                                           { 3200.0f, 0.60f, 0.80f, 0.90f, 0.25f,  2.00f },    // Shimmer: fein, oben rum, schneller
-                                           {  500.0f, 1.25f, 1.30f, 1.00f, 0.50f,  0.75f },    // Spin: tief, L/R gegenlaeufig -> Drehung
-                                           { 1400.0f, 1.10f, 1.00f, 1.00f, 0.125f, 0.50f } };  // Swirl: sehr langsam, weich
+    // Runde 48: staerker voneinander abgesetzt (User hoerte kaum Unterschied).
+    static const RayCharacter chars[4] = { {  800.0f, 1.00f, 1.00f, 1.00f, 0.25f,  1.00f },    // Sweep: breiter, langsamer Schwung
+                                           { 4500.0f, 0.45f, 0.70f, 1.00f, 0.25f,  2.50f },    // Shimmer: fein, weit oben, schnell
+                                           {  380.0f, 1.45f, 1.45f, 1.10f, 0.50f,  0.70f },    // Spin: tief, L/R gegenlaeufig -> Drehung
+                                           { 1600.0f, 1.20f, 0.90f, 1.00f, 0.125f, 0.35f } };  // Swirl: sehr langsam, weich
     return chars[juce::jlimit (0, 3, index)];
 }
 
@@ -2000,8 +2001,16 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             // rayDepthRaw: 0 = Stufe "Off" (kein Effekt), 1/3..1 = leicht..stark.
             // Der Wet-Anteil faehrt zwischen Off und Light weich auf null.
             const float rayDepthRaw = rayDepthSmoothed.getNextValue();
+           #if SPACEX_RAYE_UI == 1
+            // Runde 48 (User: "die Modi sind zu leise"): Amount wirkt direkt
+            // auf die Tiefe (0 = aus, 100 % = volle Tiefe) statt erst ab einem
+            // Drittel, und der Anteil geht weiter hoch (siehe mix unten).
+            const float offFade  = juce::jlimit (0.0f, 1.0f, rayDepthRaw * 6.0f);
+            const float depth01  = juce::jlimit (0.0f, 1.0f, rayDepthRaw);
+           #else
             const float offFade  = juce::jlimit (0.0f, 1.0f, rayDepthRaw * 3.0f);
             const float depth01  = juce::jlimit (0.0f, 1.0f, (rayDepthRaw - 1.0f / 3.0f) * 1.5f);
+           #endif
 
             if (rayGain > 0.0001f && offFade > 0.0005f)
             {
@@ -2041,8 +2050,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 // Haelfte reicht; insgesamt runter skalieren"): Anteil und
                 // Rueckkopplung aller Stufen halbiert.
                #if SPACEX_RAYE_UI == 1
-                const float feedback = (0.04f + depth01 * 0.11f) * rayChar.fbMul;
-                const float mix      = (0.10f + depth01 * 0.10f) * rayChar.mixMul;
+                // Deutlich mehr Weg nach oben, damit man die Charaktere hoert.
+                const float feedback = (0.04f + depth01 * 0.20f) * rayChar.fbMul;
+                const float mix      = (0.10f + depth01 * 0.28f) * rayChar.mixMul;
                 const float centreHz = rayChar.centreHz;
                #else
                 const float feedback = 0.04f + depth01 * 0.11f;    // 0,04 .. 0,15 (vorher 0,08 .. 0,30)

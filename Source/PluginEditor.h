@@ -1527,6 +1527,7 @@ private:
         void mouseDown (const juce::MouseEvent& e) override { if (onPick) onPick (dotAt ((float) e.x)); }
     };
     ModeDots pxModeDots;
+    ModeDots rayModeDots;   // SpaceXraye2: Punkte unter dem Charakter-Knopf
     // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;
