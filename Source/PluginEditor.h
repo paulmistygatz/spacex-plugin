@@ -67,6 +67,12 @@ enum SpaceXSettingsId
 #ifndef SPACEX_PARALLAX_UI
  #define SPACEX_PARALLAX_UI 0
 #endif
+#ifndef SPACEX_DOTS_INSIDE
+ // 1 = Modus-Punkte sitzen IN der Pille (Parallax + RAYE), 0 = darunter.
+ #define SPACEX_DOTS_INSIDE 0
+#endif
+constexpr bool kDotsInside = (SPACEX_DOTS_INSIDE != 0);
+
 #ifndef SPACEX_RAYE_UI
  #define SPACEX_RAYE_UI 0
 #endif
@@ -1506,18 +1512,22 @@ private:
         int count = 5, index = 0;
         bool off = false;
         std::function<void (int)> onPick;
+        // Feste Teilung statt "Breite / Anzahl" - sonst stehen die Punkte in
+        // Parallax (6) und RAYE (4) unterschiedlich weit auseinander
+        // (User Runde 49: "mache sie einheitlich").
+        static constexpr float kPitch = 10.0f;
+        float firstCentre() const { return ((float) getWidth() - kPitch * (float) count) * 0.5f + kPitch * 0.5f; }
         int dotAt (float x) const
         {
-            const float step = (float) getWidth() / (float) count;
-            return juce::jlimit (0, count - 1, (int) (x / step));
+            return juce::jlimit (0, count - 1, (int) std::floor ((x - firstCentre()) / kPitch + 0.5f));
         }
         void paint (juce::Graphics& g) override
         {
-            const float step = (float) getWidth() / (float) count;
             const float d = 4.0f;
+            const float x0 = firstCentre();
             for (int i = 0; i < count; ++i)
             {
-                const float cx = step * ((float) i + 0.5f);
+                const float cx = x0 + kPitch * (float) i;
                 const float cy = (float) getHeight() * 0.5f;
                 g.setColour (i == index ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
                                         : juce::Colours::white.withAlpha (0.16f));
@@ -1532,6 +1542,10 @@ private:
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;
     juce::TextButton rayCharButton;
+    // Runde 49: kleiner FAST-Knopf im RAYE-Kopf (+30 % Tempo) - Ersatz fuer
+    // den entfallenen Speed-Regler.
+    juce::TextButton rayFastButton { "FAST" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rayFastAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rayAmountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> parallaxAmountAttachment;
     void applyParallaxMode();

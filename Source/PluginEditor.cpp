@@ -3322,6 +3322,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
 
+    // Runde 49: FAST statt Speed-Regler - ein Klick, 30 % schneller.
+    rayFastButton.setClickingTogglesState (true);
+    rayFastButton.setWantsKeyboardFocus (false);
+    rayFastButton.getProperties().set ("thinOnFrame", true);
+    rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
+    content.addAndMakeVisible (rayFastButton);
+    rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
+
     // Mono-Check ist ein reines Monitoring-Utility (kein eigener Solo-
     // Kandidat) - sitzt als 5. "Regler"-Slot unten in der Reglerzeile, nicht
     // mehr oben im Header (User-Feedback: "Soll unten zu den Reglern rein").
@@ -4045,6 +4053,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
    #if SPACEX_RAYE_UI == 1
     setSectionOff (rayAmountSlider, isRayOn);
     setSectionOff (rayCharButton, isRayOn);
+    setSectionOff (rayFastButton, isRayOn);
     {
         const bool dotsOff = uiBypassed || ! isRayOn;
         if (rayModeDots.off != dotsOff) { rayModeDots.off = dotsOff; rayModeDots.repaint(); }
@@ -6308,8 +6317,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Parallax klein (so breit wie RAYE), Dimension gross - das Auge
         // orientiert sich daran. Gilt fuer SpaceX und SpaceFX.
         // Runde 41 (User): Parallax GLEICH GROSS wie Dimension, in allen Builds.
-        auto [a, b] = splitFrame (row2);
-        driftFrame = a; wbFrame = b;
+        // Runde 49 (User: "dimension ein kleines bisschen weiter nach links
+        // vergroessern ... aber nicht viel"): 46 / 54 statt genau haelftig.
+        auto r2 = row2;
+        auto a = r2.removeFromLeft (juce::roundToInt ((float) (r2.getWidth() - frameGap) * 0.46f));
+        r2.removeFromLeft (frameGap);
+        driftFrame = a; wbFrame = r2;
     }
     else
     {
@@ -6454,7 +6467,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
                                        (driftInner.getWidth() - gap) / 2);
         const int btnGap = 6;
        #if SPACEX_PARALLAX_UI == 2
-        const int btnW   = juce::jmin (66, (driftInner.getWidth() - knobS - gap - 6) / 2);   // schmaler (User, Runde 47)
+        const int btnW   = juce::jmin (54, (driftInner.getWidth() - knobS - gap - 6) / 2);   // noch schmaler (User, Runde 49)
         const int blockW = btnW * 2 + btnGap;
        #else
         // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
@@ -6469,12 +6482,25 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
        #if SPACEX_PARALLAX_UI == 2
         // Ein Klick-Knopf statt 2x2 (so breit wie zwei der Rasterknoepfe).
-        parallaxModeButtons[0].setBounds (block.getX(), parallaxAmountSlider.getBounds().getCentreY() - btnH / 2,
-                                          blockW, btnH);
+        const int pillH = kDotsInside ? btnH + 6 : btnH;
+        parallaxModeButtons[0].setBounds (block.getX(), parallaxAmountSlider.getBounds().getCentreY() - pillH / 2,
+                                          blockW, pillH);
         for (int i = 1; i < kPxModes; ++i) parallaxModeButtons[i].setBounds ({});
-        pxModeDotsArea = { block.getX(), parallaxModeButtons[0].getBottom() + 5, blockW, 6 };
-        // Klickflaeche etwas hoeher als die Punkte selbst.
-        pxModeDots.setBounds (pxModeDotsArea.withSizeKeepingCentre (juce::jmin (blockW, kPxModes * 16), 14));
+        {
+            auto pb = parallaxModeButtons[0].getBounds();
+            const int dotsW = kPxModes * 10 + 6;
+            if (kDotsInside)
+            {
+                parallaxModeButtons[0].getProperties().set ("textYShift", -5.0);
+                pxModeDotsArea = { pb.getCentreX() - dotsW / 2, pb.getBottom() - 13, dotsW, 11 };
+            }
+            else
+            {
+                parallaxModeButtons[0].getProperties().remove ("textYShift");
+                pxModeDotsArea = { pb.getCentreX() - dotsW / 2, pb.getBottom() + 5, dotsW, 12 };
+            }
+            pxModeDots.setBounds (pxModeDotsArea);
+        }
        #else
         const int gridH = btnH * 2 + btnGap;
         const int gridY = parallaxAmountSlider.getBounds().getCentreY() - gridH / 2;
@@ -6589,8 +6615,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
     }
     // Rechts im RAYE-Kopf ist Platz (kein Mod-Icon) - dort sitzt in
     // SpaceXraye2 der Pair-Knopf.
+   #if SPACEX_RAYE_UI == 1
+    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (112, rayHeader.getWidth() / 2));
+    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (54, rayHeadRight.getWidth()));
+    rayHeadRight.removeFromRight (5);
+    const auto rayFastHeaderArea = rayHeadRight;
+   #else
     const auto rayPairHeaderArea = rayHeader.removeFromRight (juce::jmin (60, rayHeader.getWidth() / 2));
-    juce::ignoreUnused (rayPairHeaderArea);
+    const auto rayFastHeaderArea = juce::Rectangle<int>();
+   #endif
+    juce::ignoreUnused (rayPairHeaderArea, rayFastHeaderArea);
     fitTitle (rayTitleLabel, rayHeader);
     rayFrame.removeFromTop (6);
 
@@ -6602,39 +6636,54 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Staerke-Icon: quadratisch, so gross wie der Regler daneben, als
         // eigener Block mit Label-Platz darunter (Label ist im Icon selbst
         // nicht noetig - die drei Stufen erklaeren sich durch die Fuellung).
+       #if SPACEX_RAYE_UI == 1
+        // Runde 49 (User: "dann speed weg. noch simpler."): nur noch zwei
+        // Elemente - Amount links, Charakter rechts. Das Tempo macht der
+        // Charakter, FAST im Kopf legt 30 % drauf.
+        rayStrengthButton.setBounds ({});
+        rayRateSlider.setBounds ({});
+        rayRateLabel.setBounds ({});
+        rayRateSlider.setVisible (false);
+        rayRateLabel.setVisible (false);
+        juce::ignoreUnused (slotW);
+        const int halfW = (rayFrame.getWidth() - gap) / 2;
+        auto slotA = rayFrame.removeFromLeft (halfW);
+        rayFrame.removeFromLeft (gap);
+        auto slotC = rayFrame;
+        placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, juce::jmin (halfW, rayKnobAreaH));
+        {
+            const int pw = juce::jmin (100, halfW);
+            const int ph = juce::jmin (kDotsInside ? 36 : 30, rayKnobAreaH - (kDotsInside ? 8 : 14));
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -7 : -10);
+            rayCharButton.setBounds (col);
+            const int dotsW = 4 * 10 + 6;
+            if (kDotsInside)
+            {
+                rayCharButton.getProperties().set ("textYShift", -5.0);
+                rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() - 13, dotsW, 11);
+            }
+            else
+            {
+                rayCharButton.getProperties().remove ("textYShift");
+                rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() + 5, dotsW, 12);
+            }
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (54, rayPairHeaderArea.getWidth()),
+                                                                              juce::jmin (20, rayPairHeaderArea.getHeight())));
+            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (46, rayFastHeaderArea.getWidth()),
+                                                                              juce::jmin (20, rayFastHeaderArea.getHeight())));
+        }
+       #else
         auto slotA = rayFrame.removeFromLeft (slotW);
         rayFrame.removeFromLeft (gap);
         const int iconSize = juce::jmin (slotW, rayKnobAreaH);
-       #if SPACEX_RAYE_UI == 1
-        // Runde 47 (User: Knopf sah oben im Kopf nicht gut aus): Amount statt
-        // Stufen-Icon, und der Charakter-Knopf sitzt jetzt UEBER dem
-        // Pair-Knopf im dritten Slot - gleiche Pillenform, gleiche Spalte.
-        rayStrengthButton.setBounds ({});
-        rayCharButton.setBounds ({});   // Kopf bleibt frei
-        placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, iconSize);
-       #else
+        rayFastButton.setBounds ({});
         rayStrengthButton.setBounds (slotA.withSizeKeepingCentre (iconSize, iconSize).translated (0, -6));
-       #endif
 
         auto slotB = rayFrame.removeFromLeft (slotW);
         rayFrame.removeFromLeft (gap);
         placeKnobWithLabel (slotB, rayRateSlider, rayRateLabel, juce::jmin (slotW, rayKnobAreaH));
 
         auto slotC = rayFrame;
-       #if SPACEX_RAYE_UI == 1
-        // Runde 48 (User-Idee): Pair wandert in die Kopfzeile (dort ist kein
-        // Mod-Icon), dadurch wird der Charakter-Knopf groesser und bekommt
-        // wie Parallax vier Punkte darunter.
-        {
-            const int pw = juce::jmin (86, slotW);
-            const int ph = juce::jmin (30, rayKnobAreaH - 14);
-            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, -10);
-            rayCharButton.setBounds (col);
-            rayModeDots.setBounds (col.getX(), col.getBottom() + 5, pw, 14);
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (54, rayPairHeaderArea.getWidth()),
-                                                                              juce::jmin (20, rayPairHeaderArea.getHeight())));
-        }
-       #else
         rayPairButton.setBounds (slotC.withSizeKeepingCentre (juce::jmin (60, slotW), juce::jmin (32, rayKnobAreaH)).translated (0, -6));
        #endif
     }

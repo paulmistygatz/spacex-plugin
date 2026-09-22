@@ -107,6 +107,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pRayChar     = apvts.getRawParameterValue (ID_RAY_CHAR);
     pRayRate     = apvts.getRawParameterValue (ID_RAY_RATE);
     pRayPair     = apvts.getRawParameterValue (ID_RAY_PAIR);
+    pRayFast     = apvts.getRawParameterValue (ID_RAY_FAST);
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
     pPosWidth    = apvts.getRawParameterValue (ID_POS_WIDTH);
     pPrismOn     = apvts.getRawParameterValue (ID_PRISM_ON);
@@ -652,6 +653,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::NormalisableRange<float> (0.02f, 1.0f, 0.001f, 0.5f), 0.15f, "Hz"));
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_RAY_PAIR, 1 }, "Ray Pair", false));
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_RAY_FAST, 1 }, "Ray Fast", false));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_SOLO_SECTION, 1 }, "Solo",
@@ -1348,20 +1351,24 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const float depthRaw = pDepth->load();                                  // -100..100
     const float distanceRawBase = juce::jmax (0.0f, -depthRaw) * 0.01f;     // 0..1
     float distanceTarget = distanceRawBase;
-    if (positionModOn && distanceRawBase > kNeutralEps && positionDepthFrac > kNeutralEps)
+    // Runde 49 (User: "Depth wird durch life moduliert - soll das so sein?"):
+    // DEPTH sitzt in DIMENSION, also haengt seine Modulation auch am
+    // Dimension-Mod-Icon. Vorher lief sie ueber die unsichtbare Position-Mod
+    // weiter - das Icon der Sektion konnte sie gar nicht abschalten.
+    if (dimensionModOn && distanceRawBase > kNeutralEps && dimensionDepthFrac > kNeutralEps)
     {
-        const float distanceModDepth = distanceRawBase * positionDepthFrac;
-        distanceTarget = juce::jlimit (0.0f, 1.0f, distanceRawBase + positionSine * distanceModDepth);
+        const float distanceModDepth = distanceRawBase * dimensionDepthFrac;
+        distanceTarget = juce::jlimit (0.0f, 1.0f, distanceRawBase + dimensionSine * distanceModDepth);
     }
     distanceSmoothed.setTargetValue (distanceTarget);
     currentDistanceLivePercent.store (distanceTarget * 100.0f, std::memory_order_relaxed);
 
     const float elevateRawBase = juce::jmax (0.0f, depthRaw) * 0.01f;       // 0..1 (siehe DEPTH)
     float elevateTarget = elevateRawBase;
-    if (positionModOn && std::abs (elevateRawBase) > kNeutralEps && positionDepthFrac > kNeutralEps)
+    if (dimensionModOn && std::abs (elevateRawBase) > kNeutralEps && dimensionDepthFrac > kNeutralEps)
     {
-        const float elevateModDepth = elevateRawBase * positionDepthFrac;
-        elevateTarget = juce::jlimit (-1.0f, 1.0f, elevateRawBase + positionSine * elevateModDepth);
+        const float elevateModDepth = elevateRawBase * dimensionDepthFrac;
+        elevateTarget = juce::jlimit (-1.0f, 1.0f, elevateRawBase + dimensionSine * elevateModDepth);
     }
     elevateSmoothed.setTargetValue (elevateTarget);
     currentElevateLivePercent.store (elevateTarget * 100.0f, std::memory_order_relaxed);
@@ -1500,13 +1507,18 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // phasenstarr an den Pan-LFO gekoppelt, nur an sein Tempo.
     const bool  rayPair     = pRayPair->load() > 0.5f;
     const double halfBarSeconds = (60.0 / bpm) * 2.0;
+   #if SPACEX_RAYE_UI == 1
+    // Runde 49 (User: "dann speed weg. noch simpler."): kein Speed-Regler
+    // mehr. Die Grundrate ist fest (0.15 Hz - der bisherige Default), das
+    // Tempo macht der Charakter ueber rateMul. FAST legt pauschal 30 % drauf.
+    const double rayCycle   = rayPair ? juce::jmax (cycleSeconds * 2.0, halfBarSeconds)
+                                      : 1.0 / 0.15;
+    const RayCharacter& rayChar = rayCharacterFor ((int) std::round (pRayChar->load()));
+    const double rayFastMul = (pRayFast->load() > 0.5f) ? 1.3 : 1.0;
+    const double rayPhaseInc = (1.0 / rayCycle) / currentSampleRate * (double) rayChar.rateMul * rayFastMul;
+   #else
     const double rayCycle   = rayPair ? juce::jmax (cycleSeconds * 2.0, halfBarSeconds)
                                       : 1.0 / (double) juce::jmax (0.01f, pRayRate->load());
-   #if SPACEX_RAYE_UI == 1
-    // SpaceXraye (Runde 41): Charakter waehlt u. a. das Tempo relativ zu Speed.
-    const RayCharacter& rayChar = rayCharacterFor ((int) std::round (pRayChar->load()));
-    const double rayPhaseInc = (1.0 / rayCycle) / currentSampleRate * (double) rayChar.rateMul;
-   #else
     const double rayPhaseInc = (1.0 / rayCycle) / currentSampleRate;
    #endif
     float lastRayLfo = 0.0f;

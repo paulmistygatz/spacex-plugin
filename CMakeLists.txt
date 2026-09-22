@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(JUCE)
 # Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
-set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, raye1, raye2, paraCPU (alt: A, B, C)")
+set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, dotsin, dotsout, paraCPU (alt: raye1, raye2, A, B, C)")
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
@@ -51,6 +51,7 @@ set(SPX_PXUI    0)   # Parallax: 0 = Amount + 4 Knoepfe, 1 = drei Regler, 2 = Kl
 set(SPX_RAYEUI  0)   # RAYE: 1 = Amount + Charakter
 set(SPX_CPUOPT  1)   # optimierte DSP - seit Runde 42 in allen Builds (User: "CPU mode passt")
 set(SPX_NOVIS   0)
+set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)
 set(SPX_EXTRA   "")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
@@ -69,17 +70,20 @@ elseif (SPACEX_VARIANT STREQUAL "paraCPU")
 elseif (SPACEX_VARIANT STREQUAL "presets")
     set(SPX_PXUI 0)
     set(SPX_OWN "SpaceXpresets" "SXpr")
-elseif (SPACEX_VARIANT STREQUAL "raye1")
-    # Parallax mit Klick-Knopf, RAYE wie bisher (Stufen-Icon + Speed + Pair)
-    set(SPX_PXUI 2)
-    set(SPX_OWN "SpaceXraye1" "SXr1")
-elseif (SPACEX_VARIANT STREQUAL "raye2")
-    # wie raye1, aber RAYE mit Amount + Charakter
+elseif (SPACEX_VARIANT STREQUAL "dotsout")
+    # Runde 49: Parallax-Klickknopf + RAYE (Amount/Charakter), Punkte UNTER
+    # den Pillen - wie bisher, nur in beiden Sektionen gleich gross.
     set(SPX_PXUI 2)
     set(SPX_RAYEUI 1)
-    set(SPX_OWN "SpaceXraye2" "SXr2")
+    set(SPX_OWN "SpaceXout" "SXdo")
+elseif (SPACEX_VARIANT STREQUAL "dotsin")
+    # wie dotsout, aber die Punkte sitzen IN der Pille.
+    set(SPX_PXUI 2)
+    set(SPX_RAYEUI 1)
+    set(SPX_DOTSIN 1)
+    set(SPX_OWN "SpaceXin" "SXdi")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, raye1, raye2, paraCPU, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, dotsin, dotsout, paraCPU, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)
@@ -137,6 +141,7 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     SPACEX_RAYE_UI=${SPX_RAYEUI}
     SPACEX_CPU_OPT=${SPX_CPUOPT}
     SPACEX_NO_VISUALS=${SPX_NOVIS}
+    SPACEX_DOTS_INSIDE=${SPX_DOTSIN}
 )
 
 target_link_libraries(LCRMSPlugin

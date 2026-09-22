@@ -426,6 +426,9 @@ public:
     static constexpr auto ID_RAY_STRENGTH = "rayStrength";
     static constexpr auto ID_RAY_RATE     = "rayRate";
     static constexpr auto ID_RAY_PAIR     = "rayPair";
+    // Runde 49: Speed-Regler ist in SpaceXraye raus - FAST legt pauschal
+    // 30 % auf das Charakter-Tempo drauf.
+    static constexpr auto ID_RAY_FAST     = "rayFast";
     static constexpr auto ID_RAY_AMOUNT   = "rayAmount";   // SpaceXraye
     static constexpr auto ID_RAY_CHAR     = "rayCharacter"; // SpaceXraye
     struct RayCharacter { float centreHz, sweepMul, fbMul, mixMul, stereoOffset, rateMul; };
@@ -551,6 +554,7 @@ private:
     std::atomic<float>* pRayChar = nullptr;
     std::atomic<float>* pRayRate = nullptr;
     std::atomic<float>* pRayPair = nullptr;
+    std::atomic<float>* pRayFast = nullptr;
 
 
     // RAY (Phaser) - Zustand. Vier Allpass-Stufen erster Ordnung je Kanal

@@ -1293,7 +1293,10 @@ public:
                 // hoeher als Sync. Mit dem Deckel sind alle Sektions-Knoepfe
                 // gleich gross beschriftet.
                 g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.42f, 14.5f), juce::Font::bold)).withExtraKerningFactor (0.04f));
-            g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred);
+            // "textYShift" (Runde 49): schiebt die Beschriftung nach oben,
+            // wenn die Modus-Punkte INNERHALB der Pille sitzen.
+            const int textShiftY = (int) (double) button.getProperties().getWithDefault ("textYShift", 0.0);
+            g.drawText (button.getButtonText(), button.getLocalBounds().translated (0, textShiftY), juce::Justification::centred);
         }
 
         // Einheitlicher, dezenter Mouse-Hover-/Klick-Effekt fuer die gesamte
