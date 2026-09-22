@@ -2245,10 +2245,27 @@ void LCRMSAudioProcessorEditor::styleNameDialog (juce::AlertWindow& w)
         te->setColour (juce::TextEditor::textColourId,           juce::Colour (0xffdfe3ea));
         te->setColour (juce::TextEditor::outlineColourId,        pal.frameMain.withAlpha (0.30f));
         te->setColour (juce::TextEditor::focusedOutlineColourId, pal.knob.withAlpha (0.55f));
-        te->setColour (juce::TextEditor::highlightColourId,      pal.knob.withAlpha (0.30f));
-        te->setColour (juce::TextEditor::highlightedTextColourId, juce::Colour (0xff10131a));
+        // Runde 42 (User): dunkle Schrift auf halbtransparentem Akzent war in
+        // Sci-Fi kaum lesbar - jetzt helle Schrift auf der Akzentfarbe.
+        te->setColour (juce::TextEditor::highlightColourId,      pal.knob.withAlpha (0.42f));
+        te->setColour (juce::TextEditor::highlightedTextColourId, juce::Colours::white);
         te->setColour (juce::CaretComponent::caretColourId,      pal.knob);
     }
+
+    // Runde 42 (User-Bug): Name war markiert, Tippen kam aber nicht an - das
+    // Dialogfenster bekam im Host keinen Tastaturfokus. Nach dem Oeffnen
+    // einmal nach vorne holen und dem Textfeld den Fokus geben.
+    juce::Component::SafePointer<juce::AlertWindow> safe (&w);
+    juce::MessageManager::callAsync ([safe]
+    {
+        if (safe == nullptr) return;
+        safe->toFront (true);
+        if (auto* te = safe->getTextEditor ("name"))
+        {
+            te->grabKeyboardFocus();
+            te->selectAll();
+        }
+    });
 }
 
 // ===== AKTIVIERUNG =====

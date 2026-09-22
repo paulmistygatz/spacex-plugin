@@ -28,7 +28,7 @@ struct GonioRingBuffer
  #define SPACEX_RAYE_UI 0     // 1 = SpaceXraye: Amount + Charakter
 #endif
 #ifndef SPACEX_CPU_OPT
- #define SPACEX_CPU_OPT 0     // 1 = SpaceXparaCPU: optimierte DSP
+ #define SPACEX_CPU_OPT 1     // 1 = SpaceXparaCPU: optimierte DSP
 #endif
 
 class LCRMSAudioProcessor : public juce::AudioProcessor

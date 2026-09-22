@@ -8,7 +8,7 @@
 // unter allem Hoerbaren. Die Phase wird in UMDREHUNGEN angegeben (0..1 =
 // 0..2*pi), wie bei den LFOs im Plugin ohnehin gerechnet wird.
 #ifndef SPACEX_CPU_OPT
- #define SPACEX_CPU_OPT 0
+ #define SPACEX_CPU_OPT 1
 #endif
 
 namespace spacex

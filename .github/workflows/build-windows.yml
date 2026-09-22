@@ -24,8 +24,6 @@ jobs:
         include:
           - variant: ""
             product: SpaceX
-          - variant: para
-            product: SpaceXpara
           - variant: paraCPU
             product: SpaceXparaCPU
           - variant: presets
