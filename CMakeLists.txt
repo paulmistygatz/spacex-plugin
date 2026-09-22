@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(JUCE)
 # Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
-set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, FX, noV (alt: A, B, C)")
+set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, FX (alt: A, B, C)")
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
@@ -65,12 +65,8 @@ elseif (SPACEX_VARIANT STREQUAL "FX")
     # (Drift/Shift/Tilt/Balance) - zum Einstellen und Vergleichen.
     set(SPX_OLDPX 1)
     set(SPX_OWN "SpaceFX" "SpFX")
-elseif (SPACEX_VARIANT STREQUAL "noV")
-    # SpaceXnoV: wie SpaceX, aber ohne Starfield-Animation (CPU-Vergleich).
-    set(SPX_NOVIS 1)
-    set(SPX_OWN "SpaceXnoV" "SpnV")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, FX, noV, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, FX, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)

@@ -26,8 +26,6 @@ jobs:
             product: SpaceX
           - variant: FX
             product: SpaceFX
-          - variant: noV
-            product: SpaceXnoV
     name: ${{ matrix.product }}
     steps:
       - uses: actions/checkout@v4

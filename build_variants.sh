@@ -2,11 +2,9 @@
 # Baut die Vergleichs-Plugins als EIGENE Plugins, damit man sie im Host
 # neben dem normalen SpaceX oeffnen kann:
 #   SpaceFX    heutiger Stand, Parallax mit den alten Reglern (Drift/Shift/Tilt/Balance)
-#   SpaceXnoV  wie SpaceX, aber ohne Starfield-Animation (CPU-Vergleich)
 # Das normale SpaceX baut weiter install.sh.
 #
-#   ./build_variants.sh          -> beide
-#   ./build_variants.sh FX       -> nur SpaceFX
+#   ./build_variants.sh          -> SpaceFX
 set -e
 cd "$(dirname "$0")"
 
@@ -17,15 +15,14 @@ if [ ! -d "$JUCE_SRC" ]; then
     exit 1
 fi
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-VARIANTS="${*:-FX noV}"
+VARIANTS="${*:-FX}"
 
-# Alte Layout-Varianten A/B/C aus dem Plugin-Ordner raeumen.
-sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3"
+# Alte Varianten (A/B/C, noV) aus dem Plugin-Ordner raeumen.
+sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST/SpaceXnoV.vst3"
 
 for V in $VARIANTS; do
     case "$V" in
         FX)  PROD="SpaceFX" ;;
-        noV) PROD="SpaceXnoV" ;;
         *)   PROD="SpaceX-$V" ;;
     esac
     echo ""
@@ -46,4 +43,4 @@ for V in $VARIANTS; do
 done
 
 echo ""
-echo "Fertig. Im Host neu scannen: SpaceX, SpaceFX, SpaceXnoV."
+echo "Fertig. Im Host neu scannen: SpaceX und SpaceFX."

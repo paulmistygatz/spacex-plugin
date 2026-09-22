@@ -6017,8 +6017,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
     juce::Rectangle<int> lcrFrame, polFrame;
     if (kVariant == 0)
     {
-        auto [a, b] = splitFrame (row1);
-        lcrFrame = a; polFrame = b;
+        // Runde 36 (User): ECLIPSE so breit wie RAYE, Galaxy bekommt den Rest.
+        auto r = row1;
+        polFrame = r.removeFromRight (sharedRayColW);
+        r.removeFromRight (frameGap);
+        lcrFrame = r;
     }
     else
     {
@@ -6290,7 +6293,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int knobS  = juce::jmin (row2KnobSize, driftInner.getHeight() - kKnobLabelH,
                                        (driftInner.getWidth() - gap) / 2);
         const int btnW   = juce::jmin (64, (driftInner.getWidth() - knobS - gap - 6) / 2);
-        const int btnH   = 24, btnGap = 6;
+        const int btnH   = 30, btnGap = 6;   // so hoch wie EARLY/LATE (User)
         auto block = driftInner.withSizeKeepingCentre (knobS + gap + btnW * 2 + btnGap, driftInner.getHeight());
         auto knobSlot = block.removeFromLeft (knobS);
         block.removeFromLeft (gap);
