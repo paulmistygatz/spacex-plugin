@@ -176,6 +176,10 @@ public:
     std::atomic<float> currentOffsetLivePercent { 0.0f };
     std::atomic<float> currentPosWidthLivePercent { 100.0f };
     std::atomic<float> currentDistanceLivePercent { 0.0f };
+    // DEPTH ist EIN Regler (-100..100), der intern auf Distance und
+    // Elevate aufgeteilt wird - fuer den Mod-Punkt am Regler braucht es
+    // deshalb den zusammengesetzten Live-Wert (Runde 51).
+    std::atomic<float> currentDepthLivePercent { 0.0f };
     std::atomic<float> currentElevateLivePercent { 0.0f };
 
     // Zeitstempel (Millisekunden-Counter) des letzten processBlock()-Aufrufs.

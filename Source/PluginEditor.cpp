@@ -3187,6 +3187,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             auto& b = parallaxModeButtons[0];
             b.setRadioGroupId (0, juce::dontSendNotification);
             b.setClickingTogglesState (false);
+            b.getProperties().set ("modePill", true);
             b.setTooltip ("Parallax mode: click for the next one, Cmd-click to go back");
             b.onClick = [this]
             {
@@ -3200,7 +3201,6 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
                 applyParallaxMode();
             };
             for (int i = 1; i < kPxModes; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
-           #if SPACEX_RAYE_UI != 1
             pxModeDots.count = kPxModes;
             pxModeDots.setTooltip ("Parallax mode: click a dot to pick it directly");
             pxModeDots.onPick = [this] (int i)
@@ -3209,7 +3209,6 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
                     prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
             };
             content.addAndMakeVisible (pxModeDots);
-           #endif
         }
        #endif
     }
@@ -3485,6 +3484,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayCharButton.setClickingTogglesState (false);
     rayCharButton.setWantsKeyboardFocus (false);
     rayCharButton.getProperties().set ("thinOnFrame", true);
+    rayCharButton.getProperties().set ("modePill", true);
     rayCharButton.setTooltip ("Character: Sweep, Shimmer, Spin, Swirl. Click for the next one, Cmd-click to go back");
     content.addAndMakeVisible (rayCharButton);
     rayModeDots.count = 4;
@@ -4526,8 +4526,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
                    processor.currentOffsetLivePercent.load (std::memory_order_relaxed));
         applyLive (posWidthSlider, isPosOn && positionModOnRaw && std::abs (posWidthPctRaw - 100.0f) > 0.05f,
                    processor.currentPosWidthLivePercent.load (std::memory_order_relaxed));
-        applyLive (distanceSlider, isPosOn && positionModOnRaw && distancePctRaw > 0.05f,
-                   processor.currentDistanceLivePercent.load (std::memory_order_relaxed));
+        // DEPTH sitzt in DIMENSION (Regler distanceSlider, Parameter ID_DEPTH)
+        // - der Punkt haengt also am Dimension-Mod, nicht an Position
+        // (User Runde 51: "Depth hat immer noch keinen optischen Punkt").
+        {
+            const float depthPctRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_DEPTH)->load();
+            applyLive (distanceSlider, isWidthBoostOn && dimensionModOnRaw && std::abs (depthPctRaw) > 0.05f,
+                       processor.currentDepthLivePercent.load (std::memory_order_relaxed));
+        }
+        juce::ignoreUnused (distancePctRaw);
         applyLive (elevateSlider, isPosOn && positionModOnRaw && std::abs (elevatePctRaw) > 0.05f,
                    processor.currentElevateLivePercent.load (std::memory_order_relaxed));
 
@@ -4616,21 +4623,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
         const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
         static const char* const modeNames[kPxModes] = { "DOUBLE", "WIDE", "ILLUSION", "3D", "DRIFT", "FLUX" };
+        // Runde 51 (User): in BEIDEN Builds Punkte, kein Fuellbalken mehr -
+        // die beiden Builds unterscheiden sich nur noch darin, ob die Punkte
+        // IN der Pille oder darunter sitzen.
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
-        {
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
-           #if SPACEX_RAYE_UI == 1
-            // Variante B (SpaceXraye): Fuellung waechst mit dem Modus.
-            parallaxModeButtons[0].getProperties().set ("modeFill", (double) mode / (double) (kPxModes - 1));
-            parallaxModeButtons[0].repaint();
-           #else
-            // Variante A (SpaceXclick): Punkte unter dem Knopf.
-            pxModeDots.index = mode;
-            pxModeDots.repaint();
-           #endif
-        }
-        if (! parallaxModeButtons[0].getToggleState())
-            parallaxModeButtons[0].setToggleState (true, juce::dontSendNotification);
+        if (pxModeDots.index != mode) { pxModeDots.index = mode; pxModeDots.repaint(); }
        #else
         for (int i = 0; i < kPxModes; ++i)
             if (parallaxModeButtons[i].getToggleState() != (i == mode))
@@ -4643,8 +4641,6 @@ void LCRMSAudioProcessorEditor::timerCallback()
             if (rayCharButton.getButtonText() != charNames[c])
                 rayCharButton.setButtonText (charNames[c]);
             if (rayModeDots.index != c) { rayModeDots.index = c; rayModeDots.repaint(); }
-            if (! rayCharButton.getToggleState())
-                rayCharButton.setToggleState (true, juce::dontSendNotification);
         }
        #endif
     }

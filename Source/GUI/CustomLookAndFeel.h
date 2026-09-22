@@ -962,7 +962,14 @@ public:
         // deshalb ihre eigene, deutlich sichtbare Faerbung, die sich aus der
         // Theme-Farbe ableitet statt aus der Plattenfarbe.
         const bool panelBtn = button.getProperties().getWithDefault ("noGlow", false);
-        const bool fillIt = isComicTheme() || panelBtn || isOn || offButPaired;
+        // "modePill" (Runde 51, User): die Modus-Knoepfe von Parallax und RAYE
+        // sind KEINE An/Aus-Schalter - sie zeigen nur, welcher Eintrag gerade
+        // gewaehlt ist. Eine gefuellte Pille sah aber aus wie ein eingeschalteter
+        // Knopf und passte damit nicht zu den Knoepfen in Eclipse & Co. Also nur
+        // ein Umriss - der bleibt bewusst auch dann stehen, wenn die Sektion aus
+        // ist, weil man den Modus dort trotzdem umstellen koennen soll.
+        const bool modePill = button.getProperties().getWithDefault ("modePill", false);
+        const bool fillIt = (isComicTheme() || panelBtn || isOn || offButPaired) && ! modePill;
         if (fillIt)
         {
             // An-Zustand auf halbem Weg zwischen "unsichtbar" und dem alten
@@ -1023,6 +1030,12 @@ public:
         // Section an"). Der eigene An-Zustand bleibt allein ueber die etwas
         // hellere Flaeche sichtbar - klicken kann man sie weiterhin, sie sind
         // nur nicht mehr laut.
+        if (modePill)
+        {
+            g.setColour (juce::Colour (0xff3a3d45).withAlpha (sectionIsOffNow ? 0.65f : 1.0f));
+            g.drawRoundedRectangle (bounds, cornerSize, 1.0f);
+            return;
+        }
         if (sectionIsOffNow)
             return;
         g.setColour ((isOn || gold) ? btnAccent : juce::Colour (0xff3a3d45));
@@ -1292,7 +1305,21 @@ public:
                 // Sync"): die Groesse haengt an der Button-Hoehe, und Pulse ist
                 // hoeher als Sync. Mit dem Deckel sind alle Sektions-Knoepfe
                 // gleich gross beschriftet.
-                g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.42f, 14.5f), juce::Font::bold)).withExtraKerningFactor (0.04f));
+            {
+                // Modus-Pillen (SHIMMER, ILLUSION ...): kleiner, nicht fett und
+                // etwas weiter gesperrt - der Name ist eine Anzeige, keine
+                // Ansage (User Runde 51: "die Schrift bisschen dezenter").
+                const bool modePillText = button.getProperties().getWithDefault ("modePill", false);
+                if (modePillText)
+                {
+                    g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
+                                        : juce::Colour (0xffc3c8d2));
+                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.34f, 12.0f)))
+                                   .withExtraKerningFactor (0.13f));
+                }
+                else
+                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.42f, 14.5f), juce::Font::bold)).withExtraKerningFactor (0.04f));
+            }
             // "textYShift" (Runde 49): schiebt die Beschriftung nach oben,
             // wenn die Modus-Punkte INNERHALB der Pille sitzen.
             const int textShiftY = (int) (double) button.getProperties().getWithDefault ("textYShift", 0.0);

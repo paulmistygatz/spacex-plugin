@@ -1960,7 +1960,7 @@ private:
     juce::TextButton rayStrengthButton;   // 3-Klick-Icon (leicht/mittel/stark)
     juce::Slider rayRateSlider;
     juce::Label rayRateLabel;
-    juce::TextButton rayPairButton { "Pair" };
+    juce::TextButton rayPairButton { "PAIR" };   // gross wie FAST (User)
     juce::Rectangle<int> groupRayArea;
     bool rayFrameOn = true;
     // Goldene Klammer um Speed/Sync/Bars in Hyperdrive, solange Pair aktiv

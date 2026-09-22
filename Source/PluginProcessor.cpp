@@ -1372,6 +1372,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
     elevateSmoothed.setTargetValue (elevateTarget);
     currentElevateLivePercent.store (elevateTarget * 100.0f, std::memory_order_relaxed);
+    // Zurueck auf die DEPTH-Achse: negative Haelfte = Distance, positive = Elevate.
+    currentDepthLivePercent.store (depthRaw >= 0.0f ? elevateTarget * 100.0f : -distanceTarget * 100.0f,
+                                   std::memory_order_relaxed);
 
     volTrimSmoothed.setTargetValue (juce::Decibels::decibelsToGain (pVolTrim->load()));
     mixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pMix->load() * 0.01f));
