@@ -55,8 +55,11 @@ public:
         const float outA = readTap (phase);
         const float outB = readTap (phaseB);
 
-        const float winA = 1.0f - std::abs (2.0f * phase - 1.0f);
-        const float winB = 1.0f - std::abs (2.0f * phaseB - 1.0f);
+        // Runde 35: Hann- statt Dreiecksfenster (sin^2 + cos^2 = 1, gleiche
+        // Lautstaerke, aber ohne Knick an den Uebergaengen -> weicher).
+        const float sA = std::sin (juce::MathConstants<float>::pi * phase);
+        const float winA = sA * sA;
+        const float winB = 1.0f - winA;
 
         writePos = (writePos + 1) % bufferSize;
 
@@ -77,10 +80,21 @@ private:
         const float delaySamples = p * (float) windowSamples;
         float readPosF = (float) writePos - delaySamples;
         while (readPosF < 0.0f) readPosF += (float) bufferSize;
-        int r0 = (int) readPosF;
-        int r1 = (r0 + 1) % bufferSize;
-        float frac = readPosF - (float) r0;
-        return buffer[(size_t) r0] * (1.0f - frac) + buffer[(size_t) r1] * frac;
+        // Runde 35: kubische (Hermite-)Interpolation statt linear - linear
+        // daempft je nach Bruchteil die Hoehen unterschiedlich stark, das
+        // "flattert" bei langsam wanderndem Delay. Kostet ein paar
+        // Multiplikationen pro Sample, keine Latenz.
+        const int r1 = (int) readPosF;
+        const float t = readPosF - (float) r1;
+        const int r0 = (r1 - 1 + bufferSize) % bufferSize;
+        const int r2 = (r1 + 1) % bufferSize;
+        const int r3 = (r1 + 2) % bufferSize;
+        const float y0 = buffer[(size_t) r0], y1 = buffer[(size_t) r1],
+                    y2 = buffer[(size_t) r2], y3 = buffer[(size_t) r3];
+        const float c1 = 0.5f * (y2 - y0);
+        const float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
+        const float c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
+        return ((c3 * t + c2) * t + c1) * t + y1;
     }
 
     std::vector<float> buffer;

@@ -24,12 +24,10 @@ jobs:
         include:
           - variant: ""
             product: SpaceX
-          - variant: A
-            product: SpaceX-A
-          - variant: B
-            product: SpaceX-B
-          - variant: C
-            product: SpaceX-C
+          - variant: FX
+            product: SpaceFX
+          - variant: noV
+            product: SpaceXnoV
     name: ${{ matrix.product }}
     steps:
       - uses: actions/checkout@v4

@@ -2054,6 +2054,18 @@ juce::ValueTree LCRMSAudioProcessorEditor::presetTree (const juce::String& name)
 // Loeschen (Rechtsklick, deleteMode=true). Unten "Rename..." statt des
 // frueheren "Save as..." (User-Wunsch) - benennt NUR um, speichert keine
 // veraenderten Einstellungen mit.
+// Preset "benutzt Galaxy" = Galaxy-Sektion ist darin eingeschaltet.
+static bool presetTreeUsesGalaxy (const juce::ValueTree& tree)
+{
+    for (int i = 0; i < tree.getNumChildren(); ++i)
+    {
+        auto c = tree.getChild (i);
+        if (c.hasType ("PARAM") && c.getProperty ("id").toString() == LCRMSAudioProcessor::ID_LCR_ENABLED)
+            return (float) c.getProperty ("value", 0.0f) > 0.5f;
+    }
+    return false;
+}
+
 void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
 {
     const auto presetNames = getPresetNames();
@@ -2062,11 +2074,16 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     // Kasten, blauer Balken) - ein PopupMenu erbt das LookAndFeel NICHT vom
     // Zielknopf (User: "immer noch genau gleich grau").
     menu.setLookAndFeel (&lookAndFeel);
+    const bool galaxyArmedNow =
+        processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
 
     for (int i = 0; i < presetNames.size(); ++i)
     {
         const bool isDef = isDefaultPresetName (presetNames[i]);
-        const bool enabled = ! (deleteMode && isDef);
+        // Galaxy global aus: Presets mit Galaxy grau (User, Runde 35).
+        const bool galaxyBlocked = ! deleteMode && ! isDef && ! galaxyArmedNow
+                                   && presetTreeUsesGalaxy (presetTree (presetNames[i]));
+        const bool enabled = ! (deleteMode && isDef) && ! galaxyBlocked;
         menu.addItem (i + 1, presetNames[i], enabled, presetNames[i].equalsIgnoreCase (currentPresetName));
         if (isDef && presetNames.size() > 1)
             menu.addSeparator();
@@ -2397,7 +2414,13 @@ void LCRMSAudioProcessorEditor::loadPreset (const juce::String& name)
     // Menuepunkt "Presets Switch Galaxy On/Off" ist deshalb entfallen - er
     // konnte nur dafuer sorgen, dass ein Preset anders klingt als beim
     // Speichern. Latenz aendert sich hier also bewusst.
-    juce::ignoreUnused (galaxyWasArmed);
+    // Runde 35 (User: "Galaxy globally wird immer aktiviert"): der globale
+    // Schalter gehoert NICHT zum Preset. Er bleibt, wie er vor dem Laden
+    // war - Presets mit Galaxy sind bei ausgeschaltetem Galaxy ohnehin
+    // grau bzw. werden uebersprungen.
+    if (auto* act = processor.apvts.getParameter (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE))
+        if ((act->getValue() > 0.5f) != galaxyWasArmed)
+            act->setValueNotifyingHost (galaxyWasArmed ? 1.0f : 0.0f);
 
     currentPresetName = name;
     presetSignature = computePresetSignature();
@@ -2419,25 +2442,10 @@ void LCRMSAudioProcessorEditor::stepPreset (int direction)
     // scharfschalten (Latenz-Interrupt). Ueber die Liste bleiben sie ladbar.
     const bool galaxyArmed =
         processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
-    auto usesGalaxy = [] (const juce::ValueTree& tree)
-    {
-        bool act = false, on = false;
-        for (int i = 0; i < tree.getNumChildren(); ++i)
-        {
-            auto c = tree.getChild (i);
-            if (! c.hasType ("PARAM")) continue;
-            const auto id = c.getProperty ("id").toString();
-            const bool v = (float) c.getProperty ("value", 0.0f) > 0.5f;
-            if (id == LCRMSAudioProcessor::ID_GALAXY_ACTIVATE) act = v;
-            else if (id == LCRMSAudioProcessor::ID_LCR_ENABLED) on = v;
-        }
-        return act && on;
-    };
-
     for (int tries = 0; tries < names.size(); ++tries)
     {
         index = (index + direction + names.size() * 2) % names.size();
-        if (galaxyArmed || ! usesGalaxy (presetTree (names[index])))
+        if (galaxyArmed || isDefaultPresetName (names[index]) || ! presetTreeUsesGalaxy (presetTree (names[index])))
         {
             loadPreset (names[index]);
             return;
@@ -2844,7 +2852,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Default auch der Rechtsanschlag und kein Mittelwert.
     styleRotary (horizonSlider, false);
     content.addAndMakeVisible (horizonSlider);
-    styleLabel (horizonLabel, "Air");
+    styleLabel (horizonLabel, "Regain");
     content.addAndMakeVisible (horizonLabel);
     horizonAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_HORIZON, horizonSlider);
     horizonSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
@@ -2861,7 +2869,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // damit in der Hinweiszeile unten, und sie wandert beim Drehen mit.
     horizonSlider.onValueChange = [this]
     {
-        horizonSlider.setTooltip ("Air " + horizonSlider.getTextFromValue (horizonSlider.getValue())
+        horizonSlider.setTooltip ("Regain " + horizonSlider.getTextFromValue (horizonSlider.getValue())
                                   + ": turn up to keep more of the top end in the sides");
     };
     horizonSlider.onValueChange();
@@ -6134,7 +6142,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // ===== Reihe 2: Warp/Drift (links) + Size (rechts) ======================
     auto row2 = rightColumn.removeFromTop (row2H);
     juce::Rectangle<int> driftFrame, wbFrame;
-    if (kVariant == 0)
+    constexpr bool kNewParallax = (kVariant == 0) && (SPACEX_OLD_PARALLAX == 0);
+    if (kNewParallax)
     {
         // Runde 34 (User): DIMENSION links gross, PARALLAX rechts so breit
         // wie RAYE (ein Regler + vier Modus-Knoepfe).
@@ -6180,7 +6189,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     const int row2KnobSize = (kVariant == 3) ? kBig
                                              : juce::jmin (row2KnobArea, (row2InnerW - driftGap - wbGap) / 3);
 
-    if (kVariant != 0)   // neues PARALLAX (Runde 34) nur im normalen Build
+    if (! kNewParallax)   // neues PARALLAX (Runde 34) nur im normalen Build
     {
         parallaxAmountSlider.setVisible (false);
         parallaxAmountLabel.setVisible (false);
@@ -6243,7 +6252,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     else
     {
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
-    if (kVariant != 0)
+    if (! kNewParallax)
     {
         // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die
         // Restbreite links und rechts gleich gross ist.
@@ -6297,7 +6306,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
     {
         // Breiterer Rahmen (Runde 34): gleiche Reglergroesse, mehr Luft.
-        const int dimGap = (kVariant == 0) ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
+        const int dimGap = kNewParallax ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
         auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + dimGap * 2, wbInner.getHeight());
         auto swSlot = trio.removeFromLeft (row2KnobSize);
         trio.removeFromLeft (dimGap);

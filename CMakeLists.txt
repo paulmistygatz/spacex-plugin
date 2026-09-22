@@ -43,24 +43,39 @@ FetchContent_MakeAvailable(JUCE)
 # Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
-set(SPACEX_VARIANT "" CACHE STRING "Layout-Vergleichsbuild: leer, A, B oder C")
+set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, FX, noV (alt: A, B, C)")
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
+set(SPX_OLDPX   0)
+set(SPX_NOVIS   0)
 set(SPX_EXTRA   "")
+set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
     set(SPX_ROW2 1)
+    set(SPX_OWN "SpaceX-A" "SpxA")
 elseif (SPACEX_VARIANT STREQUAL "B")
     set(SPX_ROW2 2)
+    set(SPX_OWN "SpaceX-B" "SpxB")
 elseif (SPACEX_VARIANT STREQUAL "C")
     set(SPX_ROW2 3)
+    set(SPX_OWN "SpaceX-C" "SpxC")
+elseif (SPACEX_VARIANT STREQUAL "FX")
+    # SpaceFX: heutiger Stand, aber PARALLAX mit den alten Reglern
+    # (Drift/Shift/Tilt/Balance) - zum Einstellen und Vergleichen.
+    set(SPX_OLDPX 1)
+    set(SPX_OWN "SpaceFX" "SpFX")
+elseif (SPACEX_VARIANT STREQUAL "noV")
+    # SpaceXnoV: wie SpaceX, aber ohne Starfield-Animation (CPU-Vergleich).
+    set(SPX_NOVIS 1)
+    set(SPX_OWN "SpaceXnoV" "SpnV")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, FX, noV, A, B oder C sein")
 endif()
-if (SPX_ROW2 GREATER 0)
-    set(SPX_PRODUCT "SpaceX-${SPACEX_VARIANT}")
-    set(SPX_CODE    "Spx${SPACEX_VARIANT}")
-    string(TOLOWER "com.yourcompany.spacex${SPACEX_VARIANT}" SPX_BUNDLE)
+if (SPX_OWN)
+    list(GET SPX_OWN 0 SPX_PRODUCT)
+    list(GET SPX_OWN 1 SPX_CODE)
+    string(TOLOWER "com.yourcompany.${SPX_PRODUCT}" SPX_BUNDLE)
     set(SPX_EXTRA BUNDLE_ID "${SPX_BUNDLE}")
 endif()
 
@@ -109,6 +124,8 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
     SPACEX_ROW2_VARIANT=${SPX_ROW2}
+    SPACEX_OLD_PARALLAX=${SPX_OLDPX}
+    SPACEX_NO_VISUALS=${SPX_NOVIS}
 )
 
 target_link_libraries(LCRMSPlugin

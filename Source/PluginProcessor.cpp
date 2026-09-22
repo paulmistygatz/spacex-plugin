@@ -505,7 +505,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         // AIR (war HORIZON), UMGEDREHT (User): aufdrehen heisst "mehr",
         // nicht "Filter runter". 0 % = aus, 100 % = Bandgrenze bei 500 Hz.
         // Dazwischen logarithmisch: 20 kHz * 0.025^(Wert/100).
-        juce::ParameterID { ID_LCR_HORIZON, 1 }, "Air",
+        juce::ParameterID { ID_LCR_HORIZON, 1 }, "Regain",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction (
             [] (float v, int) -> juce::String

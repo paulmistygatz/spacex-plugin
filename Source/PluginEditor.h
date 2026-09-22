@@ -58,6 +58,9 @@ enum SpaceXSettingsId
 #ifndef SPACEX_ROW2_VARIANT
  #define SPACEX_ROW2_VARIANT 0
 #endif
+#ifndef SPACEX_OLD_PARALLAX
+ #define SPACEX_OLD_PARALLAX 0   // SpaceFX: alte Parallax-Regler
+#endif
 
 class LCRMSAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -377,6 +380,11 @@ private:
                     clip.addRoundedRectangle (pr, 7.0f);
                     g.saveState();
                     g.reduceClipRegion (clip);
+                    // DER Bug (Runde 35): drawImage zeichnet mit der Deckkraft
+                    // der zuletzt gesetzten Farbe - das war der Farbtupfer von
+                    // Pop (aktiv 1.0, sonst 0.55). Nur mit Pop aktiv war die
+                    // Vorschau deshalb voll hell.
+                    g.setOpacity (1.0f);
                     g.drawImage (themeShot[idx], pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
                     g.restoreState();
                     g.setColour (juce::Colours::white.withAlpha (hoverTheme >= 0 ? 0.30f : 0.16f));

@@ -1,3 +1,6 @@
+#ifndef SPACEX_NO_VISUALS
+ #define SPACEX_NO_VISUALS 0
+#endif
 #include "GoniometerComponent.h"
 #include "SpaceAssets.h"
 
@@ -175,7 +178,7 @@ GoniometerComponent::GoniometerComponent (LCRMSAudioProcessor& processorToRead)
     lastReadIndex = ring.writeIndex.load (std::memory_order_acquire);
     generateBackground();
 
-    startTimerHz (30);
+    if (! SPACEX_NO_VISUALS) startTimerHz (30);
 }
 
 void GoniometerComponent::respawnStar (FlyingStar& s, bool randomiseRadius)
@@ -312,7 +315,12 @@ void GoniometerComponent::updateTimerRunning()
     // BEIDE nichts anzuzeigen haben. Ist mindestens eines der beiden aktiv,
     // muss der Timer weiterlaufen (User-Wunsch: Starfield laeuft auch bei
     // deaktiviertem technischen Goniometer weiter).
+   #if SPACEX_NO_VISUALS
+    // SpaceXnoV (CPU-Vergleich): Animation komplett aus.
+    const bool shouldRun = false;
+   #else
     const bool shouldRun = scopeTraceVisible || spaceVisualsEnabled;
+   #endif
     if (shouldRun == isTimerRunning())
         return;
     if (shouldRun)
