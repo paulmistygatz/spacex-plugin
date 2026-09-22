@@ -1348,8 +1348,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (polLButton,     "L: flip the left channel");
     tip (polRButton,     "R: flip the right channel");
     tip (polLinkButton,  "Link: switch L and R together");
-    tip (polPos2Button,  "Early: flip right after Galaxy, so everything downstream reacts to it");
-    tip (polPos3Button,  "Late: flip at the end, after the width has been set");
+    tip (polPos2Button,  "Early / Late: click to switch. Early flips right after Galaxy, Late at the end after the width");
 
     // Timewarp
     tip (driftTitleLabel,   "TIMEWARP: opens a mono-ish sound into a wide one by pulling left and right apart in time and in pitch");
@@ -3037,9 +3036,22 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // auf alle vier - ein setVisible(false) DAVOR wird davon sofort wieder
     // aufgehoben (genau dieser Fehler: im Build standen weiterhin "1" und
     // "4" neben den beiden neuen Knoepfen).
+    // Runde 39 (User): EARLY/LATE ist EIN Knopf - Klick schaltet um, die
+    // Beschriftung zeigt die aktuelle Position. polPos2Button traegt ihn,
+    // die anderen drei sind aus.
     polPos2Button.setButtonText ("EARLY");
-    polPos3Button.setButtonText ("LATE");
-    for (auto* dead : { &polPos1Button, &polPos4Button })
+    polPos2Button.setClickingTogglesState (false);
+    polPos2Button.setRadioGroupId (0, juce::dontSendNotification);
+    polPos2Button.onClick = [this]
+    {
+        if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
+        {
+            const int cur = juce::jlimit (0, 3, (int) std::round (param->convertFrom0to1 (param->getValue())));
+            const int next = (cur == 2) ? 1 : 2;   // EARLY (1) <-> LATE (2)
+            param->setValueNotifyingHost ((float) next / 3.0f);
+        }
+    };
+    for (auto* dead : { &polPos1Button, &polPos3Button, &polPos4Button })
     {
         dead->setVisible (false);
         dead->setEnabled (false);
@@ -4303,12 +4315,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // trotzdem gespeichert.
         const bool anyFlip = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_L)->load() > 0.5f
                           || processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_R)->load() > 0.5f;
-        for (int idx = 0; idx < 4; ++idx)
-        {
-            const bool shouldBeOn = anyFlip && (idx == currentPos);
-            if (polPosButtons[idx]->getToggleState() != shouldBeOn)
-                polPosButtons[idx]->setToggleState (shouldBeOn, juce::dontSendNotification);
-        }
+        // Ein Knopf (Runde 39): Text = aktuelle Position, leuchtet bei Flip.
+        juce::ignoreUnused (polPosButtons);
+        const juce::String posText = (currentPos == 2) ? "LATE" : "EARLY";
+        if (polPos2Button.getButtonText() != posText)
+            polPos2Button.setButtonText (posText);
+        if (polPos2Button.getToggleState() != anyFlip)
+            polPos2Button.setToggleState (anyFlip, juce::dontSendNotification);
     }
 
     // Live-Position fuer den Flow-Ring (leuchtender Punkt) aktualisieren.
@@ -6139,11 +6152,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
         polInner.removeFromTop (gapV);
         auto posRow = polInner.removeFromTop (posBtnH);
-        const int posBtnW = (lrBtnW * 2 + lrGap - posBtnGap) / 2;
-        auto posRowCentered = posRow.withSizeKeepingCentre (posBtnW * 2 + posBtnGap, posBtnH);
-        polPos2Button.setBounds (posRowCentered.removeFromLeft (posBtnW));
-        posRowCentered.removeFromLeft (posBtnGap);
-        polPos3Button.setBounds (posRowCentered);
+        juce::ignoreUnused (posBtnGap);
+        // Ein Knopf, so breit wie L + R zusammen (Runde 39).
+        polPos2Button.setBounds (posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, posBtnH));
+        polPos3Button.setBounds ({});
         polPos1Button.setBounds ({});
         polPos4Button.setBounds ({});
     }

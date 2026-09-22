@@ -723,6 +723,8 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rayOnGain.setCurrentAndTargetValue (pRayOn->load() > 0.5f ? 1.0f : 0.0f);
     rayDepthSmoothed.reset (sampleRate, knobRampSeconds);
     rayDepthSmoothed.setCurrentAndTargetValue (rayStrengthToDepth (pRayStrength->load()));
+    rayLifeSmoothed.reset (sampleRate, knobRampSeconds);
+    rayLifeSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     rayPhase = 0.0;
@@ -1256,6 +1258,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     posOnGain.setTargetValue        ((pPosOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_POSITION))   ? 1.0f : 0.0f);
     rayOnGain.setTargetValue        ((pRayOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_RAY))        ? 1.0f : 0.0f);
     rayDepthSmoothed.setTargetValue (rayStrengthToDepth (pRayStrength->load()));
+    // LIFE regelt auch RAYE (User, Runde 39): 0 % = alles steht still.
+    rayLifeSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     // Mono-Check ist ein reines Monitoring-Utility, kein Solo-Ziel.
     monoCheckGain.setTargetValue    (pMonoCheck->load() > 0.5f ? 1.0f : 0.0f);
     // A/B-Dry-Vergleich: nur relevant, waehrend Mono-Check selbst aktiv ist
@@ -1819,7 +1823,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // faerbt das Ergebnis, er baut es nicht. Zero-Latency (reine
         // Allpaesse), Solo-Gating wie ueberall ueber rayGain.
         {
-            const float rayGain  = rayOnGain.getNextValue();
+            const float rayGain  = rayOnGain.getNextValue() * rayLifeSmoothed.getNextValue();
             // rayDepthRaw: 0 = Stufe "Off" (kein Effekt), 1/3..1 = leicht..stark.
             // Der Wet-Anteil faehrt zwischen Off und Light weich auf null.
             const float rayDepthRaw = rayDepthSmoothed.getNextValue();

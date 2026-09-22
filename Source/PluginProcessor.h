@@ -529,6 +529,7 @@ private:
     float rayFbL = 0.0f, rayFbR = 0.0f;
     double rayPhase = 0.0;
     juce::SmoothedValue<float> rayOnGain, rayDepthSmoothed;
+    juce::SmoothedValue<float> rayLifeSmoothed;   // LIFE skaliert auch RAYE (Runde 39)
 
     std::atomic<float>* pPosOn = nullptr;
     std::atomic<float>* pPosOffset = nullptr;
