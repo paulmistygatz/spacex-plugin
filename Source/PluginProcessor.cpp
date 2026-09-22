@@ -200,40 +200,47 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
 // Mix war beim Einstellen der GLOBALE Mix - hier ist es der Parallax-eigene.
 const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef (int mode) noexcept
 {
-    static const ParallaxModeDef defs[4] = {
-        // 1 TIGHT (Platzhalter, User: "Amount einfach Mix")
-        { 1, true,  { { 25.0f, 2.0f, 0.0f, 100.0f, 0.0f } } },
-        // 2 WIDE  (Platzhalter, User: "Amount einfach Mix")
-        { 1, true,  { { 55.0f, 4.0f, 0.0f, 100.0f, 0.0f } } },
-        // 3 WIDENER - vier Wegpunkte 222.1 .. 222.4
-        { 4, false, { {   -6.6f, 0.88f,  0.0f, 30.7f, 1.60f },
-                      {   -6.6f, 0.88f, 27.5f, 30.7f, 1.60f },
-                      { -100.0f, 0.00f, 27.5f, 38.8f, 0.00f },
-                      {   -6.6f, 0.88f,  0.0f, 39.9f, 2.33f } } },
-        // 4 MACRO - 4.2 -> 4.3 -> 4.4 max
-        { 3, false, { {   5.1f, 0.00f, -7.0f,  41.0f, 0.0f },
-                      {   5.1f, 0.00f, -7.0f, 100.0f, 0.0f },
-                      { 100.0f, 6.45f, -7.0f,  43.9f, 0.0f } } }
+    static const ParallaxModeDef defs[kParallaxModes] = {
+        // 1 A  (Amount = Mix bis 36,7 %)
+        { 1, true,  true,  { { -100.0f, 0.00f, 27.5f,  36.7f, 0.0f } } },
+        // 2 B  (Amount = Mix bis 100 %)
+        { 1, true,  true,  { {    0.0f, 6.39f,  0.0f, 100.0f, 0.0f } } },
+        // 3 C  (0 -> Pos 1 bei 50 %, dann Morph -> Pos 2 bei 100 %)
+        { 2, false, true,  { {  -38.6f, 6.58f,  0.0f,  30.7f, 0.0f },
+                             { -100.0f, 6.39f,  6.9f,  32.9f, 0.0f } } },
+        // 4 MACRO (0 -> 4.2 -> 4.3 -> 4.4 max)
+        { 3, false, false, { {    5.1f, 0.00f, -7.0f,  41.0f, 0.0f },
+                             {    5.1f, 0.00f, -7.0f, 100.0f, 0.0f },
+                             {  100.0f, 6.45f, -7.0f,  43.9f, 0.0f } } },
+        // 5 WIDENER (0 -> 222.1 -> 222.2 -> 222.3 -> 222.4)
+        { 4, false, false, { {   -6.6f, 0.88f,  0.0f,  30.7f, 1.60f },
+                             {   -6.6f, 0.88f, 27.5f,  30.7f, 1.60f },
+                             { -100.0f, 0.00f, 27.5f,  38.8f, 0.00f },
+                             {   -6.6f, 0.88f,  0.0f,  39.9f, 2.33f } } }
     };
-    return defs[juce::jlimit (0, 3, mode)];
+    return defs[juce::jlimit (0, kParallaxModes - 1, mode)];
 }
 
 LCRMSAudioProcessor::ParallaxPoint LCRMSAudioProcessor::evalParallaxMode (int mode, float amount01) noexcept
 {
     const auto& d = parallaxModeDef (mode);
     amount01 = juce::jlimit (0.0f, 1.0f, amount01);
-    if (d.amountIsMix || d.numPoints <= 1)
+    if (d.amountIsMix)
     {
         ParallaxPoint p = d.pts[0];
-        if (d.amountIsMix)
-            p.mixPct = d.pts[0].mixPct * amount01;
+        p.mixPct = d.pts[0].mixPct * amount01;          // nie ueber den Preset-Wert
+        p.gainDb = d.pts[0].gainDb * amount01;
         return p;
     }
-    const float pos = amount01 * (float) (d.numPoints - 1);
-    const int   i0  = juce::jlimit (0, d.numPoints - 2, (int) std::floor (pos));
+    // Punkt 0 ist immer "alles auf 0", danach die Punkte des Modus -
+    // gleichmaessig ueber den Amount-Weg verteilt.
+    const ParallaxPoint zero { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    const int segs = d.numPoints;                       // Null + numPoints Punkte
+    const float pos = amount01 * (float) segs;
+    const int   i0  = juce::jlimit (0, segs - 1, (int) std::floor (pos));
     const float t   = pos - (float) i0;
-    const auto& a = d.pts[i0];
-    const auto& b = d.pts[i0 + 1];
+    const auto& a = (i0 == 0) ? zero : d.pts[i0 - 1];
+    const auto& b = d.pts[i0];
     auto lerp = [t] (float x, float y) { return x + (y - x) * t; };
     return { lerp (a.driftPct, b.driftPct), lerp (a.bendCt, b.bendCt), lerp (a.tiltPct, b.tiltPct),
              lerp (a.mixPct, b.mixPct), lerp (a.gainDb, b.gainDb) };
@@ -386,7 +393,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Tight", "Wide", "Widener", "Macro" }, 0));
+        juce::StringArray { "A", "B", "C", "Macro", "Widener" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -1073,7 +1080,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     float pxBend = 0.0f;
     if (pxModes)
     {
-        const int pxMode = juce::jlimit (0, 3, (int) std::round (pParallaxMode->load()));
+        const int pxMode = juce::jlimit (0, kParallaxModes - 1, (int) std::round (pParallaxMode->load()));
         float pxAmt = juce::jlimit (0.0f, 1.0f, pParallaxAmount->load() * 0.01f);
         if (pTimewarpMod->load() > 0.5f && ! globalModBypass && pxAmt > 0.001f && timewarpDepthFrac > 0.001f)
             pxAmt = juce::jlimit (0.0f, 1.0f, pxAmt + timewarpSine * pxAmt * timewarpDepthFrac);
@@ -1134,7 +1141,12 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // die gefuehlte Wanderung zur Gegenseite zurueckzuholen. Reine An/Aus-
     // Option, Betrag ist fest (kein eigener Staerke-Regler). Tatsaechlich
     // angewendet wird das weiter unten pro Sample (siehe balanceOnGain).
+   #if SPACEX_PARALLAX_UI != 1
+    // Modus-Builds: Balance gehoert zum Modus (User-Presets A/B/C mit Balance).
+    balanceOnGain.setTargetValue (parallaxModeBalance ((int) std::round (pParallaxMode->load())) ? 1.0f : 0.0f);
+   #else
     balanceOnGain.setTargetValue (pTimewarpBalance->load() > 0.5f ? 1.0f : 0.0f);
+   #endif
     // Runde 30, zwei Korrekturen (User: "er ist hoerbar, koennte aber noch
     // mehr centern"):
     //
@@ -2140,8 +2152,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // noch auf das tatsaechliche Ausgangssignal (l/r), NICHT mehr auf
         // Goniometer/Korrelationsmesser (siehe meterL/meterR oben).
         {
-            const float srcL = l + (dryL - l) * monoDryS;
-            const float srcR = r + (dryR - r) * monoDryS;
+            // Runde 45 (User-Bug "Sprung beim Umschalten"): das Original
+            // latenzgleich nehmen (bypassDry) - mit Galaxy lag das rohe
+            // Eingangssignal sonst um die FFT-Latenz zu frueh.
+            const float srcL = l + (bypassDryL[(size_t) i] - l) * monoDryS;
+            const float srcR = r + (bypassDryR[(size_t) i] - r) * monoDryS;
             const float monoSum = 0.5f * (srcL + srcR);
             l = l + (monoSum - l) * monoGain;
             r = r + (monoSum - r) * monoGain;

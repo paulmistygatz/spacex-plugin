@@ -441,9 +441,14 @@ public:
     // von Punkt zu Punkt (gleichmaessig verteilt). amountIsMix: nur ein
     // Punkt, Amount ist dann der Parallax-Mix (0..100 %).
     struct ParallaxPoint { float driftPct, bendCt, tiltPct, mixPct, gainDb; };
-    struct ParallaxModeDef { int numPoints; bool amountIsMix; ParallaxPoint pts[4]; };
+    // Runde 45: Amount 0 % ist IMMER "alles auf 0" (User). amountIsMix: die
+    // Einstellung steht fest, Amount dreht nur den Mix von 0 bis zum Wert des
+    // Presets (nie darueber). Sonst: Amount faehrt von Null ueber die Punkte.
+    static constexpr int kParallaxModes = 5;
+    struct ParallaxModeDef { int numPoints; bool amountIsMix; bool balance; ParallaxPoint pts[4]; };
     static const ParallaxModeDef& parallaxModeDef (int mode) noexcept;
     static ParallaxPoint evalParallaxMode (int mode, float amount01) noexcept;
+    static bool parallaxModeBalance (int mode) noexcept { return parallaxModeDef (mode).balance; }
 
 
     // Aktueller LFO-Wert des Phasers (-1..1, 0 wenn aus) fuer das Starfield

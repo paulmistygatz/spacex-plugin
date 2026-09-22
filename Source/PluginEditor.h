@@ -1497,7 +1497,9 @@ private:
     // PARALLAX neu: ein Regler + vier Modus-Knoepfe (Runde 34).
     juce::Slider parallaxAmountSlider;
     juce::Label  parallaxAmountLabel;
-    juce::TextButton parallaxModeButtons[4];
+    static constexpr int kPxModes = 5;   // A, B, C, Macro, Widener (Runde 45)
+    juce::TextButton parallaxModeButtons[kPxModes];
+    juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
     // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;

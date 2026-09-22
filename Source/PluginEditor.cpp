@@ -2938,12 +2938,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             applyParallaxMode();
     };
     {
-        static const char* modeNames[4] = { "TIGHT", "WIDE", "WIDENER", "MACRO" };
-        static const char* modeTips[4]  = { "Tight: Amount blends in a close double",
-                                            "Wide: Amount blends in a wider double",
-                                            "Widener: Amount walks through four widening steps",
-                                            "Macro: Amount goes from a subtle double to full stretch" };
-        for (int i = 0; i < 4; ++i)
+        // Runde 45: fuenf Modi aus den User-Presets (Namen folgen).
+        static const char* modeNames[kPxModes] = { "A", "B", "C", "MACRO", "WIDENER" };
+        static const char* modeTips[kPxModes]  = { "A: Amount blends it in",
+                                                   "B: Amount blends it in",
+                                                   "C: Amount grows it, then morphs further",
+                                                   "Macro: from a subtle double to full stretch",
+                                                   "Widener: walks through four widening steps" };
+        for (int i = 0; i < kPxModes; ++i)
         {
             auto& b = parallaxModeButtons[i];
             b.setButtonText (modeNames[i]);
@@ -2972,14 +2974,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             {
                 if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE))
                 {
-                    const int cur = juce::jlimit (0, 3, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
+                    const int cur = juce::jlimit (0, kPxModes - 1, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
                     const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
-                    const int next = (cur + (back ? 3 : 1)) % 4;
+                    const int next = (cur + (back ? kPxModes - 1 : 1)) % kPxModes;
                     prm->setValueNotifyingHost (prm->convertTo0to1 ((float) next));
                 }
                 applyParallaxMode();
             };
-            for (int i = 1; i < 4; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
+            for (int i = 1; i < kPxModes; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
         }
        #endif
     }
@@ -4342,15 +4344,25 @@ void LCRMSAudioProcessorEditor::timerCallback()
 
     // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
     {
-        const int mode = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+        const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
-        static const char* const modeNames[4] = { "TIGHT", "WIDE", "WIDENER", "MACRO" };
+        static const char* const modeNames[kPxModes] = { "A", "B", "C", "MACRO", "WIDENER" };
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
+        {
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
+           #if SPACEX_RAYE_UI == 1
+            // Variante B (SpaceXraye): Fuellung waechst mit dem Modus.
+            parallaxModeButtons[0].getProperties().set ("modeFill", (double) mode / (double) (kPxModes - 1));
+            parallaxModeButtons[0].repaint();
+           #else
+            // Variante A (SpaceXclick): Punkte unter dem Knopf.
+            content.repaint (pxModeDotsArea.expanded (4));
+           #endif
+        }
         if (! parallaxModeButtons[0].getToggleState())
             parallaxModeButtons[0].setToggleState (true, juce::dontSendNotification);
        #else
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < kPxModes; ++i)
             if (parallaxModeButtons[i].getToggleState() != (i == mode))
                 parallaxModeButtons[i].setToggleState (i == mode, juce::dontSendNotification);
        #endif
@@ -5415,6 +5427,25 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
 {
     drawHintBar (g);
+   #if SPACEX_PARALLAX_UI == 2 && SPACEX_RAYE_UI != 1
+    // Variante A (Runde 45): kleine Punkte unter dem Parallax-Klick-Knopf,
+    // der aktuelle leuchtet.
+    if (! pxModeDotsArea.isEmpty() && parallaxModeButtons[0].isVisible())
+    {
+        const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
+        const float d = 4.0f, gapD = 7.0f;
+        const float totalW = kPxModes * d + (kPxModes - 1) * gapD;
+        float x = (float) pxModeDotsArea.getCentreX() - totalW * 0.5f;
+        const float y = (float) pxModeDotsArea.getCentreY() - d * 0.5f;
+        const bool off = parallaxModeButtons[0].getProperties().getWithDefault ("sectionOff", false);
+        for (int i = 0; i < kPxModes; ++i, x += d + gapD)
+        {
+            g.setColour (i == mode ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
+                                   : juce::Colours::white.withAlpha (0.16f));
+            g.fillEllipse (x, y, d, d);
+        }
+    }
+   #endif
     auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
 
     // View-Panel offen: die Sektionsspalte rechts abdunkeln, damit das Panel
@@ -6389,9 +6420,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int gap    = 10;
         const int knobS  = juce::jmin (row2KnobSize, driftInner.getHeight() - kKnobLabelH,
                                        (driftInner.getWidth() - gap) / 2);
+        const int btnGap = 6;
+       #if SPACEX_PARALLAX_UI == 2
         const int btnW   = juce::jmin (78, (driftInner.getWidth() - knobS - gap - 6) / 2);   // "WIDENER" passt rein
-        const int btnH   = 30, btnGap = 6;   // so hoch wie EARLY/LATE (User)
-        auto block = driftInner.withSizeKeepingCentre (knobS + gap + btnW * 2 + btnGap, driftInner.getHeight());
+        const int blockW = btnW * 2 + btnGap;
+       #else
+        // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
+        const int btnW   = juce::jmin (70, (driftInner.getWidth() - knobS - gap - btnGap * 2) / 3);
+        const int blockW = btnW * 3 + btnGap * 2;
+       #endif
+        const int btnH   = 30;   // so hoch wie EARLY/LATE (User)
+        auto block = driftInner.withSizeKeepingCentre (knobS + gap + blockW, driftInner.getHeight());
         auto knobSlot = block.removeFromLeft (knobS);
         block.removeFromLeft (gap);
         placeKnobWithLabel (knobSlot, parallaxAmountSlider, parallaxAmountLabel, knobS);
@@ -6399,14 +6438,19 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #if SPACEX_PARALLAX_UI == 2
         // Ein Klick-Knopf statt 2x2 (so breit wie zwei der Rasterknoepfe).
         parallaxModeButtons[0].setBounds (block.getX(), parallaxAmountSlider.getBounds().getCentreY() - btnH / 2,
-                                          btnW * 2 + btnGap, btnH);
-        for (int i = 1; i < 4; ++i) parallaxModeButtons[i].setBounds ({});
+                                          blockW, btnH);
+        for (int i = 1; i < kPxModes; ++i) parallaxModeButtons[i].setBounds ({});
+        pxModeDotsArea = { block.getX(), parallaxModeButtons[0].getBottom() + 5, blockW, 6 };
        #else
         const int gridH = btnH * 2 + btnGap;
         const int gridY = parallaxAmountSlider.getBounds().getCentreY() - gridH / 2;
-        for (int i = 0; i < 4; ++i)
-            parallaxModeButtons[i].setBounds (block.getX() + (i % 2) * (btnW + btnGap),
-                                              gridY + (i / 2) * (btnH + btnGap), btnW, btnH);
+        for (int i = 0; i < kPxModes; ++i)
+        {
+            const int row = (i < 3) ? 0 : 1;
+            const int col = (i < 3) ? i : i - 3;
+            const int rowX = block.getX() + (row == 0 ? 0 : (btnW + btnGap) / 2);   // untere Reihe mittig
+            parallaxModeButtons[i].setBounds (rowX + col * (btnW + btnGap), gridY + row * (btnH + btnGap), btnW, btnH);
+        }
        #endif
     }
 

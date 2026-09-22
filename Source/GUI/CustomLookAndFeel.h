@@ -988,6 +988,21 @@ public:
             g.fillRoundedRectangle (bounds, cornerSize);
         }
 
+        // Parallax-Klick-Knopf, Variante B (Runde 45): Fuellung von links,
+        // waechst mit dem Modus (1 = leer, letzter = voll).
+        {
+            const double fill = button.getProperties().getWithDefault ("modeFill", -1.0);
+            if (fill > 0.0)
+            {
+                juce::Path clipP; clipP.addRoundedRectangle (bounds, cornerSize);
+                g.saveState();
+                g.reduceClipRegion (clipP);
+                g.setColour (btnAccent.withAlpha (sectionIsOffNow ? 0.12f : 0.30f));
+                g.fillRect (bounds.withWidth (bounds.getWidth() * (float) fill));
+                g.restoreState();
+            }
+        }
+
         // Pair bei ausgeschalteter RAYE-Sektion: Zustand trotzdem sichtbar
         // (hellerer Rand, User) - Property "pairedGold" bleibt gesetzt.
         if (isComicTheme())
