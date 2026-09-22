@@ -461,6 +461,17 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
         }
     }
 
+    // ---- Parallax-Modus: gleichverteilt statt Glocke ----
+    // In den Modus-Builds entscheidet der Modus, was Drift/Shift/Tilt
+    // ueberhaupt tun - eine Glocke um den Default haette fast immer DOUBLE
+    // gezogen (User: "Smart wuerfelt Parallax in den Modus-Builds nicht mit").
+    if (SPACEX_PARALLAX_UI != 1)
+    {
+        if (auto* pxMode = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PARALLAX_MODE))
+            if (! excluded.contains (pxMode))
+                pxMode->setValueNotifyingHost (pxMode->convertTo0to1 ((float) rng.nextInt (LCRMSAudioProcessor::kParallaxModes)));
+    }
+
     // ---- Polarity: Sektion und Positionen an den Flip koppeln ----
     // User: "es macht keinen Sinn, wenn 1-4 sich aendern, die Section aber
     // off bleibt und sich sowieso nicht L oder R aktiviert hat - oder on ist,
@@ -770,6 +781,9 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     // Der zweite Wuerfel bekommt so lange einen dezenten Hof, damit man
     // sofort sieht, wohin die Kategorie wirkt (User: "Smart-Icon highlighten").
     globalChaosSectionsButton.getProperties().set ("categoryArmed", catOn);
+    // Der Wuerfel wechselt zwischen schmal und breit - das ist Layout.
+    if (getWidth() > 0)
+        resized();
     globalChaosButton.repaint();
     globalChaosSectionsButton.repaint();
 }
@@ -795,6 +809,21 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             p->setValueNotifyingHost (p->convertTo0to1 (value));
     };
     auto chance = [&rng] (int percent) { return rng.nextInt (100) < percent; };
+    // Modus-Builds (User Runde 50): die Kategorie waehlt einen passenden
+    // Parallax-STYLE und einen Amount-Bereich - Drift/Shift/Tilt direkt zu
+    // setzen bringt dort nichts, die ueberschreibt der Modus ohnehin.
+    // 0=Double 1=Wide 2=Illusion 3=3D 4=Drift 5=Flux
+    constexpr bool pxModes = (SPACEX_PARALLAX_UI != 1);
+    auto parallax = [&] (std::initializer_list<int> modes, float amtCentre, float amtSpread, float lo, float hi)
+    {
+        if (auto* mp = param (P::ID_PARALLAX_MODE))
+        {
+            const int pick = *(modes.begin() + rng.nextInt (juce::jmax (1, (int) modes.size())));
+            mp->setValueNotifyingHost (mp->convertTo0to1 ((float) pick));
+        }
+        roll (P::ID_PARALLAX_AMOUNT, amtCentre, amtSpread, lo, hi);
+    };
+    juce::ignoreUnused (parallax);
     const bool galaxyArmed = processor.apvts.getRawParameterValue (P::ID_GALAXY_ACTIVATE)->load() > 0.5f;
     auto section = [&] (const char* onId, int solo, int onPercent) -> bool
     {
@@ -884,8 +913,8 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             // Mono wird nur durch PARALLAX stereo - deshalb fast immer an.
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 90))
             {
-                driftMs (1.5f, 0.8f, 3.0f);
-                roll (P::ID_BEND, 2.0f, 1.5f, 0.0f, 4.0f);
+                if (pxModes) parallax ({ 0, 1 }, 40.0f, 12.0f, 20.0f, 60.0f);
+                else { driftMs (1.5f, 0.8f, 3.0f); roll (P::ID_BEND, 2.0f, 1.5f, 0.0f, 4.0f); }
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             if (! locked (P::SOLO_POLARITY)) { set (P::ID_POL_ON, 0.0f); polarityOff(); }
@@ -911,8 +940,8 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             }
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 80))
             {
-                driftMs (3.5f, 1.8f, 6.0f);
-                roll (P::ID_BEND, 2.5f, 1.5f, 0.0f, 5.0f);
+                if (pxModes) parallax ({ 0, 1, 3 }, 55.0f, 15.0f, 30.0f, 80.0f);
+                else { driftMs (3.5f, 1.8f, 6.0f); roll (P::ID_BEND, 2.5f, 1.5f, 0.0f, 5.0f); }
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             polarityRare (10);
@@ -942,8 +971,8 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             }
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 90))
             {
-                driftMs (6.0f, 3.0f, 10.0f);
-                roll (P::ID_BEND, 4.0f, 2.5f, 0.0f, 8.0f);
+                if (pxModes) parallax ({ 1, 2, 3, 4 }, 70.0f, 18.0f, 40.0f, 95.0f);
+                else { driftMs (6.0f, 3.0f, 10.0f); roll (P::ID_BEND, 4.0f, 2.5f, 0.0f, 8.0f); }
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             polarityRare (20);
@@ -973,8 +1002,8 @@ void LCRMSAudioProcessorEditor::applyMutateProfile (juce::Random& rng, int categ
             }
             if (section (P::ID_DRIFT_ON, P::SOLO_TIMEWARP, 85))
             {
-                driftMs (8.0f, 4.0f, 14.0f);
-                roll (P::ID_BEND, 5.5f, 2.5f, 2.0f, 8.0f);
+                if (pxModes) parallax ({ 2, 3, 4, 5 }, 80.0f, 20.0f, 45.0f, 100.0f);
+                else { driftMs (8.0f, 4.0f, 14.0f); roll (P::ID_BEND, 5.5f, 2.5f, 2.0f, 8.0f); }
                 set (P::ID_TIMEWARP_BALANCE, 1.0f);
             }
             polarityRare (25);
@@ -1008,7 +1037,8 @@ juce::StringArray LCRMSAudioProcessorEditor::sectionParamIds (int soloSectionId)
             return { P::ID_LCR_ENABLED, P::ID_LCR_SENS, P::ID_LCR_BLEND, P::ID_LCR_HORIZON,
                      P::ID_GALAXY_MOD, P::ID_GALAXY_DEPTH };
         case P::SOLO_TIMEWARP:
-            return { P::ID_DRIFT_ON, P::ID_DRIFT, P::ID_BEND, P::ID_TIMEWARP_BALANCE, P::ID_TIMEWARP_MOD, P::ID_TIMEWARP_DEPTH };
+            return { P::ID_DRIFT_ON, P::ID_DRIFT, P::ID_BEND, P::ID_TIMEWARP_BALANCE, P::ID_TIMEWARP_MOD, P::ID_TIMEWARP_DEPTH,
+                     P::ID_PARALLAX_MODE, P::ID_PARALLAX_AMOUNT };
         case P::SOLO_POLARITY:
             return { P::ID_POL_ON, P::ID_POL_L, P::ID_POL_R, P::ID_POL_POS };
         case P::SOLO_DIMENSION:
@@ -1022,6 +1052,41 @@ juce::StringArray LCRMSAudioProcessorEditor::sectionParamIds (int soloSectionId)
         default:
             return {};
     }
+}
+
+// ===== Settings "Technical Labels" =====
+// Zwei Namensschichten fuer dieselben Regler: der Vibe-Name (GALAXY, PARALLAX,
+// Orbit, Drift) verkauft, der technische sagt, was passiert. Beides in einer
+// Zeile unterzubringen war nie moeglich - also ein Schalter statt eines
+// Kompromisses. Die Parameter-IDs bleiben unveraendert, es ist reine Optik.
+void LCRMSAudioProcessorEditor::applyLabelStyle()
+{
+    const bool t = technicalLabels;
+    auto put = [t] (juce::Label& l, const char* vibe, const char* tech)
+    {
+        l.setText (t ? tech : vibe, juce::dontSendNotification);
+    };
+
+    put (lcrTitleLabel,        "GALAXY",     "LCR");
+    put (driftTitleLabel,      "PARALLAX",   "MICROPITCH");
+    put (polTitleLabel,        "ECLIPSE",    "POLARITY");
+    put (widthBoostTitleLabel, "DIMENSION",  "MID-SIDE");
+    put (flowTitleLabel,       "HYPERDRIVE", "AUTOPAN");
+    put (rayTitleLabel,        "RAYE",       "PHASER");
+
+    put (gravityLabel,   "Gravity", "C-Weight");
+    put (orbitLabel,     "Orbit",   "L/R");
+    put (driftLabel,     "Drift",   "Haas");
+    put (bendLabel,      "Shift",   "Detune");
+    put (offsetLabel,    "Tilt",    "Pan");
+    put (sideWidthLabel, "Size",    "Width");
+    put (sideBoostLabel, "Boost",   "Gain");
+    put (movementLabel,  "Flow",    "Width");
+    // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
+
+    if (getWidth() > 0)
+        resized();
+    repaint();
 }
 
 // Macht einen Sektions-Titel zusaetzlich zum Power-Icon klickbar, um die
@@ -1601,6 +1666,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.keepSolo    = keepSoloWhenSectionOff;
     settingsSnap.modVis      = modulationVisualsEnabled;
     settingsSnap.advMod      = advancedModVisible;
+    settingsSnap.techLabels  = technicalLabels;
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -1621,6 +1687,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (keepSoloWhenSectionOff,                         settingsSnap.keepSolo,    idKeepSolo);
     flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
     flipIf (advancedModVisible,                             settingsSnap.advMod,      idShowAdvancedMod);
+    flipIf (technicalLabels,                                settingsSnap.techLabels,  idTechnicalLabels);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
@@ -1678,6 +1745,7 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
     settingsPanel.behavBtn[3].setToggleState (advancedModVisible,                              juce::dontSendNotification);
     settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[5].setToggleState (technicalLabels,                                  juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
     settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
@@ -1754,6 +1822,12 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     for (auto& b : categoryBtn)
                         b.setVisible (showMutateCategories);   // resized() reicht nicht: content aendert seine Groesse nicht
                     break;
+                case idTechnicalLabels:
+                    technicalLabels = ! technicalLabels;
+                    writeProps.setValue ("technicalLabels", technicalLabels);
+                    writeProps.saveIfNeeded();
+                    applyLabelStyle();
+                    break;
                 case idOpenManual:
                     openManual();
                     break;
@@ -1792,7 +1866,10 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     keepSoloWhenSectionOff = true;
                     modulationVisualsEnabled = true;
                     showMutateCategories = true;
+                    writeProps.setValue ("technicalLabels", false);
+                    technicalLabels = false;
                     writeProps.saveIfNeeded();
+                    applyLabelStyle();
                     applyLayoutMode();
                     resized();
                     repaint();
@@ -3666,6 +3743,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         }
         setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
         showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
+        technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", false);
+        applyLabelStyle();
         keepSoloWhenSectionOff = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("keepSoloWhenSectionOff", true);
     }
     viewGearButton.onClick = [this]
@@ -5674,9 +5753,26 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto live = row1.removeFromLeft (kLiveW);
         globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
-        globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
-        live.removeFromLeft (kGap);
-        globalChaosSectionsButton.setBounds (live.removeFromLeft (kIconBtnW));
+        // Runde 50 (User-Idee "deutlich groesserer Wuerfel"): mit aktiver
+        // Smart-Kategorie ist der zweite Wuerfel ohnehin gesperrt - dann
+        // werden aus beiden EIN breiter Knopf mit deutlich groesserem
+        // Wuerfel. Die Gesamtbreite bleibt gleich, der Rest der Zeile
+        // springt also nicht.
+        if (mutateCategoryValue > 0)
+        {
+            globalChaosButton.getProperties().set ("mutateBig", true);
+            globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW * 2 + kGap));
+            globalChaosSectionsButton.setBounds ({});
+            globalChaosSectionsButton.setVisible (false);
+        }
+        else
+        {
+            globalChaosButton.getProperties().set ("mutateBig", false);
+            globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
+            live.removeFromLeft (kGap);
+            globalChaosSectionsButton.setVisible (true);
+            globalChaosSectionsButton.setBounds (live.removeFromLeft (kIconBtnW));
+        }
         live.removeFromLeft (kGap);
         globalBreatheButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);

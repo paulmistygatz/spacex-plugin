@@ -47,7 +47,8 @@ enum SpaceXSettingsId
     idActivate,
     idAutoGain,
     idBassGuard,
-    idShowAdvancedMod
+    idShowAdvancedMod,
+    idTechnicalLabels
 };
 
 // ===== Varianten-Builds fuer den Layout-Vergleich (User) =====
@@ -96,7 +97,8 @@ public:
         bool autoGain = true;
         bool bassGuard = true;
         bool prism = true, mix = false, cats = true, clickEdge = false,
-             galaxyStart = false, keepSolo = true, modVis = true, showHz = false, advMod = false;
+             galaxyStart = false, keepSolo = true, modVis = true, showHz = false, advMod = false,
+             techLabels = false;
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -252,7 +254,7 @@ private:
         static constexpr int kThemes  = 5;
         static constexpr int kLayouts = 3;
         static constexpr int kSmart   = 2;
-        static constexpr int kBehav   = 5;
+        static constexpr int kBehav   = 6;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
@@ -268,7 +270,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
         static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault, idTechnicalLabels }; return a; }
 
         SettingsPanelComponent()
         {
@@ -298,7 +300,8 @@ private:
             static const char* const behavNames[kBehav]   = { "Auto Gain", "Bass Guard 120 Hz",
                                                               "Show Modulation",
                                                               "Show Advanced Modulation",
-                                                              "Galaxy On Startup (Latency)" };
+                                                              "Galaxy On Startup (Latency)",
+                                                              "Technical Labels" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -339,6 +342,7 @@ private:
             behavBtn[1].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
             behavBtn[3].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
             behavBtn[4].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
+            behavBtn[5].setTooltip ("Names the sections and knobs by what they do: LCR, Polarity, MicroPitch, Mid-Side, Autopan, Phaser");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }
@@ -1666,6 +1670,10 @@ private:
     juce::TextButton categoryBtn[kNumCategories];
     int mutateCategoryValue = 0;
     bool showMutateCategories = true;   // Menue "Show Mutate Categories"
+    // Settings "Technical Labels" (User): Sektions- und Reglernamen als
+    // Funktion statt als Vibe-Name.
+    bool technicalLabels = false;
+    void applyLabelStyle();
     int  mutateCategory() const;
     void setMutateCategory (int cat);
     void applyMutateProfile (juce::Random& rng, int category);

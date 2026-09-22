@@ -2325,7 +2325,10 @@ public:
     // Sektionen darunter randomisiert werden.
     void drawMutateContent (juce::Graphics& g, juce::Button& button)
     {
-        auto bounds = button.getLocalBounds().toFloat().reduced (10.0f, 6.0f);
+        // "mutateBig" (Runde 50): der Wuerfel ersetzt bei aktiver Smart-
+        // Kategorie beide Knoepfe und wird entsprechend deutlich groesser.
+        const bool bigCube = button.getProperties().getWithDefault ("mutateBig", false);
+        auto bounds = button.getLocalBounds().toFloat().reduced (bigCube ? 16.0f : 10.0f, bigCube ? 2.0f : 6.0f);
         const int colorState = (int) button.getProperties().getWithDefault ("mutateColorState", 0b0101);
 
         // Ist eine Smart-Kategorie gewaehlt, bekommt dieser Wuerfel einen
@@ -2342,7 +2345,7 @@ public:
             }
         }
 
-        const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * 0.42f);
+        const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * (bigCube ? 0.60f : 0.42f));
         const float gap = cell * 0.28f;
         const float gridW = cell * 2.0f + gap;
         const float gridH = cell * 2.0f + gap;
@@ -2653,38 +2656,32 @@ public:
         auto bottom = bounds.getBottom() - 6.0f;
         auto cx = bounds.getCentreX();
 
-        // Deutlich breiter als zuvor, damit der Kegel klar als Form erkennbar
-        // ist (vorher zu schmal/unauffaellig).
-        const float topHalfWidth = juce::jmin (bounds.getWidth() * 0.5f - 2.0f, 40.0f);
+        // Runde 50 (User): kein Kegel mehr, sondern ein normaler senkrechter
+        // Fader. Die FARBE wandert mit dem Wert - unten die ruhige
+        // Akzentfarbe, oben die kraeftige Glow-Farbe. Damit sieht man den
+        // Stand auch dann, wenn die Fuellhoehe im Augenwinkel untergeht.
+        const float trackW = juce::jmin (bounds.getWidth() * 0.34f, 14.0f);
+        auto track = juce::Rectangle<float> (cx - trackW * 0.5f, top, trackW, bottom - top);
+        const float trackR = trackW * 0.5f;
 
-        // Kegel-Umriss: Spitze unten (neutral/aus), breit oben (voll L+R).
-        juce::Path cone;
-        cone.startNewSubPath (cx, bottom);
-        cone.lineTo (cx - topHalfWidth, top);
-        cone.lineTo (cx + topHalfWidth, top);
-        cone.closeSubPath();
-
-        // Immer sichtbar, auch wenn der Regler deaktiviert ist (vorher zu
-        // dunkel/kontrastarm - war der eigentliche "unsichtbar"-Bug).
-        // Umriss aus derselben Quelle wie die Reglerringe (User: "Orbit genau so
-        // dunkel machen wie die anderen, wenn Section off").
+        g.setColour (juce::Colour (0xff23262c));
+        g.fillRoundedRectangle (track, trackR);
         g.setColour (offVisual ? knobRingOffColour() : juce::Colour (0xff454952));
-        g.strokePath (cone, juce::PathStrokeType (1.4f));
+        g.drawRoundedRectangle (track.reduced (0.5f), trackR, 1.2f);
 
-        // Fuellung von der Spitze bis zur aktuellen Position.
-        const float fillTopY = juce::jmax (top, sliderPos);
+        // Fuellung von unten bis zur aktuellen Position.
+        const float fillTopY = juce::jlimit (top, bottom, sliderPos);
         const float t = juce::jlimit (0.0f, 1.0f, (bottom - fillTopY) / juce::jmax (1.0f, bottom - top));
-        const float fillHalfWidth = topHalfWidth * t;
 
-        juce::Path fill;
-        fill.startNewSubPath (cx, bottom);
-        fill.lineTo (cx - fillHalfWidth, fillTopY);
-        fill.lineTo (cx + fillHalfWidth, fillTopY);
-        fill.closeSubPath();
-
-        auto fillCol = offVisual ? knobValueOffColour() : accent;
-        g.setColour (fillCol.withAlpha (0.85f));
-        g.fillPath (fill);
+        auto valueCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, t);
+        if (t > 0.001f)
+        {
+            juce::Path fill;
+            fill.addRoundedRectangle (track.getX(), fillTopY, track.getWidth(), bottom - fillTopY,
+                                      trackR, trackR, false, false, true, true);
+            g.setColour (valueCol.withAlpha (0.90f));
+            g.fillPath (fill);
+        }
 
         // Live-Mod-Anzeige fuer Orbit (Galaxy-Mod) - gleiches Prinzip wie
         // der leuchtende Punkt bei den Rotary-Reglern (siehe
@@ -2712,8 +2709,7 @@ public:
         {
             const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
             const float liveY = juce::jmap (liveT, 0.0f, 1.0f, bottom, top);
-            const float tCone = juce::jlimit (0.0f, 1.0f, (bottom - liveY) / juce::jmax (1.0f, bottom - top));
-            const float liveHalfWidth = topHalfWidth * tCone;
+            const float liveHalfWidth = trackW * 0.5f + 3.0f;
 
             g.setColour (glowAccent.withAlpha (0.30f));
             g.drawLine (cx - liveHalfWidth, liveY, cx + liveHalfWidth, liveY, 5.0f);
@@ -2723,11 +2719,11 @@ public:
 
         // Aktuelle Position als leuchtender Punkt - ebenfalls ueber der Live-
         // Linie, bleibt also immer als eigener (tuerkiser) Punkt erkennbar.
-        auto dotCol = offVisual ? juce::Colour (0xff777b85) : accent;
+        auto dotCol = offVisual ? juce::Colour (0xff777b85) : valueCol;
         g.setColour (dotCol.withAlpha (0.25f));
-        g.fillEllipse (cx - 8.0f, sliderPos - 8.0f, 16.0f, 16.0f);
+        g.fillEllipse (cx - 9.0f, sliderPos - 9.0f, 18.0f, 18.0f);
         g.setColour (juce::Colours::white);
-        g.fillEllipse (cx - 2.0f, sliderPos - 2.0f, 4.0f, 4.0f);
+        g.fillEllipse (cx - 2.5f, sliderPos - 2.5f, 5.0f, 5.0f);
     }
 
     // Groesserer, klar lesbarer Text fuer die Sync-Raten-Box.
