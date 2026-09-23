@@ -2924,10 +2924,21 @@ public:
             clipTrack.addRoundedRectangle (track, trackR);
             g.saveState();
             g.reduceClipRegion (clipTrack);
-            g.setColour (dotCol.withAlpha (0.35f));
-            g.fillRect (track.getX(), fillTopY - markH * 1.6f, track.getWidth(), markH * 3.2f);
-            g.setColour (juce::Colours::white);
-            g.fillRect (track.getX(), fillTopY - markH * 0.5f, track.getWidth(), markH);
+            // Bug (User Runde 71): an den Endanschlaegen lag der weisse
+            // Strich mitten in der runden Kappe der Bahn. Der Zuschnitt machte
+            // daraus oben einen weissen Knubbel und unten einen hellen Rest
+            // in der leeren Bahn. An den Enden sagt aber die FUELLUNG schon
+            // alles - ganz voll oder ganz leer sieht man ohne Strich -, also
+            // blendet er dort weich aus, statt sich zu verformen.
+            const float endFade = juce::jlimit (0.0f, 1.0f,
+                                                juce::jmin (valT, 1.0f - valT) / 0.07f);
+            if (endFade > 0.001f)
+            {
+                g.setColour (dotCol.withAlpha (0.35f * endFade));
+                g.fillRect (track.getX(), fillTopY - markH * 1.6f, track.getWidth(), markH * 3.2f);
+                g.setColour (juce::Colours::white.withAlpha (endFade));
+                g.fillRect (track.getX(), fillTopY - markH * 0.5f, track.getWidth(), markH);
+            }
             g.restoreState();
         }
     }
