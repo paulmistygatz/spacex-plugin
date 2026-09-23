@@ -195,6 +195,27 @@ inline juce::Colour themeSurface()
         default:                    return juce::Colour (0xff1e2434);
     }
 }
+// Runde 66 (User): Fuellung der Sektionen im Outline-Layout, JE THEME.
+// Outline ist die neue Basis (klare Kontur, kein Glow) - wie viel Flaeche
+// darunter noetig ist, unterscheidet sich aber deutlich:
+//   Day & Night  passt so, wie es ist (User: "sieht super aus").
+//   Fairy Tale   war in 3D der klare Sieger - hier darf die Flaeche kraeftiger
+//                sein, damit die Sektionen dieselbe Tiefe bekommen.
+//   Sci-Fi       traegt seinen Look ueber die violetten Rahmen; die Flaeche
+//                bleibt ein Hauch in Richtung derselben Farbe (User:
+//                "miniminiminimal").
+struct OutlineFill { juce::Colour colour; float alpha; };
+inline OutlineFill outlineFill()
+{
+    switch (uiThemeRef())
+    {
+        case UiTheme::DayNight:  return { juce::Colour (0xff141826), 0.21f };
+        case UiTheme::DarkNight: return { juce::Colour (0xff13152a), 0.40f };   // Fairy Tale
+        case UiTheme::SciFi:
+        case UiTheme::SciFiDark: return { juce::Colour (0xff271c42), 0.15f };   // Richtung Rahmenviolett
+        default:                 return { juce::Colour (0xff141826), 0.21f };
+    }
+}
 // "Wash"-Sektionen: Fuellfarbe + Deckkraft fuer an / aus je Theme.
 struct WashFill { juce::Colour on, off; float aOn, aOff; };
 inline WashFill washFill()

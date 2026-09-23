@@ -4109,7 +4109,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         content.addAndMakeVisible (catDots);
 
         smartInfoLabel.setJustificationType (juce::Justification::centredLeft);
-        smartInfoLabel.setFont (juce::Font (juce::FontOptions (12.0f)));
+        // Runde 66 (User): rechts stand noch reichlich Platz frei, selbst bei
+        // der laengsten Zeile (Backings) - die Schrift darf also groesser.
+        smartInfoLabel.setFont (juce::Font (juce::FontOptions (13.5f)));
         smartInfoLabel.setColour (juce::Label::textColourId, juce::Colour (0xff8f96a4));
         smartInfoLabel.setMinimumHorizontalScale (1.0f);
         smartInfoLabel.setBorderSize (juce::BorderSize<int> (0));
@@ -5394,8 +5396,8 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // Hintergrund auf. Kein Glow - der gehoerte zu 3D.
             if (on)
             {
-                const auto wf = washFill();
-                g.setColour (wf.on.withAlpha (wf.aOn * 0.34f * pulse));
+                const auto of = outlineFill();
+                g.setColour (of.colour.withAlpha (of.alpha * pulse));
                 g.fillRoundedRectangle (rf, 10.0f);
                 // Ein Hauch Sektionsfarbe von links oben, viel schwaecher als
                 // in 3D - gibt der Flaeche Richtung, ohne sie einzufaerben.
@@ -5685,14 +5687,16 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // Konstant statt zeitgepulst (User-Bug: RAYE an/aus und Pair-Klick
             // liessen den Galaxy-Glow "atmen" - paintContent zeichnet nur bei
             // Klicks neu, die Sinusphase war dann jedes Mal eine andere).
-            const float pulse = 0.70f;
+            // Runde 66 (User, alle Themes): der Glow war zu praesent. Er soll
+            // die Latenz melden, nicht die Sektion ueberstrahlen.
+            const float pulse = 0.42f;
             auto glowRect = groupLcrArea.toFloat().reduced (3.0f);
             const juce::Colour glowCol (isComicTheme() ? juce::Colour (0xffffb648) : themePalette().frameRaye);   // Theme-Farbe (User); Pop Amber
             for (int layer = 3; layer >= 1; --layer)
             {
-                const float expand = 2.0f + 3.0f * (float) layer;
+                const float expand = 2.0f + 2.4f * (float) layer;
                 g.setColour (glowCol.withAlpha (0.05f * pulse * (float) (4 - layer)));
-                g.drawRoundedRectangle (glowRect.expanded (expand), 10.0f + expand, 2.0f);
+                g.drawRoundedRectangle (glowRect.expanded (expand), 10.0f + expand, 1.6f);
             }
         }
     }
