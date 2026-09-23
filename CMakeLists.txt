@@ -124,8 +124,6 @@ juce_add_binary_data(SpaceXManual
     HEADER_NAME SpaceXManualData.h
     NAMESPACE   SpaceXManualData
     SOURCES     docs/SpaceXManual_EN.pdf
-                docs/theme-previews/theme_silver.png
-                docs/theme-previews/theme_moon.png
                 docs/theme-previews/theme_daynight.png
                 docs/theme-previews/theme_fireflies.png
                 docs/theme-previews/theme_scifi.png

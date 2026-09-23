@@ -789,7 +789,7 @@ juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
     switch (cat)
     {
         case 1: return "Lead vocal - wide, centre stays put.";
-        case 2: return "Backing stacks and busses - wide, but tidy.";
+        case 2: return "Stacks, busses and mono doubles - wide, but tidy.";
         case 3: return "Ad-libs - space, movement, clear sides.";
         case 4: return "Send FX - anything goes.";
         default: return {};   // kein Profil, keine Zeile (User)
@@ -808,7 +808,7 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     for (int i = 0; i < kNumCategories; ++i)
         categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
 
-    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "LEAD VOCAL", "BACKING", "ADLIB", "SEND FX" };
+    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "LEAD VOCAL", "BACKINGS", "AD-LIBS", "SEND FX" };
     categoryButton.setButtonText (pillNames[juce::jlimit (0, kNumCategories, mutateCategoryValue)]);
     const bool profileArmed = mutateCategoryValue > 0;
     categoryButton.getProperties().set ("pillStrong", true);
@@ -1839,7 +1839,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
                             : settingsSnap.layout == 1 ? idLayoutFrameless : idLayoutEasy);
     if (uiThemeIndex != settingsSnap.theme)
     {
-        static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 4, 1, 3, 2 };
+        static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3, 2 };   // Runde 66: Day & Night, Fairy Tale, Sci-Fi, Pop
         for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
             if (themeForId[i] == settingsSnap.theme)
             {
@@ -1963,7 +1963,7 @@ void LCRMSAudioProcessorEditor::closeSettingsPanel()
 void LCRMSAudioProcessorEditor::refreshSettingsPanel()
 {
     juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
-    static const int themeForId[SettingsPanelComponent::kThemes] = { 5, 4, 1, 3, 2 };
+    static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3, 2 };   // Runde 66: Day & Night, Fairy Tale, Sci-Fi, Pop
     for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
         settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
 
@@ -4068,7 +4068,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     {
         // Runde 37 (User): vier einfache Kategorien, geordnet danach, wie viel
         // veraendert werden darf.
-        static const char* const catNames[kNumCategories] = { "Lead Vocal", "Backing", "Adlib", "Send FX" };
+        static const char* const catNames[kNumCategories] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
         // Die Hinweise sagen, WAS unter die Kategorie faellt - "Plucked" allein
         // beantwortet die Frage nicht (User).
         static const char* const catHints[kNumCategories] = {
@@ -5387,9 +5387,21 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // aber praktisch keine Fuellung (rund 2 % Unterschied zur UI).
         if (layoutOutline())
         {
+            // Runde 66 (User): die klare Kontur bleibt - sie ist das Moderne
+            // daran. Dazu kommt eine DEZENTE Fuellung (rund ein Drittel der
+            // 3D-Deckkraft): ohne sie hat die Sektion zwar eine Kante, aber
+            // keine Flaeche, und ein ausgeschalteter Rahmen loest sich im
+            // Hintergrund auf. Kein Glow - der gehoerte zu 3D.
             if (on)
             {
-                g.setColour (juce::Colours::white.withAlpha (0.020f * pulse));
+                const auto wf = washFill();
+                g.setColour (wf.on.withAlpha (wf.aOn * 0.34f * pulse));
+                g.fillRoundedRectangle (rf, 10.0f);
+                // Ein Hauch Sektionsfarbe von links oben, viel schwaecher als
+                // in 3D - gibt der Flaeche Richtung, ohne sie einzufaerben.
+                juce::ColourGradient wash (col.withAlpha (0.055f * pulse), rf.getX() + rf.getWidth() * 0.15f, rf.getY(),
+                                           col.withAlpha (0.0f), rf.getX() + rf.getWidth() * 0.9f, rf.getY(), true);
+                g.setGradientFill (wash);
                 g.fillRoundedRectangle (rf, 10.0f);
             }
             g.setColour (col.withAlpha ((on ? 0.38f : 0.10f) * pulse));
@@ -5703,9 +5715,11 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
     // "Sci-Fi Dark" (6) gibt es nicht mehr - gespeicherte Einstellungen aus
     // aelteren Versionen landen jetzt auf dem zusammengelegten Sci-Fi (3).
     if (uiThemeIndex == 6) uiThemeIndex = 3;
-    // Das alte "Moon" (0) gibt es nicht mehr; wer es gespeichert hatte,
-    // landet auf dem neuen "Moon" (vorher "Silver", Index 5).
-    if (uiThemeIndex == 0) uiThemeIndex = 5;
+    // Runde 66 (User): "Moon" ist ganz raus - weder das alte (0) noch das
+    // spaetere Silber (5) steht noch zur Auswahl. Gespeicherte Einstellungen
+    // landen auf dem neuen Standard Day & Night (4). Uebrig bleiben
+    // Day & Night (4), Fairy Tale (1), Sci-Fi (3) und Pop (2).
+    if (uiThemeIndex == 0 || uiThemeIndex == 5) uiThemeIndex = 4;
     uiThemeRef() = (UiTheme) uiThemeIndex;
     {
         const auto pal = themePalette();

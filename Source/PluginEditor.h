@@ -261,7 +261,7 @@ private:
         // sind seit der Pille dezent genug, um keinen Schalter zu brauchen.
         // "Flat" ist als Layout raus, "Technical Labels" dafuer hier
         // eingezogen: es ist eine Frage der Beschriftung, also Layout.
-        static constexpr int kThemes  = 5;
+        static constexpr int kThemes  = 4;   // Runde 66 (User): Moon raus
         static constexpr int kLayouts = 3;   // 3D | Outline | Technical Labels
         static constexpr int kBehav   = 5;
 
@@ -280,7 +280,7 @@ private:
         std::function<void()>     onClose;
 
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
-        static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
+        static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
         static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowAdvancedMod, idShowModulation, idBassGuard, idAutoGain }; return a; }
@@ -308,7 +308,9 @@ private:
             addAndMakeVisible (hintLine);
             title.setTooltip ("Click to close");
 
-            static const char* const themeNames[kThemes]  = { "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };   // altes "Moon" geloescht, "Silver" heisst jetzt "Moon" (User)
+            // Runde 66 (User): vier Themes, Day & Night als Standard und
+            // zuerst. "Fireflies" heisst jetzt "Fairy Tale" (User).
+            static const char* const themeNames[kThemes]  = { "Day & Night", "Fairy Tale", "Sci-Fi", "Pop" };
             static const char* const layoutNames[kLayouts] = { "3D", "Outline", "Technical Labels" };
             // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
@@ -337,11 +339,10 @@ private:
             // was einen erwartet, ohne etwas umzustellen.
             // Runde 62 (User): die Vorschau zeigt schlicht die ganze
             // Oberflaeche im jeweiligen Theme - kein Layout-Hover mehr.
-            themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_silver_png,    SpaceXManualData::theme_silver_pngSize);
-            themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
-            themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
-            themeFull[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
-            themeFull[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
+            themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
+            themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
+            themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
+            themeFull[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
@@ -425,7 +426,7 @@ private:
 
             // Farbtupfer links neben jedem Theme-Namen - schneller zu treffen
             // als eine reine Textliste.
-            static const juce::uint32 dots[kThemes] = { 0xffc9d3e2, 0xffe3b25f, 0xff9a7bff, 0xff5be3ff, 0xffff5fa8 };
+            static const juce::uint32 dots[kThemes] = { 0xffe3b25f, 0xff9a7bff, 0xff5be3ff, 0xffff5fa8 };
             for (int i = 0; i < kThemes; ++i)
             {
                 auto r = themeBtn[i].getBounds().toFloat();

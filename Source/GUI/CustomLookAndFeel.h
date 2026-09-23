@@ -26,7 +26,7 @@
 enum class UiTheme { Moon = 0, DarkNight = 1, Comic = 2, SciFi = 3, DayNight = 4, Flat = 5,
                      SciFiDark = 6 };
 constexpr int kUiThemeCount = 7;
-inline UiTheme& uiThemeRef()   { static UiTheme t = UiTheme::SciFi; return t; }   // Sci-Fi = Standard beim Oeffnen (User)
+inline UiTheme& uiThemeRef()   { static UiTheme t = UiTheme::DayNight; return t; }   // Runde 66 (User): Day & Night ist das Standard-Theme
 inline bool     isDarkNightTheme() { return uiThemeRef() == UiTheme::DarkNight; }
 inline bool     isWaterTheme() { return isDarkNightTheme(); }   // Watercolor-Material (Nebula-Platte, Korn)
 inline bool     isComicTheme() { return uiThemeRef() == UiTheme::Comic; }
@@ -230,6 +230,16 @@ inline juce::Colour sectionOffFill()
 inline juce::Colour knobRingOffColour()  { return sectionOffFill().withMultipliedBrightness (1.15f).interpolatedWith (juce::Colours::white, 0.025f); }   // noch naeher an der Flaeche (User)
 inline juce::Colour knobValueOffColour() { return knobRingOffColour().interpolatedWith (juce::Colours::white, 0.08f); }
 inline juce::Colour knobCentreOffColour(){ return sectionOffFill().withMultipliedBrightness (0.85f); }
+// Runde 66 (User): der Reglerkopf war ein fester Wert (1c1e23). Auf der fast
+// schwarzen 3D-Flaeche wirkte er dadurch erhaben, auf der etwas helleren
+// Outline-Flaeche versank er - beim Gravity-Regler schwebte der Zeiger frei.
+// Jetzt leitet er sich aus der Platte ab und liegt IMMER einen Schritt ueber
+// dem, worauf er sitzt. Das ist der "Koerper", der 3D interessanter machte -
+// er bleibt also erhalten, auch wenn der Rahmen klar und flach wird.
+inline juce::Colour knobCapColour()
+{
+    return themePalette().plate.interpolatedWith (juce::Colours::white, isWaterTheme() ? 0.10f : 0.075f);
+}
 // Schrift bei ausgeschalteter Sektion: noch naeher an die UI-Farbe heran
 // (User, Runde 22: "Schrift der Regler und Buttons Richtung UI-Hintergrund").
 inline juce::Colour labelOffColour()     { return sectionOffFill().interpolatedWith (juce::Colours::white, 0.13f); }
@@ -362,7 +372,7 @@ public:
                 g.strokePath (ring, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             }
 
-            g.setColour (juce::Colour (0xff1c1e23));
+            g.setColour (knobCapColour());
             g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
 
             if (! offVisual)
@@ -422,7 +432,7 @@ public:
         g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.30f : 1.0f));
         g.strokePath (pointer, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        g.setColour (offVisual ? knobCentreOffColour() : isWaterTheme() ? juce::Colour (0xff2b303f) : juce::Colour (0xff1c1e23));
+        g.setColour (offVisual ? knobCentreOffColour() : knobCapColour());
         g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
 
         // Live-Mod-Anzeige (Drift/Shift/Expand/Boost/Speed): zusaetzlich zum
