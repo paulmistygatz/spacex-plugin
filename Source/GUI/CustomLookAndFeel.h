@@ -1110,7 +1110,8 @@ public:
                 g.setColour (pillCol.withAlpha (0.14f));
                 g.fillRoundedRectangle (bounds, cornerSize);
             }
-            const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.62f);
+            // Runde 69 (User): "miniminimal weniger hell" - 0.62 -> 0.54.
+            const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.54f);
             g.setColour (pillCol.withAlpha (pillAlpha));
             g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.65f : 1.35f);   // eine Spur kraeftiger (User Runde 61)
             return;
@@ -1408,7 +1409,7 @@ public:
                                 ? juce::Colour ((juce::uint32) (int) button.getProperties()["pillColour"])
                                 : juce::Colour (0xffc3c8d2);
                     g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
-                                        : pc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.45f));
+                                        : pc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f));   // Runde 69: etwas weniger Richtung Weiss
                 }
                 if (button.getProperties().getWithDefault ("goldText", false))
                     g.setColour (juce::Colour (0xffd9b45f));   // lnk.bio, Unterstuetzen (User Runde 60)
@@ -2974,8 +2975,8 @@ public:
                                       // ist an" - so wie beim PAIR-Knopf selbst.
                                       // Der Normalfall (Sync an, kein Pair) ist
                                       // das Gold von FAST, nicht das Blau.
-                                      : goldBox       ? pairAccentColour()
-                                      : glow          ? altAccentColour()
+                                      : goldBox       ? pairAccentColour().withAlpha (0.74f)
+                                      : glow          ? altAccentColour().withAlpha (0.74f)
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
         g.drawRoundedRectangle (bounds, boxCorner, 1.35f);

@@ -4898,7 +4898,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // der so hart leuchtete - jetzt derselbe Ton wie "Vol" und die anderen
     // Beschriftungen.
     speedBox.setColour (juce::ComboBox::textColourId,
-                         isSyncOn ? juce::Colour (0xffcfd3da) : juce::Colour (0xff6a6e78));
+                         isSyncOn ? altAccentColour().interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
+                                  : juce::Colour (0xff6a6e78));
 
     // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
     {
@@ -6910,7 +6911,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int linkAreaH = headerH;
         const int linkGapV = 4;
         const int blockH = linkAreaH + linkGapV + lrBtnH + gapV + posBtnH;
-        const int topMargin = juce::jmax (0, (polInner.getHeight() - blockH) / 2);
+        // Runde 69 (User): L/R stand zu dicht ueber EARLY/LATE. EARLY sitzt
+        // fest auf der Regain-Linie der Sektion daneben, also kann der Abstand
+        // nur oben entstehen - Link und L/R ruecken ein Stueck hoch.
+        const int topMargin = juce::jmax (0, (polInner.getHeight() - blockH) / 2 - 11);
         polInner.removeFromTop (topMargin);
 
         auto linkRow = polInner.removeFromTop (linkAreaH);
