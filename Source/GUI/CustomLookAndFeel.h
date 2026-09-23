@@ -133,11 +133,22 @@ inline ThemePalette themePalette()
 // Farbe der RAYE-Pair-Kopplung (Pair-Knopf + gekoppelte Hyperdrive-Teile).
 // Sci-Fi (User, Runde 38): die blaue Akzentfarbe - sonst war Pair genau so
 // pink wie Sync in Hyperdrive und nicht zu unterscheiden.
+// Gold, das FAST in den hellen Themes traegt (Runde 61).
+inline juce::Colour altAccentColour()
+{
+    return themePalette().frameRaye.withMultipliedSaturation (isWaterTheme() ? 0.6f : 1.0f);
+}
 inline juce::Colour pairAccentColour()
 {
+    // Runde 61 (User): in Moon, Day & Night und Fireflies waren FAST und PAIR
+    // vertauscht - PAIR ist die wichtigere Aussage ("das Tempo kommt von
+    // woanders") und bekommt deshalb ueberall die Hauptakzentfarbe. FAST
+    // traegt dafuer das Gold. In Sci-Fi war es schon richtig, dort aendert
+    // sich nichts. Gilt genauso fuer SYNC in Autopan, das dieselbe Farbe
+    // benutzt.
     if (isSciFiTheme())
         return themePalette().knob;
-    return themePalette().frameRaye.withMultipliedSaturation (isWaterTheme() ? 0.6f : 1.0f);
+    return themePalette().mod;
 }
 inline juce::Colour iconOffColour()
 {
@@ -619,11 +630,14 @@ public:
             const float s2 = juce::jmin (b.getWidth(), b.getHeight());
             const bool on  = button.getToggleState();
             const bool off = button.getProperties().getWithDefault ("sectionOff", false);
+            // Runde 61 (User): Sinus und Puls sind zwei gleichwertige Formen,
+            // kein An/Aus. Beide leuchten gleich - welche gewaehlt ist, sagt
+            // die Kurve selbst.
             if (! button.getProperties().getWithDefault ("noPlate", false))
-                drawSmallIconPlate (g, b, on && ! off);
+                drawSmallIconPlate (g, b, ! off);
             b = b.reduced (s2 * 0.24f);
             auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.62f);
-            juce::Colour col = smallIconColour (on && ! off);
+            juce::Colour col = smallIconColour (! off);
             if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
                 col = col.interpolatedWith (juce::Colours::white, 0.30f);
 
@@ -918,7 +932,11 @@ public:
         // RAYE-Pair: Gold statt Violett fuer den Pair-Knopf selbst und fuer
         // Sync in Hyperdrive, solange die Kopplung aktiv ist.
         const bool gold = button.getProperties().getWithDefault ("pairedGold", false);
-        const juce::Colour btnAccent = gold ? pairAccentColour() : glowAccent;   // Pair je Theme (User)
+        // "altAccent" (Runde 61): FAST traegt in den hellen Themes das Gold,
+        // das frueher PAIR hatte - siehe pairAccentColour(). In Sci-Fi bleibt
+        // alles wie es war.
+        const bool altAcc = button.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
+        const juce::Colour btnAccent = gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
 
         // View-Panel-Knoepfe ohne den Leucht-Hof (User: "leuchtende Kaesten").
         if ((isOn || gold) && ! button.getProperties().getWithDefault ("noGlow", false))
@@ -1057,7 +1075,7 @@ public:
             }
             const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.62f);
             g.setColour (pillCol.withAlpha (pillAlpha));
-            g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.5f : 1.2f);
+            g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.65f : 1.35f);   // eine Spur kraeftiger (User Runde 61)
             return;
         }
         if (sectionIsOffNow)
@@ -2857,9 +2875,12 @@ public:
     }
 
     // Groesserer, klar lesbarer Text fuer die Sync-Raten-Box.
-    juce::Font getComboBoxFont (juce::ComboBox&) override
+    juce::Font getComboBoxFont (juce::ComboBox& box) override
     {
-        return juce::Font (juce::FontOptions (15.0f, juce::Font::bold)).withExtraKerningFactor (0.03f);
+        // Runde 61 (User: "BARS ist immer noch fetter als Spin, Drift, Early"):
+        // das Bars-Feld ist eine ComboBox und lief deshalb an der gemeinsamen
+        // Knopfschrift vorbei. Jetzt dieselbe Regel wie ueberall.
+        return unifiedButtonFont (box.getHeight());
     }
 
     // ComboBox mit Glow-Rahmen, wenn die Component-Property "glowActive"

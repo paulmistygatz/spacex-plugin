@@ -350,6 +350,15 @@ private:
             themeShot[3][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_scifi_outline_jpg,     SpaceXManualData::pv_scifi_outline_jpgSize);
             themeShot[4][0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,            SpaceXManualData::theme_pop_pngSize);
             themeShot[4][1] = themeShot[4][0];
+            // Runde 61 (User): im Normalfall zeigt die Vorschau die GANZE
+            // Oberflaeche im gewaehlten Theme. Nur solange die Maus ueber 3D
+            // oder Outline steht, tritt an genau dieselbe Stelle der
+            // Rahmen-Ausschnitt - dort sieht man den Unterschied ueberhaupt.
+            themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_silver_png,    SpaceXManualData::theme_silver_pngSize);
+            themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
+            themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
+            themeFull[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
+            themeFull[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
@@ -449,9 +458,11 @@ private:
             // Vorschau des gerade aktiven (oder ueberfahrenen) Themes.
             {
                 const int idx = hoverTheme >= 0 ? hoverTheme : activeThemeIdx();
-                const int lay = hoverLayout >= 0 ? hoverLayout : activeLayoutIdx();
+                // Layout-Hover ersetzt das Bild voruebergehend durch den
+                // Rahmen-Ausschnitt; sonst steht dort die ganze Oberflaeche.
+                const auto& shot = hoverLayout >= 0 ? themeShot[idx][hoverLayout] : themeFull[idx];
                 auto pr = previewArea.toFloat();
-                if (idx >= 0 && idx < kThemes && themeShot[idx][lay].isValid() && ! pr.isEmpty())
+                if (idx >= 0 && idx < kThemes && shot.isValid() && ! pr.isEmpty())
                 {
                     juce::Path clip;
                     clip.addRoundedRectangle (pr, 7.0f);
@@ -462,7 +473,7 @@ private:
                     // Pop (aktiv 1.0, sonst 0.55). Nur mit Pop aktiv war die
                     // Vorschau deshalb voll hell.
                     g.setOpacity (1.0f);
-                    g.drawImage (themeShot[idx][lay], pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
+                    g.drawImage (shot, pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
                     g.restoreState();
                     g.setColour (juce::Colours::white.withAlpha ((hoverTheme >= 0 || hoverLayout >= 0) ? 0.30f : 0.16f));
                     g.drawRoundedRectangle (pr.reduced (0.5f), 7.0f, 1.0f);
@@ -552,7 +563,7 @@ private:
                 auto pv = col2;
                 const int pw = pv.getWidth();
                 previewArea = juce::Rectangle<int> (pv.getX(), pv.getY(), pw,
-                                                    juce::jmin (pv.getHeight(), (int) ((float) pw / 1.918f)));
+                                                    juce::jmin (pv.getHeight(), (int) ((float) pw / 1.72f)));
             }
             // Feine Linie zwischen den Anzeige- und den Klang-Schaltern
             // (User): Show Modulation | Bass Guard.
@@ -565,7 +576,8 @@ private:
         int dividerX = 0, dividerX2 = 0;
         int hoverTheme = -1, hoverLayout = -1;
         int behavRuleY = 0, behavRuleX1 = 0, behavRuleX2 = 0;
-        juce::Image themeShot[kThemes][2];
+        juce::Image themeShot[kThemes][2];   // Rahmen-Ausschnitt je Layout
+        juce::Image themeFull[kThemes];      // ganze Oberflaeche je Theme
         juce::Rectangle<int> previewArea;
     };
 
