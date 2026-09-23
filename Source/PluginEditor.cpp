@@ -3586,7 +3586,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (syncButton);
     syncAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_SYNC, syncButton);
 
-    speedBox.addItemList ({ "1/16", "1/8", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars", "8 Bars" }, 1);
+    // Runde 68 (User): Versalien wie bei allen anderen Auswahl-Knoepfen -
+    // "4 Bars" war die einzige Beschriftung in gemischter Schreibung.
+    speedBox.addItemList ({ "1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS", "4 BARS", "8 BARS" }, 1);
     speedBox.getProperties().set ("noArrow", true);
     content.addAndMakeVisible (speedBox);
     speedAttachment = std::make_unique<ComboAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED, speedBox);
@@ -6714,6 +6716,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // vertikal zentriert. Dadurch ist der Abstand nach oben und unten
     // zwangslaeufig gleich - in jeder Sektion, bei jeder Fenstergroesse.
     constexpr int kKnobLabelH = 14;
+    // Runde 68 (User: "irgendwas stoert mich noch"): EINE Groesse fuer alle
+    // Knoepfe, die eine Auswahl treffen - DOUBLE, SWEEP, EARLY/LATE und das
+    // Bars-Feld. Vorher standen sie in drei Hoehen und vier Breiten
+    // nebeneinander, obwohl sie dieselbe Aufgabe haben.
+    constexpr int kChoiceW = 88;
+    constexpr int kChoiceH = 30;
     auto placeKnobWithLabel = [] (juce::Rectangle<int> slot, juce::Slider& s, juce::Label& l, int knobSize)
     {
         const int blockH = knobSize + kKnobLabelH;
@@ -6884,7 +6892,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
         // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
         // exakt so breit wie L+R darueber, damit der Block buendig bleibt.
-        const int posBtnH = 30;
+        const int posBtnH = kChoiceH;
         const int gapV = 18;
         // Link-Button bekommt eine EIGENE Zeile ueber L/R statt sie zu
         // ueberlappen, UND ist jetzt genauso breit wie L+R zusammen (statt
@@ -6918,7 +6926,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // daneben - so enden beide Rahmen auf derselben Linie. Die LCR-
         // Sektion wird weiter oben gelegt, horizonLabel steht also schon.
         {
-            auto posRect = posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap - 26, posBtnH);
+            // Runde 68 (User): der Knopf war fuer sein laengstes Wort viel zu
+            // breit - links und rechts stand mehr Luft als Schrift.
+            auto posRect = posRow.withSizeKeepingCentre (kChoiceW, posBtnH);
             if (horizonLabel.getY() > 0)
                 posRect.setY (horizonLabel.getY() - posBtnH);
             polPos2Button.setBounds (posRect);
@@ -7092,14 +7102,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
                                        (driftInner.getWidth() - gap) / 2);
         const int btnGap = 6;
        #if SPACEX_PARALLAX_UI == 2
-        const int btnW   = juce::jmin (54, (driftInner.getWidth() - knobS - gap - 6) / 2);   // noch schmaler (User, Runde 49)
+        const int btnW   = juce::jmin ((kChoiceW - 6) / 2, (driftInner.getWidth() - knobS - gap - 6) / 2);   // Runde 68: ergibt kChoiceW
         const int blockW = btnW * 2 + btnGap;
        #else
         // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
         const int btnW   = juce::jmin (70, (driftInner.getWidth() - knobS - gap - btnGap * 2) / 3);
         const int blockW = btnW * 3 + btnGap * 2;
        #endif
-        const int btnH   = 30;   // so hoch wie EARLY/LATE (User)
+        const int btnH   = kChoiceH;   // so hoch wie EARLY/LATE (User)
         auto block = driftInner.withSizeKeepingCentre (knobS + gap + blockW, driftInner.getHeight());
         auto knobSlot = block.removeFromLeft (knobS);
         block.removeFromLeft (gap);
@@ -7206,7 +7216,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
     flowInner.removeFromLeft ((kVariant == 0) ? 10 : 6);
     auto speedBoxArea = flowInner.withHeight (knobAreaH);
     // Ohne Pfeil (User) reicht deutlich weniger Breite.
-    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmin (80, speedBoxArea.getWidth()), 26));
+    // Runde 68 (User): dieselbe Groesse wie DOUBLE, SWEEP und EARLY - die
+    // vier Auswahl-Knoepfe standen vorher in drei verschiedenen Hoehen
+    // (24 / 26 / 30) und vier Breiten nebeneinander.
+    speedBox.setBounds (speedBoxArea.withSizeKeepingCentre (juce::jmin (kChoiceW, speedBoxArea.getWidth()), kChoiceH));
 
     // ===== VISION aufgeloest ================================================
     // Die Sektion ist weg. Tilt steht jetzt in PARALLAX, Depth in DIMENSION
@@ -7283,10 +7296,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto slotC = rayFrame;
         placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, juce::jmin (halfW, rayKnobAreaH));
         {
-            // Runde 64 (User): schmaler, damit rechts mehr Luft zum
-            // Rahmenrand bleibt.
-            const int pw = juce::jmin (88, halfW);
-            const int ph = juce::jmin (kDotsInside ? 36 : 30, rayKnobAreaH - (kDotsInside ? 8 : 14));
+            const int pw = juce::jmin (kChoiceW, halfW);
+            const int ph = juce::jmin (kDotsInside ? kChoiceH + 6 : kChoiceH, rayKnobAreaH - (kDotsInside ? 8 : 14));
             auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -7 : -10);
             rayCharButton.setBounds (col);
             const int dotsW = 4 * 10 + 6;

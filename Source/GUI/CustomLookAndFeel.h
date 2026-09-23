@@ -1397,8 +1397,19 @@ public:
                 // jede Beschriftung. Vorher hingen Groesse und Sperrung an
                 // der Knopfart, und je nach Knopfhoehe kam etwas anderes raus.
                 if (button.getProperties().getWithDefault ("modePill", false))
+                {
+                    // Runde 68 (User: "die Schrift ... da geht noch was"):
+                    // Rahmen und Beschriftung waren zwei verschiedene Farben -
+                    // goldener Ring, weisses Wort. Die Pille liest sich damit
+                    // als zwei Teile. Jetzt traegt die Schrift denselben Ton
+                    // wie ihr Rahmen, nur heller gezogen, damit sie lesbar
+                    // bleibt: ein Element statt zwei.
+                    auto pc = button.getProperties().contains ("pillColour")
+                                ? juce::Colour ((juce::uint32) (int) button.getProperties()["pillColour"])
+                                : juce::Colour (0xffc3c8d2);
                     g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
-                                        : juce::Colour (0xffc3c8d2));
+                                        : pc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.45f));
+                }
                 if (button.getProperties().getWithDefault ("goldText", false))
                     g.setColour (juce::Colour (0xffd9b45f));   // lnk.bio, Unterstuetzen (User Runde 60)
                 g.setFont (unifiedButtonFont (button.getHeight()));
@@ -2926,10 +2937,10 @@ public:
         // Runde 61 (User: "BARS ist immer noch fetter als Spin, Drift, Early"):
         // das Bars-Feld ist eine ComboBox und lief deshalb an der gemeinsamen
         // Knopfschrift vorbei. Jetzt dieselbe Regel wie ueberall.
-        // Runde 64 (User): eine Spur groesser als die Knopfschrift - im
-        // Bars-Feld steht eine Zahl, die man im Vorbeigehen lesen koennen muss.
-        auto f = unifiedButtonFont (box.getHeight());
-        return f.withHeight (f.getHeight() + 1.0f);
+        // Runde 68 (User: "Bars passt irgendwie auch nicht dazu"): exakt
+        // dieselbe Schrift wie die Modus-Pillen. Die Zahl liest sich jetzt
+        // ueber die Versalien gross genug, nicht ueber einen Sonderwert.
+        return unifiedButtonFont (box.getHeight());
     }
 
     // ComboBox mit Glow-Rahmen, wenn die Component-Property "glowActive"
@@ -2945,12 +2956,12 @@ public:
         // Menu sollte sich auch ans Theme anpassen, bei ALLEN Themes") - die
         // festen Werte 20232a / 33363f waren ein Fremdkoerper in jedem Theme
         // ausser dem urspruenglichen.
+        // Runde 68 (User): keine eigene Flaeche mehr. Das Bars-Feld ist eine
+        // Auswahl wie DOUBLE oder SHIMMER - also auch dieselbe Form: Kapsel,
+        // nur Umriss, kein Fuellton. Es war das einzige Element in dieser
+        // Reihe, das aus der Familie fiel.
         const bool boxSectionOff = box.getProperties().getWithDefault ("sectionOff", false);
-        if (! boxSectionOff)
-        {
-            g.setColour (controlIdleFill());
-            g.fillRoundedRectangle (bounds, 6.0f);
-        }
+        const float boxCorner = bounds.getHeight() * 0.5f;
 
         const bool goldBox = box.getProperties().getWithDefault ("pairedGold", false);
         // Runde 55 (User): das Bars-Feld sieht aus wie die neuen Modus-Pillen -
@@ -2967,9 +2978,7 @@ public:
                                       : glow          ? altAccentColour()
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
-        // Runde 65 (User): genauso stark wie die Modus-Pillen (SWEEP,
-        // ILLUSION) - das Bars-Feld ist eine Auswahl wie sie, kein Schalter.
-        g.drawRoundedRectangle (bounds, 6.0f, 1.35f);
+        g.drawRoundedRectangle (bounds, boxCorner, 1.35f);
 
         if (box.getProperties().getWithDefault ("noArrow", false))
             return;   // ohne Pfeil (User: jeder erkennt ein Dropdown)
