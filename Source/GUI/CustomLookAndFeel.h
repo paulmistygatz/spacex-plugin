@@ -1032,10 +1032,15 @@ public:
         // nur nicht mehr laut.
         if (modePill)
         {
-            // Runde 53 (User): "bisschen mehr leuchtend" - heller Grundton
-            // statt des dunklen 0xff3a3d45, bei ausgeschalteter Sektion
-            // gedimmt statt unsichtbar.
-            g.setColour (juce::Colour (0xff5b6069).withAlpha (sectionIsOffNow ? 0.60f : 1.0f));
+            // Runde 55 (User): die Pille traegt die Akzentfarbe IHRER Sektion
+            // (kommt als "pillColour" aus dem Editor, weil nur der die
+            // Titelfarbe kennt), bewusst zurueckgenommen - sie soll den
+            // Rahmen zeigen, nicht leuchten. Dieselbe Deckkraft wie das
+            // Bars-Feld daneben, damit am Ende alles einheitlich aussieht.
+            auto pillCol = button.getProperties().contains ("pillColour")
+                             ? juce::Colour ((juce::uint32) (int) button.getProperties()["pillColour"])
+                             : themePalette().frameMain;
+            g.setColour (pillCol.withAlpha (sectionIsOffNow ? 0.28f : 0.55f));
             g.drawRoundedRectangle (bounds, cornerSize, 1.1f);
             return;
         }
@@ -1320,7 +1325,7 @@ public:
                     // Fett, aber klein: das ist die halbe Pixelstaerke mehr,
                     // ohne dass der Name wieder laut wird (User Runde 53).
                     g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.32f, 11.5f), juce::Font::bold))
-                                   .withExtraKerningFactor (0.13f));
+                                   .withExtraKerningFactor (0.17f));   // etwas luftiger (User Runde 55)
                 }
                 else
                     g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.42f, 14.5f), juce::Font::bold)).withExtraKerningFactor (0.04f));
@@ -2741,21 +2746,26 @@ public:
         {
             const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
             const float liveY = juce::jmap (liveT, 0.0f, 1.0f, bottom, top);
-            const float liveHalfWidth = trackW * 0.5f + 3.0f;
-
-            g.setColour (glowAccent.withAlpha (0.30f));
-            g.drawLine (cx - liveHalfWidth, liveY, cx + liveHalfWidth, liveY, 5.0f);
+            // Runde 55 (User-Skizze): getauscht. Die MODULATION ist jetzt der
+            // Punkt - genau wie an jedem Drehregler im Plugin - und der Wert
+            // darunter der Strich. Vorher war es andersherum, und Orbit war
+            // damit das einzige Element, bei dem der Punkt nicht die
+            // Modulation meinte.
+            g.setColour (juce::Colour (0xcc0a0b0e));
+            g.fillEllipse (cx - 4.6f, liveY - 4.6f, 9.2f, 9.2f);
             g.setColour (glowAccent);
-            g.drawLine (cx - liveHalfWidth, liveY, cx + liveHalfWidth, liveY, 2.0f);
+            g.fillEllipse (cx - 3.2f, liveY - 3.2f, 6.4f, 6.4f);
         }
 
         // Aktuelle Position als leuchtender Punkt - ebenfalls ueber der Live-
         // Linie, bleibt also immer als eigener (tuerkiser) Punkt erkennbar.
+        // Der einstellbare Wert ist der Strich (siehe oben).
         auto dotCol = offVisual ? juce::Colour (0xff777b85) : valueCol;
-        g.setColour (dotCol.withAlpha (0.25f));
-        g.fillEllipse (cx - 9.0f, sliderPos - 9.0f, 18.0f, 18.0f);
+        const float markHalf = trackW * 0.5f + 3.5f;
+        g.setColour (dotCol.withAlpha (0.30f));
+        g.drawLine (cx - markHalf, sliderPos, cx + markHalf, sliderPos, 6.0f);
         g.setColour (juce::Colours::white);
-        g.fillEllipse (cx - 2.5f, sliderPos - 2.5f, 5.0f, 5.0f);
+        g.drawLine (cx - markHalf, sliderPos, cx + markHalf, sliderPos, 2.2f);
     }
 
     // Groesserer, klar lesbarer Text fuer die Sync-Raten-Box.
@@ -2785,13 +2795,17 @@ public:
         }
 
         const bool goldBox = box.getProperties().getWithDefault ("pairedGold", false);
-        const juce::Colour boxOutline = isComicTheme() ? comicInk()
+        // Runde 55 (User): das Bars-Feld sieht aus wie die neuen Modus-Pillen -
+        // Akzentfarbe, dieselbe Deckkraft, dieselbe Strichstaerke. In Pop war
+        // der Rahmen bisher IMMER die volle Tinte, auch bei ausgeschalteter
+        // Sektion (User: "Pop -> Hyperdrive Bars dunkel wenn section off").
+        const juce::Colour boxOutline = isComicTheme() ? (boxSectionOff ? comicInk().withAlpha (0.30f) : comicInk())
                                       : boxSectionOff ? iconOffColour().withAlpha (0.35f)
                                       : goldBox       ? pairAccentColour()
                                       : glow          ? glowAccent
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
-        g.drawRoundedRectangle (bounds, 6.0f, (glow || goldBox) ? 1.6f : 1.0f);
+        g.drawRoundedRectangle (bounds, 6.0f, (glow || goldBox) ? 1.6f : 1.1f);
 
         if (box.getProperties().getWithDefault ("noArrow", false))
             return;   // ohne Pfeil (User: jeder erkennt ein Dropdown)

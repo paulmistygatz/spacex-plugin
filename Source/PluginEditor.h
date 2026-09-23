@@ -1966,7 +1966,15 @@ private:
     // ===== Mutate-Kategorie (Chips ueber dem Sternenfeld) =====
     // 0 = keine, 1..6 = Drums, Vocals, Backings, Plucked, Keys, Pads.
     static constexpr int kNumCategories = 4;   // Vocal, Backing, Adlib, FX
-    juce::TextButton categoryBtn[kNumCategories];
+    juce::TextButton categoryBtn[kNumCategories];   // alte Chips - nicht mehr im Layout
+    // Runde 55: die Kategorie wird wie ein Modus gewaehlt - eine Pille mit
+    // Punkten darunter, dieselbe Bildsprache wie Parallax und RAYE. Punkt 0
+    // ist "aus", danach die vier Profile. Darunter (ueber dem Sternenfeld)
+    // sagt eine Zeile, was das gewaehlte Profil tut.
+    juce::TextButton categoryButton;
+    ModeDots         catDots;
+    juce::Label      smartInfoLabel;
+    static juce::String smartInfoTextFor (int cat);
     int mutateCategoryValue = 0;
     bool showMutateCategories = true;   // Menue "Show Mutate Categories"
     // Settings "Technical Labels" (User): Sektions- und Reglernamen als

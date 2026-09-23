@@ -780,6 +780,20 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
 // Sektionen mitspielen, in welchem Bereich die wichtigen Regler landen,
 // wo PRISM beginnt, wie stark RAYE. Alles andere bleibt vom generischen
 // Wurf. Gesperrte Sektionen (Lock) werden auch hier nicht angefasst.
+// Was tut das gewaehlte Profil? Steht ueber dem Sternenfeld - die Chips
+// haben das nie verraten, der Name allein beantwortet die Frage nicht.
+juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
+{
+    switch (cat)
+    {
+        case 1: return "Smart profile Vocal: lead or mono vocals made wide - the centre stays intact.";
+        case 2: return "Smart profile Backing: backing stacks and busses - wide, but still tidy.";
+        case 3: return "Smart profile Adlib: ad-libs - space, movement and clear sides.";
+        case 4: return "Smart profile FX: throws, wet tracks and FX returns - anything goes.";
+        default: return "No profile: the dice may reach for anything. Pick one to keep it in a lane.";
+    }
+}
+
 int LCRMSAudioProcessorEditor::mutateCategory() const
 {
     return juce::jlimit (0, kNumCategories, mutateCategoryValue);
@@ -790,10 +804,15 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     mutateCategoryValue = (cat < 0 || cat > kNumCategories) ? 0 : cat;   // alte Sessions (5/6) -> aus
     processor.apvts.state.setProperty ("mutateCategory", mutateCategoryValue, nullptr);   // Session-Recall
     for (int i = 0; i < kNumCategories; ++i)
-    {
         categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
-        categoryBtn[i].repaint();
-    }
+
+    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "VOCAL", "BACKING", "ADLIB", "FX" };
+    categoryButton.setButtonText (pillNames[juce::jlimit (0, kNumCategories, mutateCategoryValue)]);
+    categoryButton.getProperties().set ("pillColour", (int) themePalette().knob.getARGB());
+    categoryButton.repaint();
+    catDots.index = mutateCategoryValue;
+    catDots.repaint();
+    smartInfoLabel.setText (smartInfoTextFor (mutateCategoryValue), juce::dontSendNotification);
 
     // Widerspruch aufgeloest (User): mit gewaehlter Kategorie schaltet auch
     // Smart 1 Sektionen aus, obwohl Smart 1 eigentlich "alle bleiben an"
@@ -801,9 +820,9 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     // Deshalb ist Smart 1 gesperrt, solange eine Kategorie aktiv ist; es
     // bleibt nur der zweite Wuerfel, der ohnehin Sektionen schalten darf.
     const bool catOn = mutateCategoryValue > 0;
-    globalChaosButton.setEnabled (! catOn);
-    globalChaosButton.setAlpha (catOn ? 0.35f : 1.0f);
-    globalChaosButton.setTooltip (catOn ? "Smart: locked while a category is selected - the category decides which sections play"
+    globalChaosButton.setEnabled (true);
+    globalChaosButton.setAlpha (1.0f);
+    globalChaosButton.setTooltip (catOn ? "Smart: rolls a new setting inside the selected profile, and decides which sections belong in it"
                                         : "Smart: randomize the sound and leave every section switched on");
     // Der zweite Wuerfel bekommt so lange einen dezenten Hof, damit man
     // sofort sieht, wohin die Kategorie wirkt (User: "Smart-Icon highlighten").
@@ -1432,7 +1451,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
 
     // Header
     tip (globalBypassButton,         "Bypass: mute the whole plugin and pass the input through");
-    tip (globalChaosButton,          "Smart: rolls a new setting from the tuned rulebook and leaves every section on");
+    tip (globalChaosButton,          "Smart: rolls a new setting and decides which sections belong in it");
     tip (globalChaosSectionsButton,  "Smart+: rolls a new setting and decides which sections belong in it");
     tip (globalBreatheButton,        "Breathe: injects life into every section by bringing modulation in at fresh depths");
     tip (globalModBypassButton,      "Mod: switch every modulation on or off at once");
@@ -1776,7 +1795,7 @@ void LCRMSAudioProcessorEditor::startTour()
     add (goniometer.getBounds(), "The field",
          "Your stereo image, live. A tall shape is mono-ish, a wide one is spread out. "
          "Everything drifting to one side means the balance is off.");
-    add (globalChaosButton.getBounds().getUnion (categoryBtn[kNumCategories - 1].getBounds()), "Smart",
+    add (globalChaosButton.getBounds().getUnion (categoryButton.getBounds()), "Smart",
          "The dice builds a whole setting for you. Pick a category first (Vocal, Backing, Adlib, FX) "
          "and the dice stays inside what makes sense for that source.");
     add (lifeSlider.getBounds(), "Life",
@@ -1943,8 +1962,9 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     writeProps.setValue ("showMutateCategories", ! writeProps.getBoolValue ("showMutateCategories", true));
                     writeProps.saveIfNeeded();
                     showMutateCategories = writeProps.getBoolValue ("showMutateCategories", true);
-                    for (auto& b : categoryBtn)
-                        b.setVisible (showMutateCategories);   // resized() reicht nicht: content aendert seine Groesse nicht
+                    categoryButton.setVisible (showMutateCategories);
+                    catDots.setVisible (showMutateCategories);
+                    smartInfoLabel.setVisible (showMutateCategories);
                     break;
                 case idTechnicalLabels:
                     technicalLabels = ! technicalLabels;
@@ -2938,11 +2958,17 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // anders aus").
     globalChaosButton.getProperties().set ("mutateIcon", true);
     content.addAndMakeVisible (globalChaosButton);
-    globalChaosButton.onClick  = [this] { runMutate (false); };
+    // Runde 55 (User): nur noch EIN Wuerfel, und der darf IMMER Sektionen
+    // aus- und einschalten - mit Kategorie wie ohne. Die Begruendung des
+    // Users ist die richtige: "Wenn eine Sektion sowieso keine Aenderungen
+    // randomly bekommt, dann kann sie auch off gestellt werden pro
+    // Wuerfelrunde" - sonst sieht man dem Wurf nicht an, was er getan hat.
+    globalChaosButton.onClick  = [this] { runMutate (true); };
 
     // Zweite Mutate-Taste: identische Logik, darf aber zusaetzlich Sektionen
     // ausschalten (User-Idee). Eigenes Icon mit zwei grauen Kaestchen, siehe
     // CustomLookAndFeel::drawMutateContent().
+    globalChaosSectionsButton.setVisible (false);   // Runde 55: aufgegangen im einen Wuerfel
     globalChaosSectionsButton.setClickingTogglesState (false);
     globalChaosSectionsButton.setWantsKeyboardFocus (false);
     globalChaosSectionsButton.getProperties().set ("mutateIcon", true);
@@ -3653,7 +3679,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (volSlider);
     styleLabel (volLabel, "Vol");
     // Runde 53 (User): Mono/Dry/Mix/Vol MINIMAL weniger leuchtend.
-    for (auto* l : { &monoCheckLabel, &monoDryLabel, &mixLabel, &volLabel })
+    for (auto* l : { &monoCheckLabel, &monoDryLabel, &mixLabel, &volLabel,
+                     &inputMeterLabel, &outputMeterLabel })
         l->setColour (juce::Label::textColourId, juce::Colour (0xffa9aeb8));
     content.addAndMakeVisible (volLabel);
     volAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_VOL_TRIM, volSlider);
@@ -3678,8 +3705,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // war; das ist im neuen Footer-Layout behoben (Zeilenhoehe = Label-Hoehe).
     // Nur die Ausrichtung weicht bewusst ab: linksbuendig, weil die
     // Beschriftung hier NEBEN dem Balken steht und nicht darunter.
-    styleLabel (inputMeterLabel, "I");    // kuerzer, sitzt ruhiger (User)
-    styleLabel (outputMeterLabel, "O");
+    styleLabel (inputMeterLabel, "In");
+    styleLabel (outputMeterLabel, "Out");
     inputMeterLabel.setJustificationType (juce::Justification::centredLeft);
     outputMeterLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (inputMeterLabel);
@@ -3915,6 +3942,36 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             content.addAndMakeVisible (categoryBtn[i]);
             categoryBtn[i].onClick = [this, i] { setMutateCategory (mutateCategory() == i + 1 ? 0 : i + 1); };
         }
+        // Runde 55 (User): die vier Chips ueber dem Sternenfeld werden zu
+        // EINER Pille mit Punkten - dieselbe Bildsprache wie die Modi in
+        // Parallax und RAYE, und die Chip-Zeile gibt ihre Hoehe an das
+        // Sternenfeld zurueck. Punkt 0 = aus.
+        for (auto& b : categoryBtn) { b.setVisible (false); b.setBounds ({}); }
+
+        categoryButton.setClickingTogglesState (false);
+        categoryButton.setWantsKeyboardFocus (false);
+        categoryButton.getProperties().set ("modePill", true);
+        categoryButton.setTooltip ("Smart profile: click for the next one, Cmd-click to go back. The dice then stays inside what fits that source");
+        content.addAndMakeVisible (categoryButton);
+        categoryButton.onClick = [this]
+        {
+            const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
+            const int n = kNumCategories + 1;
+            setMutateCategory ((mutateCategory() + (back ? n - 1 : 1)) % n);
+        };
+        catDots.count = kNumCategories + 1;
+        catDots.setTooltip ("Smart profile: click a dot to pick it directly");
+        catDots.onPick = [this] (int i) { setMutateCategory (i); };
+        content.addAndMakeVisible (catDots);
+
+        smartInfoLabel.setJustificationType (juce::Justification::centredLeft);
+        smartInfoLabel.setFont (juce::Font (juce::FontOptions (12.0f)));
+        smartInfoLabel.setColour (juce::Label::textColourId, juce::Colour (0xff8f96a4));
+        smartInfoLabel.setMinimumHorizontalScale (1.0f);
+        smartInfoLabel.setBorderSize (juce::BorderSize<int> (0));
+        smartInfoLabel.setInterceptsMouseClicks (false, false);
+        content.addAndMakeVisible (smartInfoLabel);
+
         setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
         showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
         technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", false);
@@ -4670,6 +4727,16 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // IN der Pille oder darunter sitzen.
         if (parallaxModeButtons[0].getButtonText() != modeNames[mode])
             parallaxModeButtons[0].setButtonText (modeNames[mode]);
+        // Die Pille traegt die Farbe ihres Sektionstitels (Runde 55). Nur der
+        // Editor kennt sie, der LookAndFeel sieht nur den Knopf.
+        {
+            const int want = (int) driftTitleLabel.findColour (juce::Label::textColourId).getARGB();
+            if ((int) parallaxModeButtons[0].getProperties().getWithDefault ("pillColour", 0) != want)
+            {
+                parallaxModeButtons[0].getProperties().set ("pillColour", want);
+                parallaxModeButtons[0].repaint();
+            }
+        }
         if (pxModeDots.index != mode) { pxModeDots.index = mode; pxModeDots.repaint(); }
        #else
         for (int i = 0; i < kPxModes; ++i)
@@ -4682,6 +4749,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
             const int c = juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_CHAR)->load()));
             if (rayCharButton.getButtonText() != charNames[c])
                 rayCharButton.setButtonText (charNames[c]);
+            {
+                const int want = (int) rayTitleLabel.findColour (juce::Label::textColourId).getARGB();
+                if ((int) rayCharButton.getProperties().getWithDefault ("pillColour", 0) != want)
+                {
+                    rayCharButton.getProperties().set ("pillColour", want);
+                    rayCharButton.repaint();
+                }
+            }
             if (rayModeDots.index != c) { rayModeDots.index = c; rayModeDots.repaint(); }
         }
        #endif
@@ -5916,7 +5991,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         //
         // Zeile 1:  BYP M M B ~ GALAXY | Undo Redo | Menu
         // Zeile 2:  < [ Name ] > | Save Delete | A/B Copy Reset
-        constexpr int kLiveW   = kIconBtnW * 5 + kGap * 4;
+        constexpr int kLiveW   = kIconBtnW * 4 + kGap * 3;   // Runde 55: ein Wuerfel weniger
         constexpr int kGalaxyGap = 12;
         constexpr int kLifeW   = 26;   // LIFE-Regler neben dem Mod-Bypass
         constexpr int kLifeGap = 4;
@@ -5940,6 +6015,20 @@ void LCRMSAudioProcessorEditor::layoutContent()
         block.removeFromTop (kRowGap);
         auto row2 = block.removeFromTop (kRowH);
 
+        // Runde 55 (User-Mockup): das Smart-Profil sitzt als Pille mit Punkten
+        // links neben der Global-Zeile - dieselbe Bildsprache wie die Modi in
+        // Parallax und RAYE. Dafuer sind die vier Chips ueber dem Sternenfeld
+        // weg, und das Feld bekommt deren Hoehe zurueck.
+        {
+            const int cw = 132, cbH = 30;
+            auto catCol = titleBar.removeFromRight (cw + 22).withTrimmedRight (22);
+            categoryButton.setBounds (catCol.getX(), row1.getY(), cw, cbH);
+            const int dotsW = (kNumCategories + 1) * 10 + 6;
+            catDots.setBounds (catCol.getX() + (cw - dotsW) / 2, categoryButton.getBottom() + 5, dotsW, 12);
+            categoryButton.setVisible (showMutateCategories);
+            catDots.setVisible (showMutateCategories);
+        }
+
         // --- Zeile 1 ---
         globalRowSeparatorX.clearQuick();
         globalRowSeparatorTop = row1.getY() - 3;
@@ -5955,26 +6044,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto live = row1.removeFromLeft (kLiveW);
         globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
-        // Runde 50 (User-Idee "deutlich groesserer Wuerfel"): mit aktiver
-        // Smart-Kategorie ist der zweite Wuerfel ohnehin gesperrt - dann
-        // werden aus beiden EIN breiter Knopf mit deutlich groesserem
-        // Wuerfel. Die Gesamtbreite bleibt gleich, der Rest der Zeile
-        // springt also nicht.
-        if (mutateCategoryValue > 0)
-        {
-            globalChaosButton.getProperties().set ("mutateBig", true);
-            globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW * 2 + kGap));
-            globalChaosSectionsButton.setBounds ({});
-            globalChaosSectionsButton.setVisible (false);
-        }
-        else
-        {
-            globalChaosButton.getProperties().set ("mutateBig", false);
-            globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
-            live.removeFromLeft (kGap);
-            globalChaosSectionsButton.setVisible (true);
-            globalChaosSectionsButton.setBounds (live.removeFromLeft (kIconBtnW));
-        }
+        // Runde 55: nur noch ein Wuerfel.
+        globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
+        globalChaosSectionsButton.setBounds ({});
         live.removeFromLeft (kGap);
         globalBreatheButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
@@ -6087,7 +6159,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Zeile ueber dem Sternenfeld: Kategorie-Chips links, A/B/C rechts.
     // Gehoert zum Block und drueckt Sternenfeld + Footer entsprechend nach
     // unten (User: "Kategorien groesser, dafuer Starfield runter").
-    const int chipRowH = 30, chipRowGap = 8;
+    // Runde 55: aus der 30 px hohen Chip-Zeile wird eine 18 px hohe
+    // Infozeile - die Differenz geht an das (quadratische, hoehenbegrenzte)
+    // Sternenfeld, es wird dadurch in BEIDE Richtungen groesser.
+    const int chipRowH = 18, chipRowGap = 6;
     const int gonioSize = juce::jmin (500, area.getHeight() - correlationBarH - correlationGap - belowCorrH - chipRowH - chipRowGap);
 
     auto leftColumn = area.removeFromLeft (gonioSize);
@@ -6103,26 +6178,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
     {
         const int gearS = 34;   // 22 -> 34: groessere Klickflaeche (User); das Icon selbst bleibt klein
         viewGearButton.setBounds (gonioArea.getRight() - gearS - 4, gonioArea.getY() + 4, gearS, gearS);
-        // Kategorien: Pillen im Stil des GALAXY-Knopfs, Breite aus der
-        // Textbreite plus Innenabstand, gleichmaessig ueber die ganze Zeile.
-        {
-            const auto f = CustomLookAndFeel::globalRowFont();
-            int textTotal = 0;
-            int widths[kNumCategories];
-            for (int i = 0; i < kNumCategories; ++i)
-            {
-                widths[i] = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, categoryBtn[i].getButtonText().toUpperCase())) + 28;
-                textTotal += widths[i];
-            }
-            const int chipGap = juce::jlimit (6, 18, (chipRow.getWidth() - textTotal) / (kNumCategories - 1));
-            int cx = chipRow.getX();
-            for (int i = 0; i < kNumCategories; ++i)
-            {
-                categoryBtn[i].setBounds (cx, chipRow.getY(), widths[i], chipRow.getHeight());
-                categoryBtn[i].setVisible (showMutateCategories);
-                cx += widths[i] + chipGap;
-            }
-        }
+        // Was das gewaehlte Profil tut - eine Zeile, dort wo frueher die
+        // vier Chips standen.
+        smartInfoLabel.setBounds (chipRow);
+        smartInfoLabel.setVisible (showMutateCategories);
         // Panel NICHT ueber dem Sternenfeld (User: "man sieht zu wenig"),
         // sondern rechts ueber der Sektionsspalte; die wird waehrenddessen
         // abgedunkelt (siehe paintOverContent()). So bleibt das Feld frei,
@@ -6300,8 +6359,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Speed-Regler mit dem RAYE-Pair-Ring, der vorher an der Kante klemmte.
     constexpr int kVariant = SPACEX_ROW2_VARIANT;
     // Variante A braucht in Reihe 2 Platz fuer zwei Reglerebenen.
-    const float row1Frac = (kVariant == 1) ? 0.330f : 0.385f;
-    const float row2Frac = (kVariant == 1) ? 0.420f : 0.335f;
+    // Runde 55 (User): Reihe 3 (Hyperdrive + RAYE) war im Vergleich zu
+    // Reihe 1 gedrueckt. Beide oberen Reihen geben eine Kleinigkeit ab -
+    // bewusst nur ein gutes Prozent, sonst kippt das Verhaeltnis.
+    const float row1Frac = (kVariant == 1) ? 0.330f : 0.372f;
+    const float row2Frac = (kVariant == 1) ? 0.420f : 0.328f;
     const int row1H = juce::roundToInt ((float) totalH * row1Frac);
     const int row2H = juce::roundToInt ((float) totalH * row2Frac);
     const int row3H = totalH - row1H - row2H;
@@ -6947,8 +7009,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // ("RA...", "PH..."), sobald die Sektion schmal war.
     const int rayTitleNeed = juce::GlyphArrangement::getStringWidthInt (sectionTitleFont(), rayTitleLabel.getText()) + 14;
     const int rayRightRoom = juce::jmax (0, rayHeader.getWidth() - rayTitleNeed);
-    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (108, rayRightRoom));
-    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (52, rayHeadRight.getWidth()));
+    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (124, rayRightRoom));
+    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (60, rayHeadRight.getWidth()));
     rayHeadRight.removeFromRight (5);
     const auto rayFastHeaderArea = rayHeadRight;
    #else
@@ -6998,10 +7060,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
                 rayCharButton.getProperties().remove ("textYShift");
                 rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() + 5, dotsW, 12);
             }
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (54, rayPairHeaderArea.getWidth()),
-                                                                              juce::jmin (20, rayPairHeaderArea.getHeight())));
-            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (46, rayFastHeaderArea.getWidth()),
-                                                                              juce::jmin (20, rayFastHeaderArea.getHeight())));
+            // Runde 55 (User: "fast und pair sind mir zu klein").
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (60, rayPairHeaderArea.getWidth()),
+                                                                              juce::jmin (24, rayPairHeaderArea.getHeight())));
+            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayFastHeaderArea.getWidth()),
+                                                                              juce::jmin (24, rayFastHeaderArea.getHeight())));
         }
        #else
         auto slotA = rayFrame.removeFromLeft (slotW);
