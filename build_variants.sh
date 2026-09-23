@@ -1,8 +1,10 @@
 #!/bin/bash
 # Baut die Vergleichs-Plugins als EIGENE Plugins, damit man sie im Host
 # neben dem normalen SpaceX oeffnen kann:
-#   SpaceXout      Modus-Punkte UNTER den Pillen (Parallax + RAYE)
-#   SpaceXin       Modus-Punkte IN den Pillen
+#   VERALTET (Runde 54): es gibt keine Vergleichsbuilds mehr. Der normale
+#   Build (./install.sh) IST die fertige Fassung und heisst SpaceX.
+#   Dieses Skript bleibt nur, falls doch noch mal zwei Fassungen
+#   nebeneinander gebraucht werden.
 #   (paraCPU baut weiter Parallax mit den drei Reglern - nur auf Zuruf)
 # Das normale SpaceX baut weiter install.sh.
 #

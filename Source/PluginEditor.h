@@ -641,23 +641,39 @@ private:
                 linksBtn.setBounds (right.getX(), qrCaption.getBottom() + 6, right.getWidth(), 28);
             }
 
-            auto line = [&r] (juce::Label& head, juce::Component& value, int valueH)
+            // Runde 54 (Bug): die drei Links wurden von OBEN gelegt, nachdem
+            // die Textzeilen ihren Platz genommen hatten - blieb nichts uebrig,
+            // wurden sie zu Striemen oder verschwanden ganz. Jetzt andersherum:
+            // die Knoepfe holen sich ihre Hoehe von UNTEN, die Textzeilen
+            // teilen sich, was darueber steht. So kann nichts mehr wegfallen.
             {
-                head.setBounds (r.removeFromTop (17));
-                r.removeFromTop (2);
-                value.setBounds (r.removeFromTop (valueH));
-                r.removeFromTop (14);
-            };
-            line (regHead,    regName,    24);
-            line (byHead,     byName,     22);
-            line (thanksHead, thanksText, 22);
+                const int bh = 28, bgap = 7;
+                const int colW = juce::jmax (150, r.getWidth() - r.getWidth() / 4);
+                auto place = [&r, bh, colW] (juce::TextButton& b)
+                {
+                    auto row = r.removeFromBottom (bh);
+                    b.setBounds (row.withWidth (juce::jmin (colW, row.getWidth())));
+                };
+                place (instaBtn); r.removeFromBottom (bgap);
+                place (webBtn);   r.removeFromBottom (bgap);
+                place (mailBtn);  r.removeFromBottom (18);
+            }
 
-            const int bh = 28;
-            mailBtn.setBounds  (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
-            r.removeFromTop (6);
-            webBtn.setBounds   (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
-            r.removeFromTop (6);
-            instaBtn.setBounds (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
+            // Was jetzt noch da ist, teilen sich die drei Textzeilen.
+            {
+                const int lines = 3;
+                const int perLine = juce::jmax (40, r.getHeight() / lines);
+                auto line = [&r, perLine] (juce::Label& head, juce::Component& value)
+                {
+                    auto block = r.removeFromTop (juce::jmin (perLine, r.getHeight()));
+                    head.setBounds (block.removeFromTop (juce::jmin (16, block.getHeight())));
+                    block.removeFromTop (juce::jmin (2, block.getHeight()));
+                    value.setBounds (block.removeFromTop (juce::jmin (23, block.getHeight())));
+                };
+                line (regHead,    regName);
+                line (byHead,     byName);
+                line (thanksHead, thanksText);
+            }
         }
 
     private:

@@ -47,8 +47,11 @@ set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, dotsin, dotsout, para
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
-set(SPX_PXUI    0)   # Parallax: 0 = Amount + 4 Knoepfe, 1 = drei Regler, 2 = Klick-Knopf
-set(SPX_RAYEUI  0)   # RAYE: 1 = Amount + Charakter
+# Runde 54 (User: "Der Build soll ab jetzt einfach wieder SpaceX heissen - ich
+# will keine Variationen mehr"): was bisher nur SpaceXout hatte, ist jetzt der
+# NORMALE Build. ./install.sh baut damit das fertige SpaceX.
+set(SPX_PXUI    2)   # Parallax: 0 = Amount + 4 Knoepfe, 1 = drei Regler, 2 = Klick-Knopf
+set(SPX_RAYEUI  1)   # RAYE: 1 = Amount + Charakter
 set(SPX_CPUOPT  1)   # optimierte DSP - seit Runde 42 in allen Builds (User: "CPU mode passt")
 set(SPX_NOVIS   0)
 set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)

@@ -25,6 +25,14 @@ sudo cp -R "$SRC" "$DST/"
 rm -rf "$HOME/Library/Audio/Plug-Ins/VST3/$NAME" \
        "$HOME/Library/Audio/Plug-Ins/VST3/Space X.vst3" 2>/dev/null || true
 
+# Die Vergleichsbuilds sind Geschichte (Runde 54): was sie konnten, kann jetzt
+# SpaceX selbst. Sie werden hier entfernt, damit im Host nur noch EIN SpaceX
+# auftaucht und man nie wieder das falsche oeffnet.
+sudo rm -rf "$DST/SpaceXout.vst3" "$DST/SpaceXin.vst3" \
+            "$DST/SpaceXraye1.vst3" "$DST/SpaceXraye2.vst3" \
+            "$DST/SpaceXparaCPU.vst3" "$DST/SpaceXpresets.vst3" \
+            "$DST/SpaceXclick.vst3" "$DST/SpaceXpara.vst3" 2>/dev/null || true
+
 echo "OK -> $DST/$NAME"
 
 # Kurzer Selbsttest: beide Architekturen drin, und wie alt darf das Ziel-macOS

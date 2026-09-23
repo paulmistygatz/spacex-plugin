@@ -72,6 +72,13 @@ namespace
         l.setJustificationType (juce::Justification::centredLeft);
         l.setColour (juce::Label::textColourId, colour);
         l.setFont (titleFont());
+        // DAS war das Abschneiden (Runde 54): ein juce::Label hat von Haus aus
+        // 5 px Innenrand links UND rechts. fitTitle() rechnet aber mit der
+        // reinen Textbreite - die Beschriftung bekam also 10 px weniger Platz,
+        // als sie braucht, und JUCE kuerzte mit "...". Kein Innenrand mehr,
+        // und gestaucht wird auch nicht (siehe fitTitle).
+        l.setBorderSize (juce::BorderSize<int> (0));
+        l.setMinimumHorizontalScale (1.0f);
     }
 }
 
@@ -2489,16 +2496,18 @@ void LCRMSAudioProcessorEditor::styleNameDialog (juce::AlertWindow& w)
 // wird also nichts verschickt und nichts nachgeschlagen.
 void LCRMSAudioProcessorEditor::promptActivate()
 {
-    if (processor.licensed.load (std::memory_order_relaxed))
-    {
-        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
-            "SpaceX", "This copy is activated. Thank you.");
-        return;
-    }
+    // Runde 54: eine bereits aktivierte Kopie wird NICHT mehr abgewiesen.
+    // Sonst kaeme man nach der Aktivierung nie mehr an das Namensfeld heran -
+    // und genau das braucht man, um "Registered to" nachzutragen.
+    const bool alreadyLicensed = processor.licensed.load (std::memory_order_relaxed);
 
     presetNameDialog = std::make_unique<juce::AlertWindow> ("Activate SpaceX",
-                                                              "Enter your name and serial number,\n"
-                                                              "exactly as they appear in your order.",
+                                                              alreadyLicensed
+                                                                ? juce::String ("This copy is activated.\n\n"
+                                                                                "Enter your name and serial number to put\n"
+                                                                                "your name on the back panel.")
+                                                                : juce::String ("Enter your name and serial number,\n"
+                                                                                "exactly as they appear in your order."),
                                                               juce::MessageBoxIconType::NoIcon);
     // Der Name gehoert zur Nummer: tools/make_serials.py leitet die Nutzlast
     // aus ihm ab, das Plugin prueft sie gegen den eingetippten Namen (siehe
@@ -2506,7 +2515,7 @@ void LCRMSAudioProcessorEditor::promptActivate()
     presetNameDialog->addTextEditor ("owner", juce::String(), "Your name");
     presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
     if (auto* te = presetNameDialog->getTextEditor ("owner")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
-    presetNameDialog->addButton ("Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    presetNameDialog->addButton (alreadyLicensed ? "Save" : "Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
 
@@ -6131,8 +6140,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         settingsPanel.setBounds ((kDesignW - sw) / 2, (kDesignH - sh) / 2 - 8, sw, sh);
         // Back Panel: etwas kleiner als die Einstellungen - es ist ein
         // Typenschild, kein Arbeitsbereich.
-        const int bw = juce::jmin (620, kDesignW - 160);
-        const int bh = juce::jmin (430, kDesignH - 120);
+        const int bw = juce::jmin (640, kDesignW - 150);
+        const int bh = juce::jmin (466, kDesignH - 90);
         backPanel.setBounds ((kDesignW - bw) / 2, (kDesignH - bh) / 2 - 8, bw, bh);
         if (tourOverlay.isVisible())
             tourOverlay.setBounds (content.getLocalBounds());
@@ -6315,7 +6324,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Layout-Durchlauf weiter.
         auto f = sectionTitleFont();
         const int maxW = juce::jmax (40, area.getWidth());
-        auto widthOf = [&f, &title] { return juce::GlyphArrangement::getStringWidthInt (f, title.getText()) + 8; };
+        // Der Zuschlag deckt Rundung und Kerning des letzten Zeichens ab; der
+        // Innenrand des Labels ist in styleTitle() auf 0 gesetzt.
+        auto widthOf = [&f, &title] { return juce::GlyphArrangement::getStringWidthInt (f, title.getText()) + 6; };
         int textW = widthOf();
         while (textW > maxW && f.getHeight() > 9.5f)
         {
@@ -6930,8 +6941,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Rechts im RAYE-Kopf ist Platz (kein Mod-Icon) - dort sitzt in
     // SpaceXraye2 der Pair-Knopf.
    #if SPACEX_RAYE_UI == 1
-    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (112, rayHeader.getWidth() / 2));
-    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (54, rayHeadRight.getWidth()));
+    // Runde 54: der TITEL hat Vorrang. Erst wird gerechnet, wie breit sein
+    // Name in der Basisschrift ist, und nur der Rest geht an FAST/PAIR -
+    // vorher nahmen sich die beiden feste 112 px und der Name wurde gekuerzt
+    // ("RA...", "PH..."), sobald die Sektion schmal war.
+    const int rayTitleNeed = juce::GlyphArrangement::getStringWidthInt (sectionTitleFont(), rayTitleLabel.getText()) + 14;
+    const int rayRightRoom = juce::jmax (0, rayHeader.getWidth() - rayTitleNeed);
+    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (108, rayRightRoom));
+    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (52, rayHeadRight.getWidth()));
     rayHeadRight.removeFromRight (5);
     const auto rayFastHeaderArea = rayHeadRight;
    #else
