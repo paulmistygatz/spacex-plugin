@@ -1136,8 +1136,12 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     put (sideWidthLabel, "Size",    "Width");
     put (sideBoostLabel, "Boost",   "Gain");
     put (movementLabel,  "Flow",    "Width");
-    // Der globale Knopf schaltet dieselbe Engine (User Runde 56).
+    // Der globale Knopf schaltet dieselbe Engine (User Runde 56), und der
+    // Settings-Eintrag meint denselben Schalter (User Runde 57).
     globalGalaxyActivateButton.setButtonText (t ? "LCR" : "GALAXY");
+    settingsPanel.behavBtn[4].setButtonText (t ? "LCR On Startup (Latency)" : "Galaxy On Startup (Latency)");
+    globalGalaxyActivateButton.setTooltip (t ? "LCR engine: needed for the L/C/R split. Switching it on adds latency"
+                                             : "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
     // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
 
     if (getWidth() > 0)
@@ -1735,8 +1739,6 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
     auto flipIf = [&] (bool current, bool wanted, int id) { if (current != wanted) handleSettingsAction (id); };
     flipIf (p.getBoolValue ("mutateChangesPrism", true),    settingsSnap.prism,       idMutatePrism);
-    flipIf (p.getBoolValue ("mutateChangesMix", false),     settingsSnap.mix,         idMutateMix);
-    flipIf (p.getBoolValue ("showMutateCategories", true),  settingsSnap.cats,        idShowCategories);
     flipIf (p.getBoolValue ("prismClickJumps", false),       settingsSnap.clickEdge,   idPrismClickJumps);
     flipIf (p.getBoolValue ("showFocusHz", false),           settingsSnap.showHz,      idShowHz);
     flipIf (p.getBoolValue ("galaxyActivateDefault", false),settingsSnap.galaxyStart, idGalaxyDefault);
@@ -1800,8 +1802,9 @@ void LCRMSAudioProcessorEditor::startTour()
          "Your stereo image, live. A tall shape is mono-ish, a wide one is spread out. "
          "Everything drifting to one side means the balance is off.");
     add (globalChaosButton.getBounds().getUnion (categoryButton.getBounds()), "Smart",
-         "The dice builds a whole setting for you. Pick a category first (Vocal, Backing, Adlib, FX) "
-         "and the dice stays inside what makes sense for that source.");
+         "The dice builds a whole setting for you, and decides which sections belong in it. "
+         "Pick a profile on the pill first - Vocal, Backing, Adlib or FX - and the dice stays "
+         "inside what makes sense for that source.");
     add (lifeSlider.getBounds(), "Life",
          "Scales every modulation at once. At zero nothing moves; turn it up and the whole plugin breathes.");
 
@@ -1814,7 +1817,7 @@ void LCRMSAudioProcessorEditor::startTour()
 }
 
 // ===== BACK PANEL =====
-void LCRMSAudioProcessorEditor::showBackPanel()
+void LCRMSAudioProcessorEditor::showBackPanel (bool welcomeMode)
 {
     if (backPanel.isVisible())
     {
@@ -1827,6 +1830,8 @@ void LCRMSAudioProcessorEditor::showBackPanel()
     juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     const auto owner = props.getValue ("licenceName", juce::String()).trim();
+    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Activate...");
+    backPanel.activateBtn.setToggleState (lic, juce::dontSendNotification);
     backPanel.regName.setText (! lic ? "Demo - not activated"
                                      : owner.isNotEmpty() ? owner : "This copy is activated",
                                juce::dontSendNotification);
@@ -1839,6 +1844,8 @@ void LCRMSAudioProcessorEditor::showBackPanel()
 
     settingsBackdrop.setVisible (true);
     settingsBackdrop.toFront (false);
+    backPanel.dontShowBtn.setVisible (welcomeMode);
+    backPanel.resized();
     backPanel.setAlpha (1.0f);
     backPanel.setVisible (true);
     backPanel.toFront (false);
@@ -1874,16 +1881,17 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
         settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
 
+    // Runde 57: "Flat" ist raus, die beiden verbliebenen Layouts sind 0 (3D)
+    // und 2 (Outline); der dritte Knopf der Spalte ist "Technical Labels".
     const bool layoutsAvailable = ! isComicTheme();
-    for (int i = 0; i < 3; ++i)
+    static const int layoutForBtn[2] = { 0, 2 };
+    for (int i = 0; i < 2; ++i)
     {
-        settingsPanel.layoutBtn[i].setToggleState (layoutsAvailable && uiLayoutRef() == i, juce::dontSendNotification);
+        settingsPanel.layoutBtn[i].setToggleState (layoutsAvailable && uiLayoutRef() == layoutForBtn[i], juce::dontSendNotification);
         settingsPanel.layoutBtn[i].setEnabled (layoutsAvailable);
         settingsPanel.layoutBtn[i].setAlpha (layoutsAvailable ? 1.0f : 0.40f);
     }
-
-    settingsPanel.smartBtn[0].setToggleState (p.getBoolValue ("mutateChangesMix", false),    juce::dontSendNotification);
-    settingsPanel.smartBtn[1].setToggleState (p.getBoolValue ("showMutateCategories", true), juce::dontSendNotification);
+    settingsPanel.layoutBtn[2].setToggleState (technicalLabels, juce::dontSendNotification);
 
     settingsPanel.behavBtn[0].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
@@ -1892,12 +1900,11 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
     settingsPanel.behavBtn[3].setToggleState (advancedModVisible,                              juce::dontSendNotification);
     settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
-    settingsPanel.behavBtn[5].setToggleState (technicalLabels,                                  juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
-    settingsPanel.licenceBtn.setButtonText (lic ? "Activated" : "Activate...");
-    settingsPanel.licenceBtn.setToggleState (lic, juce::dontSendNotification);
-    settingsPanel.licenceBtn.setTooltip (lic ? "This copy is activated"
-                                             : "Enter your serial number to remove the demo mute");
+    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Activate...");
+    backPanel.activateBtn.setToggleState (lic, juce::dontSendNotification);
+    backPanel.activateBtn.setTooltip (lic ? "Add or change the name shown above"
+                                          : "Enter your name and serial number to remove the demo mute");
     settingsPanel.repaint();
 }
 
@@ -1983,6 +1990,11 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     break;
                 case idOpenManual:
                     openManual();
+                    break;
+
+                case idTakeTour:
+                    closeSettingsPanel();
+                    startTour();
                     break;
 
                 case idLayoutFrames: case idLayoutFrameless: case idLayoutEasy:
@@ -2299,6 +2311,9 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     {
         menu.addSeparator();
         menu.addItem (kRenameId, "Rename...", currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName));
+        // Runde 57 (User): der Ordner gehoert zu den Presets, nicht in die
+        // Einstellungen.
+        menu.addItem (kRenameId + 1, "Preset Folder...");
     }
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetNameButton),
@@ -2307,6 +2322,11 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
             if (result == 100000)
             {
                 promptRenamePreset();
+                return;
+            }
+            if (result == 100001)
+            {
+                presetFolder().revealToUser();
                 return;
             }
             if (result <= 0 || result > presetNames.size())
@@ -3889,6 +3909,13 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     backPanel.onClose  = [this] { closeBackPanel(); };
     backPanel.onManual = [this] { openManual(); };
     backPanel.onTour   = [this] { closeBackPanel(); startTour(); };
+    backPanel.onActivate = [this] { promptActivate(); };
+    backPanel.onDontShow = [this] (bool dontShow)
+    {
+        juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
+        wp.setValue ("seenWelcome", dontShow);
+        wp.saveIfNeeded();
+    };
     content.addChildComponent (tourOverlay);
     tourOverlay.onFinish = [this]
     {
@@ -4004,6 +4031,19 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
         technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", false);
         applyLabelStyle();
+
+        // Beim allerersten Oeffnen zeigt sich die Rueckseite von selbst - dort
+        // steht, was das hier ist, und daneben der Knopf zur Tour. Mit
+        // "Don't show again" ist das ein einziges Mal (User Runde 57).
+        {
+            juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
+            if (! wp.getBoolValue ("seenWelcome", false))
+                juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<LCRMSAudioProcessorEditor> (this)]
+                {
+                    if (safe != nullptr)
+                        safe->showBackPanel (true);
+                });
+        }
         keepSoloWhenSectionOff = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("keepSoloWhenSectionOff", true);
     }
     viewGearButton.onClick = [this]
@@ -6231,7 +6271,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // drei Spalten nebeneinander stehen.
     {
         const int sw = 760, sh = 630;   // groesser, Platz fuer die Theme-Vorschau (User)
-        settingsPanel.setBounds ((kDesignW - sw) / 2, (kDesignH - sh) / 2 - 8, sw, sh);
+        // Runde 57 (User): randlos ueber die gesamte Oberflaeche.
+        juce::ignoreUnused (sw, sh);
+        settingsPanel.setBounds (0, 0, kDesignW, kDesignH);
         // Back Panel: etwas kleiner als die Einstellungen - es ist ein
         // Typenschild, kein Arbeitsbereich.
         const int bw = juce::jmin (640, kDesignW - 150);

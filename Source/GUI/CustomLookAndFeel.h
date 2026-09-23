@@ -2760,9 +2760,19 @@ public:
         g.setColour (offVisual ? knobRingOffColour() : juce::Colour (0xff454952));
         g.drawRoundedRectangle (track.reduced (0.5f), trackR, 1.2f);
 
-        // Fuellung von unten bis zur aktuellen Position.
-        const float fillTopY = juce::jlimit (top, bottom, sliderPos);
-        const float t = juce::jlimit (0.0f, 1.0f, (bottom - fillTopY) / juce::jmax (1.0f, bottom - top));
+        // Runde 57 (User-Foto): JUCE rechnet sliderPos ueber die GANZE
+        // Komponentenhoehe, meine Bahn ist aber oben und unten um 6 px
+        // eingerueckt - bei 0 % sass der Wertstrich deshalb 6 px UNTER der
+        // Kapsel und sah aus wie ein abgefallenes Teil. Die Position kommt
+        // jetzt direkt aus dem Wert, und der Strich laeuft innerhalb der
+        // Bahn, mit halber Strichhoehe Abstand zu den runden Enden.
+        const float markH = 3.0f;
+        const float travelTop = top + markH * 0.5f + 1.0f;
+        const float travelBot = bottom - markH * 0.5f - 1.0f;
+        const float valT = juce::jlimit (0.0f, 1.0f,
+                                         (float) slider.valueToProportionOfLength (slider.getValue()));
+        const float fillTopY = juce::jmap (valT, travelBot, travelTop);
+        const float t = valT;
 
         auto valueCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, t);
         if (t > 0.001f)
@@ -2799,7 +2809,7 @@ public:
         if (! offVisual && slider.getProperties().getWithDefault ("modLiveActive", false))
         {
             const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
-            const float liveY = juce::jmap (liveT, 0.0f, 1.0f, bottom, top);
+            const float liveY = juce::jmap (liveT, travelBot, travelTop);
             // Runde 55 (User-Skizze): getauscht. Die MODULATION ist jetzt der
             // Punkt - genau wie an jedem Drehregler im Plugin - und der Wert
             // darunter der Strich. Vorher war es andersherum, und Orbit war
@@ -2813,13 +2823,21 @@ public:
 
         // Aktuelle Position als leuchtender Punkt - ebenfalls ueber der Live-
         // Linie, bleibt also immer als eigener (tuerkiser) Punkt erkennbar.
-        // Der einstellbare Wert ist der Strich (siehe oben).
+        // Der einstellbare Wert ist der Strich - und zwar INNERHALB der Bahn,
+        // nicht breiter als sie (User-Foto Runde 57: sonst liest man ihn als
+        // eigenes Element unter dem Fader statt als dessen Stellung).
         auto dotCol = offVisual ? juce::Colour (0xff777b85) : valueCol;
-        const float markHalf = trackW * 0.5f + 3.5f;
-        g.setColour (dotCol.withAlpha (0.30f));
-        g.drawLine (cx - markHalf, sliderPos, cx + markHalf, sliderPos, 6.0f);
-        g.setColour (juce::Colours::white);
-        g.drawLine (cx - markHalf, sliderPos, cx + markHalf, sliderPos, 2.2f);
+        {
+            juce::Path clipTrack;
+            clipTrack.addRoundedRectangle (track, trackR);
+            g.saveState();
+            g.reduceClipRegion (clipTrack);
+            g.setColour (dotCol.withAlpha (0.35f));
+            g.fillRect (track.getX(), fillTopY - markH * 1.6f, track.getWidth(), markH * 3.2f);
+            g.setColour (juce::Colours::white);
+            g.fillRect (track.getX(), fillTopY - markH * 0.5f, track.getWidth(), markH);
+            g.restoreState();
+        }
     }
 
     // Groesserer, klar lesbarer Text fuer die Sync-Raten-Box.

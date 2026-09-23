@@ -49,7 +49,8 @@ enum SpaceXSettingsId
     idBassGuard,
     idShowAdvancedMod,
     idTechnicalLabels,
-    idBackPanel
+    idBackPanel,
+    idTakeTour
 };
 
 // ===== Varianten-Builds fuer den Layout-Vergleich (User) =====
@@ -91,7 +92,7 @@ public:
     void closeViewPanel();
     void closeSettingsPanel();
     void startTour();
-    void showBackPanel();
+    void showBackPanel (bool welcomeMode = false);
     void closeBackPanel();
     // Stand beim Oeffnen des Settings-Panels - "Cancel" stellt ihn wieder her
     // (gleiche Idee wie im View-Panel).
@@ -255,19 +256,23 @@ private:
     class SettingsPanelComponent : public juce::Component
     {
     public:
+        // Runde 57 (User: "Settings Menue aufraeumen"): die Gruppe SMART ist
+        // weg - "Changes Mix" hat nie jemand gebraucht, und die Kategorien
+        // sind seit der Pille dezent genug, um keinen Schalter zu brauchen.
+        // "Flat" ist als Layout raus, "Technical Labels" dafuer hier
+        // eingezogen: es ist eine Frage der Beschriftung, also Layout.
         static constexpr int kThemes  = 5;
-        static constexpr int kLayouts = 3;
-        static constexpr int kSmart   = 2;
-        static constexpr int kBehav   = 6;
+        static constexpr int kLayouts = 3;   // 3D | Outline | Technical Labels
+        static constexpr int kBehav   = 5;
 
-        juce::Label title, themeHead, layoutHead, smartHead, behavHead;
+        juce::Label title, themeHead, layoutHead, behavHead;
         // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
         // unabhaengig vom "?"-Schalter im Hauptfenster.
         juce::Label hintLine;
-        juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
+        juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], behavBtn[kBehav];
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
-                         aboutBtn { "Back Panel" },
+                         aboutBtn { "Back Panel" }, tourBtn { "Take the Tour" },
                          resetBtn { "Reset" }, cancelBtn { "Cancel" }, saveBtn { "Save" },
                          licenceBtn { "Activate..." };
 
@@ -276,9 +281,8 @@ private:
 
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
-        static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutFrameless, idLayoutEasy }; return a; }
-        static const int* smartIds()  { static const int a[kSmart]   = { idMutateMix, idShowCategories }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault, idTechnicalLabels }; return a; }
+        static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault }; return a; }
 
         SettingsPanelComponent()
         {
@@ -294,7 +298,6 @@ private:
             head (title,      "SETTINGS",  16.0f, juce::Colour (0xffb968ff));
             head (themeHead,  "THEME",     13.0f, juce::Colour (0xff8f96a4));
             head (layoutHead, "LAYOUT",    13.0f, juce::Colour (0xff8f96a4));
-            head (smartHead,  "SMART",     13.0f, juce::Colour (0xff8f96a4));
             head (behavHead,  "BEHAVIOUR", 13.0f, juce::Colour (0xff8f96a4));
             hintLine.setFont (juce::Font (juce::FontOptions (12.0f)));
             hintLine.setColour (juce::Label::textColourId, juce::Colour (0xff9aa0ab));
@@ -305,17 +308,15 @@ private:
             title.setTooltip ("Click to close");
 
             static const char* const themeNames[kThemes]  = { "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };   // altes "Moon" geloescht, "Silver" heisst jetzt "Moon" (User)
-            static const char* const layoutNames[kLayouts] = { "3D", "Flat", "Outline" };
+            static const char* const layoutNames[kLayouts] = { "3D", "Outline", "Technical Labels" };
             // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
-            static const char* const smartNames[kSmart]   = { "Changes Mix", "Show Categories" };
             static const char* const behavNames[kBehav]   = { "Auto Gain", "Bass Guard 120 Hz",
                                                               "Show Modulation",
                                                               "Show Advanced Modulation",
-                                                              "Galaxy On Startup (Latency)",
-                                                              "Technical Labels" };
+                                                              "Galaxy On Startup (Latency)" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -339,12 +340,12 @@ private:
             themeShot[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
-            for (int i = 0; i < kSmart;   ++i) setup (smartBtn[i],  smartNames[i],  smartIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
             setup (sizeBtn,   "Save Window Size",      idSaveSizeDefault);
             setup (stateBtn,  "Save State as Default", idSaveStateDefault);
             setup (folderBtn, "Preset Folder...",      idOpenPresetFolder);
             setup (manualBtn, "Manual",                idOpenManual);
+            setup (tourBtn,   "Take the Tour",         idTakeTour);
             setup (aboutBtn,  "Back Panel",            idBackPanel);
             setup (resetBtn,  "Reset",                 idResetSettings);
             setup (licenceBtn, "Activate...", idActivate);
@@ -353,12 +354,19 @@ private:
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
             saveBtn.setTooltip ("Keep the changes and close");
 
-            smartBtn[0].setTooltip ("Smart also moves the Mix knob");
             behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
             behavBtn[1].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
             behavBtn[3].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
-            behavBtn[4].setTooltip ("Galaxy is armed when the plugin opens - adds latency from the start");
-            behavBtn[5].setTooltip ("Names the sections and knobs by what they do: LCR, Polarity, MicroPitch, Mid-Side, Autopan, Phaser");
+            behavBtn[2].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
+            behavBtn[4].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
+            layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
+            layoutBtn[1].setTooltip ("Flat panels with a thin outline");
+            stateBtn.setTooltip ("Every new instance of SpaceX starts with the settings you have right now");
+            tourBtn.setTooltip ("A short guided walk through the sections");
+            aboutBtn.setTooltip ("Who built this, how to get in touch, and which copy this is");
+            manualBtn.setTooltip ("Open the PDF manual");
+            resetBtn.setTooltip ("Back to the factory settings - themes, layout and behaviour");
+            layoutBtn[2].setTooltip ("Names the sections and knobs by what they do: LCR, Polarity, MicroPitch, Mid-Side, Autopan, Phaser");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }
@@ -395,11 +403,12 @@ private:
 
         void paint (juce::Graphics& g) override
         {
+            // Runde 57 (User): das Panel nimmt die ganze Flaeche, ohne Rahmen
+            // und ohne Rand - dann ist auch nie wieder etwas zu eng. Die
+            // Theme-Vorschau zeigt ohnehin, wie die Oberflaeche aussieht.
             auto b = getLocalBounds().toFloat();
-            g.setColour (juce::Colour (0xff1e2128));   // minimal heller (User)
-            g.fillRoundedRectangle (b, 10.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.16f));
-            g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
+            g.setColour (juce::Colour (0xff1e2128));
+            g.fillRect (b);
 
             // Farbtupfer links neben jedem Theme-Namen - schneller zu treffen
             // als eine reine Textliste.
@@ -455,7 +464,8 @@ private:
                 r.removeFromBottom (7);
                 const int gap = 7;
                 const int w = 128;
-                licenceBtn.setBounds (row2.removeFromLeft (w + 10));
+                licenceBtn.setVisible (false);   // Runde 57: Aktivierung sitzt jetzt auf dem Back Panel
+                licenceBtn.setBounds ({});
                 saveBtn.setBounds (row2.removeFromRight (w));
                 row2.removeFromRight (gap);
                 cancelBtn.setBounds (row2.removeFromRight (w));
@@ -471,7 +481,12 @@ private:
                 sizeBtn.setVisible (false);
                 const int n = 4;
                 const int w1 = (row1.getWidth() - gap * (n - 1)) / n;
-                juce::TextButton* row[n] = { &stateBtn, &folderBtn, &manualBtn, &aboutBtn };
+                // Runde 57: "Preset Folder..." ist ins Preset-Menue gewandert
+                // (dorthin, wo auch "Rename..." steht), dafuer kommt die Tour
+                // hierher.
+                folderBtn.setVisible (false);
+                folderBtn.setBounds ({});
+                juce::TextButton* row[n] = { &stateBtn, &tourBtn, &manualBtn, &aboutBtn };
                 int x = row1.getX();
                 for (int i = 0; i < n; ++i) { row[i]->setBounds (x, row1.getY(), w1, row1.getHeight()); x += w1 + gap; }
             }
@@ -504,8 +519,6 @@ private:
                                                     juce::jmin (pv.getHeight(), (int) ((float) pw / 1.413f)));
             }
             stack (col2, layoutHead, layoutBtn, kLayouts, 0);
-            col2.removeFromTop (14);
-            stack (col2, smartHead,  smartBtn,  kSmart,   0);
             stack (col3, behavHead,  behavBtn,  kBehav,   0);
         }
 
@@ -528,8 +541,11 @@ private:
         juce::Label title, slogan, regHead, regName, byHead, byName,
                     thanksHead, thanksText, footer, qrCaption;
         juce::TextButton mailBtn, webBtn, instaBtn, linksBtn,
-                         tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" };
+                         tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" },
+                         activateBtn { "Activate..." }, dontShowBtn { "Don't show again" };
         std::function<void()> onTour;
+        std::function<void()> onActivate;
+        std::function<void (bool)> onDontShow;
         std::function<void()> onClose;
         std::function<void()> onManual;
         juce::Image qrImage;
@@ -564,7 +580,8 @@ private:
             footer.setText ("Thanks for your support - happy mixing.", juce::dontSendNotification);
             qrCaption.setText ("Everything in one place", juce::dontSendNotification);
 
-            for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn })
+            for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn,
+                             &activateBtn, &dontShowBtn })
             {
                 b->setWantsKeyboardFocus (false);
                 b->getProperties().set ("thinOnFrame", true);
@@ -577,7 +594,10 @@ private:
             instaBtn.getProperties().set ("contactIcon", 2);
             closeBtn.onClick = [this] { if (onClose)  onClose(); };
             manualBtn.onClick = [this] { if (onManual) onManual(); };
-            tourBtn.onClick   = [this] { if (onTour)   onTour(); };
+            tourBtn.onClick     = [this] { if (onTour)     onTour(); };
+            activateBtn.onClick = [this] { if (onActivate) onActivate(); };
+            dontShowBtn.setClickingTogglesState (true);
+            dontShowBtn.onClick = [this] { if (onDontShow) onDontShow (dontShowBtn.getToggleState()); };
         }
 
         void paint (juce::Graphics& g) override
@@ -625,6 +645,11 @@ private:
 
             auto bottom = r.removeFromBottom (34);
             {
+                // "Don't show again" nur beim automatischen Start-Aufruf.
+                if (dontShowBtn.isVisible())
+                    dontShowBtn.setBounds (bottom.removeFromLeft (150).withTrimmedRight (10));
+                else
+                    dontShowBtn.setBounds ({});
                 const int w = 118, gap = 10;
                 auto row = bottom.withSizeKeepingCentre (w * 3 + gap * 2, bottom.getHeight());
                 tourBtn.setBounds (row.removeFromLeft (w));
@@ -675,6 +700,12 @@ private:
                     value.setBounds (block.removeFromTop (juce::jmin (23, block.getHeight())));
                 };
                 line (regHead,    regName);
+                // Aktivieren gehoert dorthin, wo der Name steht (Runde 57).
+                {
+                    auto a = r.removeFromTop (juce::jmin (30, r.getHeight()));
+                    activateBtn.setBounds (a.withWidth (juce::jmin (140, a.getWidth())));
+                    r.removeFromTop (juce::jmin (10, r.getHeight()));
+                }
                 line (byHead,     byName);
                 line (thanksHead, thanksText);
             }
