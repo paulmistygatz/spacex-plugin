@@ -2975,8 +2975,12 @@ public:
                                       // ist an" - so wie beim PAIR-Knopf selbst.
                                       // Der Normalfall (Sync an, kein Pair) ist
                                       // das Gold von FAST, nicht das Blau.
-                                      : goldBox       ? pairAccentColour().withAlpha (0.74f)
-                                      : glow          ? altAccentColour().withAlpha (0.74f)
+                                      // Runde 69b (User-Abgleich): exakt dieselbe
+                                      // Deckkraft wie die Modus-Pillen (0.54) -
+                                      // BARS stand sonst eine Spur kraeftiger
+                                      // neben DOUBLE und SWEEP.
+                                      : goldBox       ? pairAccentColour().withAlpha (0.54f)
+                                      : glow          ? altAccentColour().withAlpha (0.54f)
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
         g.drawRoundedRectangle (bounds, boxCorner, 1.35f);
