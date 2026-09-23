@@ -3472,6 +3472,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Beschriftung zeigt die aktuelle Position. polPos2Button traegt ihn,
     // die anderen drei sind aus.
     polPos2Button.setButtonText ("EARLY");
+    // Runde 62 (User): im aktiven Zustand zurueckhaltender als L und R - er
+    // sagt nur, WO umgepolt wird, nicht DASS umgepolt wird.
+    polPos2Button.getProperties().set ("softOn", true);
     polPos2Button.setClickingTogglesState (false);
     polPos2Button.setRadioGroupId (0, juce::dontSendNotification);
     polPos2Button.onClick = [this]
@@ -4894,7 +4897,9 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // Die Pille traegt die Farbe ihres Sektionstitels (Runde 55). Nur der
         // Editor kennt sie, der LookAndFeel sieht nur den Knopf.
         {
-            const int want = (int) driftTitleLabel.findColour (juce::Label::textColourId).getARGB();
+            // Runde 62 (User): derselbe Rahmenton wie bei RAYE - zwei
+            // verschiedene Modus-Pillen nebeneinander wirkten unruhig.
+            const int want = (int) rayTitleLabel.findColour (juce::Label::textColourId).getARGB();
             if ((int) parallaxModeButtons[0].getProperties().getWithDefault ("pillColour", 0) != want)
             {
                 parallaxModeButtons[0].getProperties().set ("pillColour", want);
@@ -6876,8 +6881,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         polInner.removeFromTop (gapV);
         auto posRow = polInner.removeFromTop (posBtnH);
         juce::ignoreUnused (posBtnGap);
-        // Ein Knopf, so breit wie L + R zusammen (Runde 39).
-        polPos2Button.setBounds (posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, posBtnH));
+        // Runde 62 (User): schmaler als L + R zusammen und ein Stueck tiefer,
+        // damit unten weniger Luft zum Rahmen steht.
+        polPos2Button.setBounds (posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap - 26, posBtnH)
+                                       .translated (0, 6));
         polPos3Button.setBounds ({});
         polPos1Button.setBounds ({});
         polPos4Button.setBounds ({});
@@ -7240,7 +7247,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             const int pw = juce::jmin (100, halfW);
             const int ph = juce::jmin (kDotsInside ? 36 : 30, rayKnobAreaH - (kDotsInside ? 8 : 14));
-            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -7 : -10);
+            // Runde 62 (User): Pille und Punkte sassen zu weit vom rechten
+            // Rahmenrand weg - sie ruecken nach rechts, bleiben aber im Slot.
+            const int shiftX = juce::jmax (0, juce::jmin (12, (slotC.getWidth() - pw) / 2));
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (shiftX, kDotsInside ? -7 : -10);
             rayCharButton.setBounds (col);
             const int dotsW = 4 * 10 + 6;
             if (kDotsInside)

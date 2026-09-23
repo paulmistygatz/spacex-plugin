@@ -634,7 +634,7 @@ public:
             // kein An/Aus. Beide leuchten gleich - welche gewaehlt ist, sagt
             // die Kurve selbst.
             if (! button.getProperties().getWithDefault ("noPlate", false))
-                drawSmallIconPlate (g, b, ! off);
+                drawSmallIconPlate (g, b, ! off, off);
             b = b.reduced (s2 * 0.24f);
             auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.62f);
             juce::Colour col = smallIconColour (! off);
@@ -679,7 +679,7 @@ public:
             const bool on  = button.getToggleState();
             const bool off = button.getProperties().getWithDefault ("sectionOff", false);
             if (! button.getProperties().getWithDefault ("noPlate", false))
-                drawSmallIconPlate (g, b, on && ! off);
+                drawSmallIconPlate (g, b, on && ! off, off);
             b = b.reduced (s2 * 0.26f);
             juce::Colour col = smallIconColour (on && ! off);
             if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
@@ -716,7 +716,8 @@ public:
             // Sichtbare Knopf-Flaeche (User: "mach ein Button rein") - ohne sie
             // schwebt das Symbol zwischen den Reglern.
             if (! button.getProperties().getWithDefault ("noPlate", false))
-                drawSmallIconPlate (g, b, ! bypassed);
+                drawSmallIconPlate (g, b, ! bypassed,
+                                    button.getProperties().getWithDefault ("sectionOff", false));
             b = b.reduced (s2 * 0.22f);
             auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.8f);
             const bool off      = button.getProperties().getWithDefault ("sectionOff", false);
@@ -751,7 +752,8 @@ public:
             auto b = button.getLocalBounds().toFloat().reduced (1.5f);
             const int mode = (int) button.getProperties().getWithDefault ("wingMode", 0);
             if (! button.getProperties().getWithDefault ("noPlate", false))
-                drawSmallIconPlate (g, b, mode != 0);
+                drawSmallIconPlate (g, b, mode != 0,
+                                    button.getProperties().getWithDefault ("sectionOff", false));
             auto box = b.reduced (juce::jmin (b.getWidth(), b.getHeight()) * 0.24f);
             juce::Colour col = smallIconColour (mode != 0);
             if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
@@ -939,7 +941,11 @@ public:
         const juce::Colour btnAccent = gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
 
         // View-Panel-Knoepfe ohne den Leucht-Hof (User: "leuchtende Kaesten").
-        if ((isOn || gold) && ! button.getProperties().getWithDefault ("noGlow", false))
+        // "softOn" (Runde 62, User): EARLY/LATE soll im aktiven Zustand
+        // nicht so laut sein wie L und R darueber - kein Leucht-Hof, und der
+        // Rahmen kommt weiter unten gedaempft.
+        const bool softOn = button.getProperties().getWithDefault ("softOn", false);
+        if ((isOn || gold) && ! softOn && ! button.getProperties().getWithDefault ("noGlow", false))
         {
             // Der Schein ist breiter als der Knopf und wurde bisher an dessen
             // rechteckigen Raendern abgeschnitten - auf einer hellen Flaeche
@@ -1080,11 +1086,13 @@ public:
         }
         if (sectionIsOffNow)
             return;
-        g.setColour ((isOn || gold) ? btnAccent : juce::Colour (0xff3a3d45));
+        g.setColour ((isOn || gold) ? (softOn ? btnAccent.withAlpha (0.46f) : btnAccent)
+                                    : juce::Colour (0xff3a3d45));
         // "thinOnFrame" (Polarity L/R und 1-4): der An-Rahmen ist eine Spur
         // duenner, damit diese Knoepfe nicht mehr Gewicht bekommen als die
         // Regler daneben (User: "wirklich nur mini mini mini duenner").
-        const float onThickness = button.getProperties().getWithDefault ("thinOnFrame", false) ? 1.35f : 1.6f;
+        const float onThickness = softOn ? 1.2f
+                                : button.getProperties().getWithDefault ("thinOnFrame", false) ? 1.35f : 1.6f;
         g.drawRoundedRectangle (bounds, cornerSize, (isOn || gold) ? onThickness : 1.0f);
     }
 
@@ -2168,7 +2176,7 @@ public:
     // Gemeinsame Knopf-Flaeche fuer die kleinen Zwei-Zustand-Knoepfe zwischen
     // den Reglern (Balance in Timewarp, Focus in Galaxy/Dimension). Ein Ort,
     // damit sie in jedem Theme gleich aussehen - auch in Pop (User).
-    void drawSmallIconPlate (juce::Graphics& g, juce::Rectangle<float> b, bool on)
+    void drawSmallIconPlate (juce::Graphics& g, juce::Rectangle<float> b, bool on, bool sectionOff = false)
     {
         const float cr = juce::jmin (b.getWidth(), b.getHeight()) * 0.28f;
         // Die FLAECHE sagt nicht mehr, ob der Knopf an ist (User: "die kleinen
@@ -2184,9 +2192,16 @@ public:
             comicOutline (g, b, cr, 2.0f);
             return;
         }
-        g.setColour (controlIdleFill());
-        g.fillRoundedRectangle (b, cr);
-        g.setColour (juce::Colours::white.withAlpha (on ? 0.13f : 0.07f));
+        // Runde 62 (User, mehrfach): ist die SEKTION aus, bekommt der Knopf
+        // gar keine Flaeche mehr - genau wie die Modus-Pillen daneben. Die
+        // graue Fuellung war das einzige, was in einer ausgeschalteten
+        // Sektion noch hell stand.
+        if (! sectionOff)
+        {
+            g.setColour (controlIdleFill());
+            g.fillRoundedRectangle (b, cr);
+        }
+        g.setColour (juce::Colours::white.withAlpha (sectionOff ? 0.06f : (on ? 0.13f : 0.07f)));
         g.drawRoundedRectangle (b.reduced (0.5f), cr, 1.0f);
     }
 
@@ -2201,7 +2216,7 @@ public:
         // "gesperrt", siehe Power-Icon-Kommentar).
         const bool isOn = button.getToggleState();
         const bool lit  = isOn && button.isEnabled() && ! sectionIsOff;
-        drawSmallIconPlate (g, plate, lit);
+        drawSmallIconPlate (g, plate, lit, sectionIsOff);
 
         auto bounds = plate.reduced (juce::jmin (plate.getWidth(), plate.getHeight()) * 0.20f);
         auto col = smallIconColour (lit);
