@@ -262,7 +262,14 @@ private:
         // "Flat" ist als Layout raus, "Technical Labels" dafuer hier
         // eingezogen: es ist eine Frage der Beschriftung, also Layout.
         static constexpr int kThemes  = 4;   // Runde 66 (User): Moon raus
-        static constexpr int kLayouts = 3;   // 3D | Outline | Technical Labels
+        // Runde 71 (User): die Layout-Spalte ist raus. Jedes Theme hat sein
+        // festes Layout (Outline), also gibt es nichts mehr zu waehlen - und
+        // "Technical Labels" ist ohnehin eine Frage der BESCHRIFTUNG, nicht
+        // des Layouts; es steht jetzt bei Behaviour. Die drei Knoepfe bleiben
+        // als Array bestehen, nur 3D und Outline werden nicht mehr angezeigt.
+        static constexpr int kLayouts = 3;
+        // "Auto Gain" ist raus (User: "alles was man auf der GUI klicken kann,
+        // kann weg aus den Settings") - das AG-Feld unten rechts schaltet es.
         static constexpr int kBehav   = 5;
 
         juce::Label title, themeHead, layoutHead, behavHead;
@@ -283,7 +290,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
-        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowAdvancedMod, idShowModulation, idBassGuard, idAutoGain }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idTechnicalLabels, idShowAdvancedMod, idShowModulation, idBassGuard }; return a; }
 
         SettingsPanelComponent()
         {
@@ -310,17 +317,17 @@ private:
 
             // Runde 66 (User): vier Themes, Day & Night als Standard und
             // zuerst. "Fireflies" heisst jetzt "Fairy Tale" (User).
-            static const char* const themeNames[kThemes]  = { "Day & Night", "Fairy Tale", "Sci-Fi", "Pop" };
+            static const char* const themeNames[kThemes]  = { "Day & Night", "Fairy Tale", "Science Fiction", "Pop Art" };
             static const char* const layoutNames[kLayouts] = { "3D", "Outline", "Technical Labels" };
             // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
             static const char* const behavNames[kBehav]   = { "Galaxy On Startup (Latency)",
+                                                              "Technical Labels",
                                                               "Show Advanced Modulation",
                                                               "Show Modulation",
-                                                              "Bass Guard 120 Hz",
-                                                              "Auto Gain" };
+                                                              "Bass Guard 120 Hz" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -528,14 +535,14 @@ private:
                 }
             };
             stack (col1, themeHead,  themeBtn,  kThemes,  16);
-            stack (col2, layoutHead, layoutBtn, kLayouts, 0);
             stack (col3, behavHead,  behavBtn,  kBehav,   0);
+            // Runde 71: die Layout-Knoepfe gibt es nicht mehr.
+            for (int i = 0; i < kLayouts; ++i) { layoutBtn[i].setVisible (false); layoutBtn[i].setBounds ({}); }
+            layoutHead.setVisible (false);
 
-            // Runde 60 (User): die Vorschau sitzt jetzt in der LAYOUT-Spalte
-            // unter "Technical Labels" - dort ist der Platz, und sie gehoert
-            // ohnehin zu beidem (Theme UND Layout).
+            // Die Vorschau bekommt die mittlere Spalte jetzt ganz.
             {
-                col2.removeFromTop (16);
+                layoutHead.setBounds ({});
                 auto pv = col2;
                 const int pw = pv.getWidth();
                 previewArea = juce::Rectangle<int> (pv.getX(), pv.getY(), pw,
@@ -543,9 +550,9 @@ private:
             }
             // Feine Linie zwischen den Anzeige- und den Klang-Schaltern
             // (User): Show Modulation | Bass Guard.
-            behavRuleY = (behavBtn[2].getBottom() + behavBtn[3].getY()) / 2;
-            behavRuleX1 = behavBtn[3].getX();
-            behavRuleX2 = behavBtn[3].getRight();
+            behavRuleY = (behavBtn[3].getBottom() + behavBtn[4].getY()) / 2;
+            behavRuleX1 = behavBtn[4].getX();
+            behavRuleX2 = behavBtn[4].getRight();
         }
 
     private:

@@ -1967,25 +1967,13 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
         settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
 
-    // Runde 57: "Flat" ist raus, die beiden verbliebenen Layouts sind 0 (3D)
-    // und 2 (Outline); der dritte Knopf der Spalte ist "Technical Labels".
-    const bool layoutsAvailable = ! isComicTheme();
-    static const int layoutForBtn[2] = { 0, 2 };
-    for (int i = 0; i < 2; ++i)
-    {
-        settingsPanel.layoutBtn[i].setToggleState (layoutsAvailable && uiLayoutRef() == layoutForBtn[i], juce::dontSendNotification);
-        settingsPanel.layoutBtn[i].setEnabled (layoutsAvailable);
-        settingsPanel.layoutBtn[i].setAlpha (layoutsAvailable ? 1.0f : 0.40f);
-    }
-    settingsPanel.layoutBtn[2].setToggleState (technicalLabels, juce::dontSendNotification);
-
-    // Reihenfolge seit Runde 58 umgedreht - siehe behavIds().
-    settingsPanel.behavBtn[4].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
+    // Runde 71: die Layout-Knoepfe gibt es nicht mehr - jedes Theme hat sein
+    // festes Layout. "Technical Labels" steht jetzt bei Behaviour.
+    settingsPanel.behavBtn[4].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
-                                                                                               juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[1].setToggleState (advancedModVisible,                              juce::dontSendNotification);
+    settingsPanel.behavBtn[3].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (advancedModVisible,                              juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (technicalLabels,                                 juce::dontSendNotification);
     settingsPanel.behavBtn[0].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     backPanel.activateBtn.setButtonText (lic ? "Activated" : "Enter Serial");
@@ -5733,6 +5721,11 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
     // Day & Night (4), Fairy Tale (1), Sci-Fi (3) und Pop (2).
     if (uiThemeIndex == 0 || uiThemeIndex == 5) uiThemeIndex = 4;
     uiThemeRef() = (UiTheme) uiThemeIndex;
+    // Runde 71 (User): jedes Theme hat sein festes Layout. Outline traegt
+    // seit Runde 66 eine themeeigene Fuellung, damit ist die Unterscheidung
+    // zwischen "3D" und "Outline" gegenstandslos geworden - es bleibt eine
+    // Variante, und die Auswahl verschwindet aus dem Menue.
+    uiLayoutRef() = 2;
     {
         const auto pal = themePalette();
         lookAndFeel.accent     = pal.knob;   // Reglerwerte
@@ -6059,7 +6052,20 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
     if (settingsPanel.isVisible() || backPanel.isVisible())
     {
         g.saveState();
-        g.excludeClipRegion (settingsPanel.isVisible() ? settingsPanel.getBounds() : backPanel.getBounds());
+        // Bug (User Runde 71: "komische Grafik an den Ecken"): ausgespart
+        // wurde das RECHTECK des Panels - gezeichnet wird es aber mit runden
+        // Ecken. In den vier Zwickeln dazwischen lag dadurch weder Panel noch
+        // Schleier, und die ungedimmte Oberflaeche schaute durch. Jetzt wird
+        // die abgerundete Form ausgespart (Even-Odd-Fuellregel = Loch).
+        {
+            const auto panelB = (settingsPanel.isVisible() ? settingsPanel.getBounds()
+                                                           : backPanel.getBounds()).toFloat();
+            juce::Path veil;
+            veil.setUsingNonZeroWinding (false);
+            veil.addRectangle (bounds);
+            veil.addRoundedRectangle (panelB, 12.0f);
+            g.reduceClipRegion (veil);
+        }
         if (settingsBlur.isValid())
         {
             g.setOpacity (1.0f);
