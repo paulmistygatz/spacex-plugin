@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
-# Space X - Handbuch-Generator.
-# Schreibt manual_en.html und manual_de.html; die PDFs entstehen daraus per
-# Druck aus dem Browser (Seitengroesse A4, Hintergrundgrafiken an).
+# SpaceX - Handbuch-Generator (Mistycat).
+# Schreibt manual_en.html; das PDF entsteht daraus per Chromium --print-to-pdf
+# oder per Druck aus dem Browser (A4, Hintergrundgrafiken an).
 #
-# Die Texte liegen bewusst in zwei eigenen Dateien (text_en.py / text_de.py),
-# damit man am Wortlaut arbeiten kann, ohne durch Layoutcode zu scrollen.
+# Der Text liegt in text_en.py, damit man am Wortlaut arbeiten kann, ohne durch
+# Layoutcode zu scrollen. Fehlende Bilder werden uebersprungen - so laesst sich
+# das Handbuch auch bauen, waehrend die Screenshots noch nicht alle da sind.
 
 import base64, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from text_en import EN
-from text_de import DE
 
 def img(name):
-    with open(os.path.join(HERE, 'img', name + '.png'), 'rb') as f:
+    p = os.path.join(HERE, 'img', name + '.png')
+    if not os.path.exists(p):
+        return None
+    with open(p, 'rb') as f:
         return 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
 
 CSS = """
@@ -28,11 +31,12 @@ h2 { font-size: 15pt; margin: 22px 0 7px; letter-spacing: 1.1px; font-weight: 70
 h3 { font-size: 11pt; margin: 14px 0 3px; font-weight: 700; }
 p  { margin: 0 0 9px; }
 .lead { font-size: 11.6pt; color: #2b2e37; }
-.cover { text-align: center; padding-top: 44mm; }
+.cover { text-align: center; padding-top: 40mm; }
+.cover .brand { letter-spacing: 7px; font-size: 9.5pt; color: #8a8f9a; margin-bottom: 14px; }
 .cover .sub { letter-spacing: 5px; font-size: 10pt; color: #6f5bd6; margin-top: 8px; }
-.cover .sub2 { color: #8a8f9a; margin-top: 3px; }
+.cover .sub2 { color: #8a8f9a; margin-top: 3px; letter-spacing: 2px; font-size: 8.6pt; }
 .contact { margin-top: 14px; font-size: 9.4pt; color: #6f5bd6; font-weight: 600; }
-.cover img { width: 100%; margin-top: 20mm; border-radius: 5px; }
+.cover img { width: 100%; margin-top: 18mm; border-radius: 5px; }
 .cover .meta { margin-top: 12mm; font-size: 9pt; color: #8a8f9a; }
 .pb { page-break-before: always; }
 .sec { page-break-inside: avoid; }
@@ -42,6 +46,7 @@ td.k { width: 30%; font-weight: 700; white-space: nowrap; }
 .tip, .warn { padding: 8px 11px; border-radius: 4px; margin: 9px 0; font-size: 9.8pt; }
 .tip  { background: #f1f0fb; border-left: 3px solid #6f5bd6; }
 .warn { background: #fdf2f2; border-left: 3px solid #cf5a5a; }
+.note { font-size: 9.4pt; color: #6b6f7a; margin: 6px 0 10px; }
 .chain { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 12px; }
 .chain span { background: #f2f3f6; border: 1px solid #e0e2e8; border-radius: 3px;
               padding: 3px 8px; font-size: 8.8pt; letter-spacing: 0.6px; }
@@ -60,17 +65,23 @@ def table(rows):
     out.append('</table>')
     return ''.join(out)
 
-def build(T, lang):
+def shot(name, cls='shot w100'):
+    d = img(name)
+    return f'<img class="{cls}" src="{d}">' if d else ''
+
+def build(T):
     L = lambda k: T[k]
-    H = ['<html><head><meta charset="utf-8"><style>' + CSS + '</style></head><body>']
+    H = ['<html><head><meta charset="utf-8"><title>SpaceX Manual</title>'
+         '<style>' + CSS + '</style></head><body>']
 
     # --- Titelseite ---
     H.append('<div class="cover">')
+    H.append(f'<div class="brand">{L("brand")}</div>')
     H.append('<h1>SPACE <span>X</span></h1>')
     H.append(f'<div class="sub">{L("title_sub")}</div>')
     H.append(f'<div class="sub sub2">{L("title_sub2")}</div>')
     H.append(f'<p class="lead" style="margin-top:16px">{L("manual")}</p>')
-    H.append(f'<img src="{img("overview")}">')
+    H.append(shot('overview', 'w100'))
     H.append(f'<div class="meta">{L("cover_meta")}</div>')
     H.append('</div>')
 
@@ -102,22 +113,25 @@ def build(T, lang):
     # --- Signalweg ---
     H.append(f'<h2 class="pb">{L("h_layout")}</h2><p>{L("p_layout")}</p>')
     H.append('<div class="chain">'
-             + ''.join(f'<span class="{"f" if i >= 7 else ""}">{c}</span>' for i, c in enumerate(L('chain')))
+             + ''.join(f'<span class="{"f" if c in ("MIX", "OUT") else ""}">{c}</span>' for c in L('chain'))
              + '</div>')
     H.append(f'<p>{L("p_chain_pol")}</p>')
     H.append(f'<p>{L("p_chain_filter")}</p>')
     H.append(f'<h3>{L("h_common")}</h3>' + table(L('common')))
 
-    def section(hk, pk, rk, image, tip=None, warn=None, wide=False):
+    def section(hk, pk, rk, image, tip=None, warn=None, wide=False, extra=None):
         H.append('<div class="sec">')
         H.append(f'<h2>{L(hk)}</h2>')
-        if wide:
-            H.append(f'<img class="shot w100" src="{img(image)}"><p>{L(pk)}</p>' + table(L(rk)))
+        pic = shot(image, 'shot')
+        if wide or not pic:
+            H.append((shot(image, 'shot w100') if pic else '') + f'<p>{L(pk)}</p>')
         else:
-            H.append('<div class="row"><div style="flex:0 0 40%">'
-                     f'<img class="shot" src="{img(image)}">'
-                     f'</div><div><p>{L(pk)}</p></div></div>')
-            H.append(table(L(rk)))
+            H.append('<div class="row"><div style="flex:0 0 40%">' + pic
+                     + f'</div><div><p>{L(pk)}</p></div></div>')
+        if extra:
+            for k in extra:
+                H.append(f'<p>{L(k)}</p>')
+        H.append(table(L(rk)))
         if tip:  H.append(f'<div class="tip">{L(tip)}</div>')
         if warn: H.append(f'<div class="warn">{L(warn)}</div>')
         H.append('</div>')
@@ -125,26 +139,47 @@ def build(T, lang):
     section('h_galaxy', 'p_galaxy', 'galaxy', 'galaxy', tip='tip_galaxy')
     section('h_pol', 'p_pol', 'pol', 'polarity', warn='warn_pol')
     H.append(f'<p>{L("p_pol2")}</p>')
-    section('h_tw', 'p_tw', 'tw', 'timewarp')
+    section('h_tw', 'p_tw', 'tw', 'parallax', extra=['p_tw2'])
+    H.append(f'<p class="note">{L("tw_tech")}</p>')
     section('h_dim', 'p_dim', 'dim', 'dimension', tip='tip_dim')
     section('h_hyp', 'p_hyp', 'hyp', 'hyperdrive', wide=True)
-    section('h_vis', 'p_vis', 'vis', 'vision')
     section('h_raye', 'p_raye', 'raye', 'raye')
 
     H.append('<div class="sec">')
-    H.append(f'<h2>{L("h_footer")}</h2><img class="shot w60" src="{img("footer")}">' + table(L('footer')))
+    H.append(f'<h2>{L("h_footer")}</h2>' + shot('footer', 'shot w60') + table(L('footer')))
     H.append('</div>')
-    section('h_prism', 'p_prism', 'prism', 'prism', tip='tip_prism', wide=True)
+
+    H.append('<div class="sec">')
+    H.append(f'<h2>{L("h_mod")}</h2><p>{L("p_mod1")}</p><p>{L("p_mod2")}</p>')
+    H.append('</div>')
 
     H.append('<div class="sec">')
     H.append(f'<h2>{L("h_star")}</h2>')
-    H.append('<div class="row"><div style="flex:0 0 46%">'
-             f'<img class="shot" src="{img("starfield")}">'
-             f'</div><div><p>{L("p_star1")}</p><p>{L("p_star2")}</p></div></div>')
+    pic = shot('starfield', 'shot')
+    if pic:
+        H.append('<div class="row"><div style="flex:0 0 46%">' + pic
+                 + f'</div><div><p>{L("p_star1")}</p><p>{L("p_star2")}</p></div></div>')
+    else:
+        H.append(f'<p>{L("p_star1")}</p><p>{L("p_star2")}</p>')
     H.append(table(L('star')))
     H.append('</div>')
 
-    H.append(f'<h2>{L("h_look")}</h2><p>{L("p_look")}</p>')
+    H.append('<div class="sec">')
+    H.append(f'<h2>{L("h_presets")}</h2><p>{L("p_presets")}</p>' + table(L('presets')))
+    H.append(f'<p>{L("p_presets2")}</p>')
+    H.append('</div>')
+
+    H.append('<div class="sec">')
+    H.append(f'<h2>{L("h_look")}</h2><p>{L("p_look")}</p><p>{L("p_look2")}</p>' + table(L('labels')))
+    H.append('</div>')
+
+    H.append('<div class="sec">')
+    H.append(f'<h2>{L("h_help")}</h2>' + table(L('help')))
+    H.append('</div>')
+
+    H.append('<div class="sec">')
+    H.append(f'<h2>{L("h_demo")}</h2><p>{L("p_demo")}</p><p>{L("p_demo2")}</p>')
+    H.append('</div>')
 
     H.append(f'<h2 class="pb">{L("h_recipes")}</h2>')
     for title, body in L('recipes'):
@@ -154,11 +189,11 @@ def build(T, lang):
 
     H.append(f'<h2>{L("h_thanks")}</h2><p>{L("p_thanks1")}</p><p>{L("p_thanks2")}</p>')
     H.append(f'<p class="contact">{L("p_thanks3")}</p>')
-    H.append('<p class="footer-note">Space X - ' + L('manual') + ' 1.0</p>')
+    H.append('<p class="footer-note">Mistycat &middot; SpaceX &middot; '
+             + L('manual') + ' 1.0</p>')
     H.append('</body></html>')
     return '\n'.join(H)
 
-for T, lang in ((EN, 'en'), (DE, 'de')):
-    with open(os.path.join(HERE, f'manual_{lang}.html'), 'w') as f:
-        f.write(build(T, lang))
+with open(os.path.join(HERE, 'manual_en.html'), 'w') as f:
+    f.write(build(EN))
 print('html ok')
