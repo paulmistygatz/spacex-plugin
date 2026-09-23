@@ -397,7 +397,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Double", "Wide", "Illusion", "3D", "Drift", "Flux" }, 0));
+        juce::StringArray { "Double", "Wide", "Illusion", "3D", "Drift", "3D Flux" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));

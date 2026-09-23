@@ -4893,7 +4893,11 @@ void LCRMSAudioProcessorEditor::timerCallback()
     {
         const int mode = juce::jlimit (0, kPxModes - 1, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load()));
        #if SPACEX_PARALLAX_UI == 2
-        static const char* const modeNames[kPxModes] = { "DOUBLE", "WIDE", "ILLUSION", "3D", "DRIFT", "FLUX" };
+        // Runde 72 (User): "3D FLUX" statt "FLUX" - der Modus verschiebt das
+        // Bild je nach Amount mal nach rechts, mal nach links (zwei Wegpunkte
+        // mit wanderndem Mix) und gehoert damit zu 3D und DRIFT in die
+        // Familie der plastischen Modi, nicht zu den Widenern.
+        static const char* const modeNames[kPxModes] = { "DOUBLE", "WIDE", "ILLUSION", "3D", "DRIFT", "3D FLUX" };
         // Runde 51 (User): in BEIDEN Builds Punkte, kein Fuellbalken mehr -
         // die beiden Builds unterscheiden sich nur noch darin, ob die Punkte
         // IN der Pille oder darunter sitzen.

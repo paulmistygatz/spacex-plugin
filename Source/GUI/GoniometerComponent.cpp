@@ -2239,7 +2239,12 @@ void GoniometerComponent::timerCallback()
 
         // Radius deutlich groesser als das Feld selbst -> es ist immer nur
         // ein flacher Bogen zu sehen, nie eine ganze Kugel.
-        const float planetR = fieldW * (1.15f + gravVis * 0.55f);
+        // Runde 72 (User, Sci-Fi bei Gravity 100): je groesser der Radius,
+        // desto flacher der Bogen - und desto weiter liefen die Randlicht-
+        // Baender am unteren Rand auseinander. Die Spanne von 0.55 auf 0.28
+        // halbiert: der Planet waechst weiterhin sichtbar mit Gravity, behaelt
+        // aber seine Kruemmung.
+        const float planetR = fieldW * (1.15f + gravVis * 0.28f);
         // Mittelpunkt liegt WEIT unterhalb des Feldes; mehr Gravity rueckt
         // ihn nach oben, der Bogen schiebt sich also hoeher ins Bild.
         // Zwei Korrekturen nach User-Feedback:
