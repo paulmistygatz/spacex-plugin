@@ -769,7 +769,10 @@ public:
             g.drawEllipse (ring, 1.2f);
             g.setColour (col);
             g.setFont (juce::Font (juce::FontOptions (s2 * 0.62f, juce::Font::bold)));
-            g.drawText ("?", button.getLocalBounds(), juce::Justification::centred, false);
+            // "helpLetter": derselbe Kreis auch fuer andere Ein/Aus-Hinweise
+            // (Runde 56: das kleine "i" der Smart-Infozeile).
+            g.drawText (button.getProperties().getWithDefault ("helpLetter", "?").toString(),
+                        button.getLocalBounds(), juce::Justification::centred, false);
             return;
         }
         if (button.getProperties().getWithDefault ("pauseIcon", false))
@@ -1264,6 +1267,10 @@ public:
         else if (button.getProperties().getWithDefault ("breatheIcon", false))
         {
             drawBreatheContent (g, button);
+        }
+        else if (button.getProperties().contains ("contactIcon"))
+        {
+            drawContactContent (g, button, (int) button.getProperties()["contactIcon"]);
         }
         else if (button.getProperties().contains ("slotLetter"))
         {
@@ -2360,6 +2367,53 @@ public:
     // tuerkis (accent), wird bei jedem Klick neu gewuerfelt (siehe
     // globalChaosButton.onClick) - soll den Eindruck erwecken, dass die
     // Sektionen darunter randomisiert werden.
+    // Back Panel (Runde 56, User: "Instagram Logo besser als Button", "Email
+    // Icon besser als langer Text"): Symbol links, Adresse daneben. Bewusst
+    // GENERISCHE Zeichen - Briefumschlag, Globus, Fotoapparat - und nicht die
+    // Markenzeichen der Dienste: fremde Logos gehoeren nicht nachgebaut, und
+    // erkennbar ist es so genauso.
+    void drawContactContent (juce::Graphics& g, juce::Button& button, int kind)
+    {
+        auto b = button.getLocalBounds().toFloat().reduced (10.0f, 5.0f);
+        const bool hot = button.isMouseOver();
+        const auto col = juce::Colour (0xffb5b9c2).interpolatedWith (themePalette().knob, hot ? 0.75f : 0.25f);
+        const float ih = juce::jmin (b.getHeight(), 15.0f);
+        juce::Rectangle<float> icon (b.getX(), b.getCentreY() - ih * 0.5f, ih * 1.25f, ih);
+        g.setColour (col);
+
+        if (kind == 0)          // Briefumschlag
+        {
+            auto e = icon.reduced (0.0f, ih * 0.14f);
+            g.drawRoundedRectangle (e, 2.0f, 1.3f);
+            juce::Path flap;
+            flap.startNewSubPath (e.getX() + 1.5f, e.getY() + 2.0f);
+            flap.lineTo (e.getCentreX(), e.getCentreY() + 1.5f);
+            flap.lineTo (e.getRight() - 1.5f, e.getY() + 2.0f);
+            g.strokePath (flap, juce::PathStrokeType (1.3f));
+        }
+        else if (kind == 1)     // Globus
+        {
+            auto c = icon.withSizeKeepingCentre (ih, ih).reduced (0.5f);
+            g.drawEllipse (c, 1.3f);
+            g.drawEllipse (c.reduced (c.getWidth() * 0.30f, 0.0f), 1.1f);
+            g.drawLine (c.getX(), c.getCentreY(), c.getRight(), c.getCentreY(), 1.1f);
+        }
+        else                    // Fotoapparat (generisch, kein Markenzeichen)
+        {
+            auto body = icon.withTrimmedTop (ih * 0.18f);
+            g.drawRoundedRectangle (body, 2.5f, 1.3f);
+            g.drawRoundedRectangle (juce::Rectangle<float> (body.getX() + body.getWidth() * 0.28f,
+                                                            icon.getY(), body.getWidth() * 0.26f, ih * 0.22f), 1.0f, 1.2f);
+            const float r = body.getHeight() * 0.30f;
+            g.drawEllipse (body.getCentreX() - r, body.getCentreY() - r, r * 2.0f, r * 2.0f, 1.3f);
+        }
+
+        g.setColour (col);
+        g.setFont (juce::Font (juce::FontOptions (13.0f)).withExtraKerningFactor (0.02f));
+        g.drawText (button.getButtonText(), b.withTrimmedLeft (icon.getWidth() + 10.0f).toNearestInt(),
+                    juce::Justification::centredLeft, false);
+    }
+
     void drawMutateContent (juce::Graphics& g, juce::Button& button)
     {
         // "mutateBig" (Runde 50): der Wuerfel ersetzt bei aktiver Smart-

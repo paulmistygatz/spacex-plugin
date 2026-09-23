@@ -557,7 +557,7 @@ private:
             lab (qrCaption,  11.0f, juce::Colour (0xff8f96a4), false, juce::Justification::centred);
             lab (footer,     13.0f, juce::Colour (0xffb5b9c2), false, juce::Justification::centred);
             title.setText ("SPACEX", juce::dontSendNotification);
-            slogan.setText ("Stereo imaging, tuned by ear", juce::dontSendNotification);
+            slogan.setText ("Stereo imaging, tuned by ear.", juce::dontSendNotification);
             regHead.setText ("REGISTERED TO", juce::dontSendNotification);
             byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
             thanksHead.setText ("THANKS TO", juce::dontSendNotification);
@@ -571,6 +571,10 @@ private:
                 b->getProperties().set ("noGlow", true);
                 addAndMakeVisible (*b);
             }
+            // Symbol statt langer Beschriftung (User Runde 56).
+            mailBtn.getProperties().set ("contactIcon", 0);
+            webBtn.getProperties().set ("contactIcon", 1);
+            instaBtn.getProperties().set ("contactIcon", 2);
             closeBtn.onClick = [this] { if (onClose)  onClose(); };
             manualBtn.onClick = [this] { if (onManual) onManual(); };
             tourBtn.onClick   = [this] { if (onTour)   onTour(); };
@@ -630,7 +634,7 @@ private:
                 closeBtn.setBounds (row);
             }
             footer.setBounds (r.removeFromBottom (26));
-            r.removeFromBottom (16);
+            r.removeFromBottom (26);   // mehr Luft ueber den Knoepfen (User Runde 56)
 
             auto right = r.removeFromRight (juce::jmin (150, r.getWidth() / 3));
             r.removeFromRight (18);
@@ -1974,6 +1978,10 @@ private:
     juce::TextButton categoryButton;
     ModeDots         catDots;
     juce::Label      smartInfoLabel;
+    // Kleines "i" neben der Infozeile: blendet sie aus, ohne die Kategorie
+    // selbst zu verstecken (User Runde 56).
+    juce::TextButton smartInfoToggle;
+    bool             smartInfoVisible = true;
     static juce::String smartInfoTextFor (int cat);
     int mutateCategoryValue = 0;
     bool showMutateCategories = true;   // Menue "Show Mutate Categories"

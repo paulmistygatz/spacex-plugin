@@ -786,11 +786,11 @@ juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
 {
     switch (cat)
     {
-        case 1: return "Smart profile Vocal: lead or mono vocals made wide - the centre stays intact.";
-        case 2: return "Smart profile Backing: backing stacks and busses - wide, but still tidy.";
-        case 3: return "Smart profile Adlib: ad-libs - space, movement and clear sides.";
-        case 4: return "Smart profile FX: throws, wet tracks and FX returns - anything goes.";
-        default: return "No profile: the dice may reach for anything. Pick one to keep it in a lane.";
+        case 1: return "Vocal: wide, centre stays put.";
+        case 2: return "Backing: wide, but still tidy.";
+        case 3: return "Adlib: space, movement, clear sides.";
+        case 4: return "FX: anything goes.";
+        default: return {};   // kein Profil, keine Zeile (User)
     }
 }
 
@@ -826,7 +826,9 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
                                         : "Smart: randomize the sound and leave every section switched on");
     // Der zweite Wuerfel bekommt so lange einen dezenten Hof, damit man
     // sofort sieht, wohin die Kategorie wirkt (User: "Smart-Icon highlighten").
-    globalChaosSectionsButton.getProperties().set ("categoryArmed", catOn);
+    // Der Wuerfel selbst zeigt jetzt, dass ein Profil laeuft (User Runde 56:
+    // "leicht leuchtend ... vgl. galaxy global button").
+    globalChaosButton.getProperties().set ("categoryArmed", catOn);
     // Der Wuerfel wechselt zwischen schmal und breit - das ist Layout.
     // WICHTIG: content.resized(), nicht resized(). resized() setzt nur die
     // Bounds von content neu; sind die unveraendert, ruft JUCE dessen
@@ -1134,6 +1136,8 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     put (sideWidthLabel, "Size",    "Width");
     put (sideBoostLabel, "Boost",   "Gain");
     put (movementLabel,  "Flow",    "Width");
+    // Der globale Knopf schaltet dieselbe Engine (User Runde 56).
+    globalGalaxyActivateButton.setButtonText (t ? "LCR" : "GALAXY");
     // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
 
     if (getWidth() > 0)
@@ -1468,7 +1472,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (globalABButton,             "A / B: switch between two versions of your settings to compare them");
     tip (abCopyButton,               "Copy: send the current settings to the other A/B slot");
     tip (globalResetButton,          "Reset: load the Default preset again");
-    tip (logoButton,                 "SpaceX: click the logo to bypass the plugin, same as BYP");
+    tip (logoButton,                 "SpaceX: click the logo for the back panel");
 
     // Galaxy
     tip (lcrTitleLabel,   "GALAXY: pulls the centre out of the stereo image and treats L, C and R apart");
@@ -1964,7 +1968,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     showMutateCategories = writeProps.getBoolValue ("showMutateCategories", true);
                     categoryButton.setVisible (showMutateCategories);
                     catDots.setVisible (showMutateCategories);
-                    smartInfoLabel.setVisible (showMutateCategories);
+                    smartInfoToggle.setVisible (showMutateCategories);
+                    smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
                     break;
                 case idTechnicalLabels:
                     technicalLabels = ! technicalLabels;
@@ -2782,7 +2787,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     logoButton.getProperties().set ("invisibleHit", true);
     logoButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (logoButton);
-    logoButton.onClick = [this] { toggleUiBypass(); };
+    // Runde 56 (User): der Logo-Klick oeffnet das Back Panel. Bypass hat
+    // seinen eigenen Knopf in der Global-Zeile - den Umweg ueber das Logo
+    // braucht niemand, eine Rueckseite hinter dem Logo erwartet jeder.
+    logoButton.onClick = [this] { showBackPanel(); };
 
     // --- Globale Buttons (oben rechts, User-Idee "Globale Buttons") --------
     // Reset: reine Aktion, kein eigener Zustand - setzt ALLE Parameter auf
@@ -3971,6 +3979,26 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         smartInfoLabel.setBorderSize (juce::BorderSize<int> (0));
         smartInfoLabel.setInterceptsMouseClicks (false, false);
         content.addAndMakeVisible (smartInfoLabel);
+
+        smartInfoToggle.getProperties().set ("helpIcon", true);
+        smartInfoToggle.getProperties().set ("helpLetter", "i");
+        smartInfoToggle.setClickingTogglesState (true);
+        smartInfoToggle.setWantsKeyboardFocus (false);
+        smartInfoToggle.setTooltip ("Show what the selected Smart profile does");
+        {
+            juce::PropertiesFile hp (LCRMSAudioProcessor::appPropertiesOptions());
+            smartInfoVisible = hp.getBoolValue ("smartInfoVisible", true);
+        }
+        smartInfoToggle.setToggleState (smartInfoVisible, juce::dontSendNotification);
+        content.addAndMakeVisible (smartInfoToggle);
+        smartInfoToggle.onClick = [this]
+        {
+            smartInfoVisible = smartInfoToggle.getToggleState();
+            juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
+            wp.setValue ("smartInfoVisible", smartInfoVisible);
+            wp.saveIfNeeded();
+            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
+        };
 
         setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
         showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
@@ -6180,8 +6208,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         viewGearButton.setBounds (gonioArea.getRight() - gearS - 4, gonioArea.getY() + 4, gearS, gearS);
         // Was das gewaehlte Profil tut - eine Zeile, dort wo frueher die
         // vier Chips standen.
-        smartInfoLabel.setBounds (chipRow);
-        smartInfoLabel.setVisible (showMutateCategories);
+        {
+            const int ih = juce::jmin (16, chipRow.getHeight());
+            auto iconArea = chipRow.removeFromLeft (18);
+            smartInfoToggle.setBounds (iconArea.withSizeKeepingCentre (ih, ih));
+            smartInfoToggle.setVisible (showMutateCategories);
+            chipRow.removeFromLeft (6);
+            smartInfoLabel.setBounds (chipRow);
+            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
+        }
         // Panel NICHT ueber dem Sternenfeld (User: "man sieht zu wenig"),
         // sondern rechts ueber der Sektionsspalte; die wird waehrenddessen
         // abgedunkelt (siehe paintOverContent()). So bleibt das Feld frei,

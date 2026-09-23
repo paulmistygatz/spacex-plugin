@@ -55,7 +55,7 @@ set(SPX_RAYEUI  1)   # RAYE: 1 = Amount + Charakter
 set(SPX_CPUOPT  1)   # optimierte DSP - seit Runde 42 in allen Builds (User: "CPU mode passt")
 set(SPX_NOVIS   0)
 set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)
-set(SPX_EXTRA   "")
+set(SPX_EXTRA   BUNDLE_ID "com.mistycat.spacex")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
     set(SPX_ROW2 1)
@@ -91,13 +91,17 @@ endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)
     list(GET SPX_OWN 1 SPX_CODE)
-    string(TOLOWER "com.yourcompany.${SPX_PRODUCT}" SPX_BUNDLE)
+    string(TOLOWER "com.mistycat.${SPX_PRODUCT}" SPX_BUNDLE)
     set(SPX_EXTRA BUNDLE_ID "${SPX_BUNDLE}")
 endif()
 
 juce_add_plugin(LCRMSPlugin
-    COMPANY_NAME "YourCompany"
-    PLUGIN_MANUFACTURER_CODE Ycmp
+    COMPANY_NAME "Mistycat"
+    # ACHTUNG: der Hersteller-Code geht in die eindeutige Plugin-ID ein. Mit
+    # der Aenderung sieht jeder Host SpaceX als NEUES Plugin - bestehende
+    # Projekte finden die alte Instanz nicht mehr. Genau deshalb jetzt und
+    # nicht nach dem Verkaufsstart.
+    PLUGIN_MANUFACTURER_CODE Mcat
     PLUGIN_CODE ${SPX_CODE}
     FORMATS VST3
     PRODUCT_NAME "${SPX_PRODUCT}"
