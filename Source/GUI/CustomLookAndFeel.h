@@ -104,9 +104,14 @@ inline ThemePalette themePalette()
         // (120f1b / 171321 -> 14111e), die Fuellung bei halber Deckkraft.
         case UiTheme::SciFi:
         case UiTheme::SciFiDark:
+            // Runde 75 (User): der Titelton eine Spur zurueckgenommen
+            // (d9689a -> b8547f). In Sci-Fi trugen Titel und Modus-Pillen
+            // exakt dasselbe Pink, die Pillen verschwanden dadurch in den
+            // Ueberschriften - in den anderen Themes stehen sie klar davor.
+            // Jetzt ist das Gefaelle ueberall gleich.
             return { juce::Colour (0xff8be9ff), juce::Colour (0xffe07aa8), juce::Colour (0xff7d63c9), juce::Colour (0xff7d63c9),
                      juce::Colour (0xffd9689a), juce::Colour (0xff8e70c6), juce::Colour (0xff8e70c6), juce::Colour (0xff14111e),
-                     juce::Colour (0xffd9689a) };
+                     juce::Colour (0xffb8547f) };
         case UiTheme::DayNight:     // Day & Night: Reglergold (User: "sehr gut"), Mods Himmelblau, Rahmen warmes Grau, Platte neutral-dunkel (nicht braun)
             return { juce::Colour (0xffe0b98a), juce::Colour (0xff6fc3ff), juce::Colour (0xff8a8474), juce::Colour (0xff8a8474),
                      juce::Colour (0xffe2c37a), juce::Colour (0xffd9b283), juce::Colour (0xffd9b283), juce::Colour (0xff141518) };

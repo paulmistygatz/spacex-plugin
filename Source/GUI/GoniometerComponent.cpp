@@ -619,10 +619,18 @@ void GoniometerComponent::timerCallback()
     // verschwunden sind (User: "das ist vielleicht der effektivste Trick").
     // DAW-Stop: Linien blenden mit motionScale aus (User: "keine Bewegungen mehr").
     const float lineVis            = juce::jlimit (0.0f, 1.0f, (viewSpeed - 0.05f) / 0.30f) * motionScale;
-    const float shiftNorm          = timewarpOn ? juce::jlimit (0.0f, 1.0f, shiftRaw / 10.0f) : 0.0f;
-    // Amplitude halbiert (User-Wunsch: "Shift -> Staerke der Wellen nur
-    // maximal halb so stark", vorher 0.12f).
-    const float waveAmp            = shiftNorm * bgRadius * 0.03f;   // max halbiert (User)
+    // Runde 75 (User): Parallax macht im Sternenfeld nur noch EINES - Wellen,
+    // gesteuert allein vom Amount. Vorher hingen Wellen am Shift, der
+    // Fluchtpunkt am Drift und die Objekte ebenfalls am Drift; da die Modi
+    // diese drei Werte im Hintergrund gemeinsam verstellen, bewegte sich bei
+    // jedem Moduswechsel alles gleichzeitig und unvorhersehbar. Eine Ursache,
+    // eine Wirkung - und deutlich weniger Rechnerei.
+    juce::ignoreUnused (shiftRaw);
+    const float pxAmtRaw           = liveOrRaw (processor.currentParallaxAmountLive, LCRMSAudioProcessor::ID_PARALLAX_AMOUNT);
+    const float shiftNorm          = timewarpOn ? juce::jlimit (0.0f, 1.0f, pxAmtRaw / 100.0f) : 0.0f;
+    // Obergrenze: ungefaehr das, was vorher bei Amount auf 1 Uhr zu sehen war
+    // (User) - also rund drei Viertel des bisherigen Maximums.
+    const float waveAmp            = shiftNorm * bgRadius * 0.03f * 0.75f;
     // Die Welle pendelt nur, wenn Mod Movement an ist, und im Tempo des
     // Speed-Reglers (User: "Shift bewegt Linien auch bei Mod Movement aus").
     wavePhase += 0.10f * sceneSpeedMul() * (modMovementEnabled ? 1.0f : 0.0f);
@@ -661,7 +669,9 @@ void GoniometerComponent::timerCallback()
     const float starDriftRaw = liveOrRaw (processor.currentDriftLivePercent,  LCRMSAudioProcessor::ID_DRIFT);      // -100..100
 
     const float starTiltNorm  = positionOn ? juce::jlimit (-1.0f, 1.0f, starTiltRaw / 27.5f)   : 0.0f;
-    const float starDriftNorm = timewarpOn ? juce::jlimit (-1.0f, 1.0f, starDriftRaw / 100.0f) : 0.0f;
+    // Runde 75: Parallax schiebt den Fluchtpunkt nicht mehr - siehe oben.
+    juce::ignoreUnused (starDriftRaw);
+    const float starDriftNorm = 0.0f;
     // ===== DEHNUNG: jetzt an SIZE statt an WIDTH =====
     // User-Feedback: "Den Effekt von Width finde ich so geil - aber weil ich
     // Width in der Praxis eher seltener nutze, wuerde ich diesen Effekt
@@ -1115,7 +1125,9 @@ void GoniometerComponent::timerCallback()
         {
             v += (target - v) * juce::jlimit (0.0f, 1.0f, lastFrameDt / 0.45f);
         };
-        smooth (smDrift,    timewarpOn ? juce::jlimit (-1.0f, 1.0f, driftRaw / 100.0f) : 0.0f);
+        // Runde 75: keine Objektbewegung mehr aus Parallax (siehe oben).
+        juce::ignoreUnused (driftRaw);
+        smooth (smDrift,    0.0f);
         smooth (smTilt,     positionOn ? juce::jlimit (-1.0f, 1.0f, tiltRaw / 27.5f) : 0.0f);
         smooth (smElevate,  positionOn ? juce::jlimit (-1.0f, 1.0f, elevateRaw / 100.0f) : 0.0f);
         smooth (smWidth,    positionOn ? juce::jlimit (-1.0f, 1.0f, (posWidthRaw - 100.0f) / 50.0f) : 0.0f);
