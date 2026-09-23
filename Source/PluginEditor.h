@@ -91,7 +91,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void closeViewPanel();
     void closeSettingsPanel();
-    void startTour();
+    void startTour (bool firstRun = false);
     void showBackPanel (bool welcomeMode = false);
     void closeBackPanel();
     // Stand beim Oeffnen des Settings-Panels - "Cancel" stellt ihn wieder her
@@ -282,7 +282,8 @@ private:
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeMoon, idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
-        static const int* behavIds()  { static const int a[kBehav]   = { idAutoGain, idBassGuard, idShowModulation, idShowAdvancedMod, idGalaxyDefault }; return a; }
+        // Runde 58 (User): umgekehrte Reihenfolge.
+        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowAdvancedMod, idShowModulation, idBassGuard, idAutoGain }; return a; }
 
         SettingsPanelComponent()
         {
@@ -313,10 +314,11 @@ private:
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
-            static const char* const behavNames[kBehav]   = { "Auto Gain", "Bass Guard 120 Hz",
-                                                              "Show Modulation",
+            static const char* const behavNames[kBehav]   = { "Galaxy On Startup (Latency)",
                                                               "Show Advanced Modulation",
-                                                              "Galaxy On Startup (Latency)" };
+                                                              "Show Modulation",
+                                                              "Bass Guard 120 Hz",
+                                                              "Auto Gain" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -354,11 +356,11 @@ private:
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
             saveBtn.setTooltip ("Keep the changes and close");
 
-            behavBtn[0].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
-            behavBtn[1].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
-            behavBtn[3].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
+            behavBtn[4].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
+            behavBtn[3].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
+            behavBtn[1].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
             behavBtn[2].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
-            behavBtn[4].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
+            behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
             layoutBtn[1].setTooltip ("Flat panels with a thin outline");
             stateBtn.setTooltip ("Every new instance of SpaceX starts with the settings you have right now");
@@ -403,12 +405,11 @@ private:
 
         void paint (juce::Graphics& g) override
         {
-            // Runde 57 (User): das Panel nimmt die ganze Flaeche, ohne Rahmen
-            // und ohne Rand - dann ist auch nie wieder etwas zu eng. Die
-            // Theme-Vorschau zeigt ohnehin, wie die Oberflaeche aussieht.
             auto b = getLocalBounds().toFloat();
             g.setColour (juce::Colour (0xff1e2128));
-            g.fillRect (b);
+            g.fillRoundedRectangle (b, 12.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.14f));
+            g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
 
             // Farbtupfer links neben jedem Theme-Namen - schneller zu treffen
             // als eine reine Textliste.
@@ -577,8 +578,10 @@ private:
             regHead.setText ("REGISTERED TO", juce::dontSendNotification);
             byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
             thanksHead.setText ("THANKS TO", juce::dontSendNotification);
-            footer.setText ("Thanks for your support - happy mixing.", juce::dontSendNotification);
-            qrCaption.setText ("Everything in one place", juce::dontSendNotification);
+            // "happy mixing" ist raus (User Runde 58) - die Seite sagt schon
+            // genug, und eine Zeile weniger ist eine Zeile weniger.
+            footer.setVisible (false);
+            qrCaption.setVisible (false);
 
             for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn,
                              &activateBtn, &dontShowBtn })
@@ -604,48 +607,33 @@ private:
         {
             auto b = getLocalBounds().toFloat();
             g.setColour (juce::Colour (0xff1e2128));
-            g.fillRoundedRectangle (b, 10.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.16f));
-            g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
+            g.fillRoundedRectangle (b, 12.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.14f));
+            g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
 
-            // Feiner Trennstrich unter dem Kopf - wie auf einer echten
-            // Geraeterueckseite das Typenschild vom Rest getrennt ist.
+            // Zwei feine Linien gliedern die Seite: Kopf, Inhalt, Fuss. Mehr
+            // Struktur braucht ein Typenschild nicht (Runde 58, User:
+            // "finde das back panel noch zu unuebersichtlich").
             g.setColour (juce::Colours::white.withAlpha (0.08f));
-            g.fillRect (b.getX() + 28.0f, b.getY() + 104.0f, b.getWidth() - 56.0f, 1.0f);
-
-            auto qr = qrArea.toFloat();
-            if (! qr.isEmpty())
-            {
-                if (qrImage.isValid())
-                {
-                    g.setOpacity (1.0f);
-                    g.drawImage (qrImage, qr, juce::RectanglePlacement::centred);
-                }
-                else
-                {
-                    // Noch kein QR-Bild hinterlegt: leeres Feld statt eines
-                    // gemalten Fantasie-Codes, den niemand scannen kann.
-                    g.setColour (juce::Colours::white.withAlpha (0.05f));
-                    g.fillRoundedRectangle (qr, 6.0f);
-                    g.setColour (juce::Colours::white.withAlpha (0.14f));
-                    g.drawRoundedRectangle (qr.reduced (0.5f), 6.0f, 1.0f);
-                }
-            }
+            for (int yy : { ruleTopY, ruleBottomY })
+                if (yy > 0)
+                    g.fillRect (b.getX() + 30.0f, (float) yy, b.getWidth() - 60.0f, 1.0f);
         }
 
         void resized() override
         {
-            // Runde 53 (User: "bisschen noch oben und unten ziehen"): mehr
-            // Luft um Titel und Slogan, damit die Schrift nicht gequetscht wirkt.
-            auto r = getLocalBounds().reduced (28, 26);
-            title.setBounds (r.removeFromTop (34));
-            r.removeFromTop (4);
-            slogan.setBounds (r.removeFromTop (22));
-            r.removeFromTop (32);
+            auto r = getLocalBounds().reduced (30, 24);
 
+            title.setBounds (r.removeFromTop (32));
+            r.removeFromTop (2);
+            slogan.setBounds (r.removeFromTop (20));
+            r.removeFromTop (16);
+            ruleTopY = r.getY();
+            r.removeFromTop (18);
+
+            // Fuss zuerst reservieren, dann kann oben nichts mehr wegfallen.
             auto bottom = r.removeFromBottom (34);
             {
-                // "Don't show again" nur beim automatischen Start-Aufruf.
                 if (dontShowBtn.isVisible())
                     dontShowBtn.setBounds (bottom.removeFromLeft (150).withTrimmedRight (10));
                 else
@@ -658,61 +646,57 @@ private:
                 row.removeFromLeft (gap);
                 closeBtn.setBounds (row);
             }
-            footer.setBounds (r.removeFromBottom (26));
-            r.removeFromBottom (26);   // mehr Luft ueber den Knoepfen (User Runde 56)
+            r.removeFromBottom (16);
+            ruleBottomY = r.getBottom();
+            r.removeFromBottom (14);
 
-            auto right = r.removeFromRight (juce::jmin (150, r.getWidth() / 3));
-            r.removeFromRight (18);
+            // Kontaktzeile: die Knoepfe sind nur so breit wie ihr Inhalt
+            // (User Runde 58: "viel zu lang") und stehen mittig nebeneinander.
             {
-                const int qs = juce::jmin (right.getWidth(), 116);
-                qrArea = { right.getCentreX() - qs / 2, right.getY() + 6, qs, qs };
-                qrCaption.setBounds (right.getX(), qrArea.getBottom() + 4, right.getWidth(), 16);
-                linksBtn.setBounds (right.getX(), qrCaption.getBottom() + 6, right.getWidth(), 28);
-            }
-
-            // Runde 54 (Bug): die drei Links wurden von OBEN gelegt, nachdem
-            // die Textzeilen ihren Platz genommen hatten - blieb nichts uebrig,
-            // wurden sie zu Striemen oder verschwanden ganz. Jetzt andersherum:
-            // die Knoepfe holen sich ihre Hoehe von UNTEN, die Textzeilen
-            // teilen sich, was darueber steht. So kann nichts mehr wegfallen.
-            {
-                const int bh = 28, bgap = 7;
-                const int colW = juce::jmax (150, r.getWidth() - r.getWidth() / 4);
-                auto place = [&r, bh, colW] (juce::TextButton& b)
+                auto row = r.removeFromBottom (30);
+                const auto f = juce::Font (juce::FontOptions (13.0f));
+                juce::TextButton* btns[4] = { &mailBtn, &webBtn, &instaBtn, &linksBtn };
+                int w[4] = {}, total = 0;
+                const int gap = 8;
+                for (int i = 0; i < 4; ++i)
                 {
-                    auto row = r.removeFromBottom (bh);
-                    b.setBounds (row.withWidth (juce::jmin (colW, row.getWidth())));
-                };
-                place (instaBtn); r.removeFromBottom (bgap);
-                place (webBtn);   r.removeFromBottom (bgap);
-                place (mailBtn);  r.removeFromBottom (18);
-            }
-
-            // Was jetzt noch da ist, teilen sich die drei Textzeilen.
-            {
-                const int lines = 3;
-                const int perLine = juce::jmax (40, r.getHeight() / lines);
-                auto line = [&r, perLine] (juce::Label& head, juce::Component& value)
-                {
-                    auto block = r.removeFromTop (juce::jmin (perLine, r.getHeight()));
-                    head.setBounds (block.removeFromTop (juce::jmin (16, block.getHeight())));
-                    block.removeFromTop (juce::jmin (2, block.getHeight()));
-                    value.setBounds (block.removeFromTop (juce::jmin (23, block.getHeight())));
-                };
-                line (regHead,    regName);
-                // Aktivieren gehoert dorthin, wo der Name steht (Runde 57).
-                {
-                    auto a = r.removeFromTop (juce::jmin (30, r.getHeight()));
-                    activateBtn.setBounds (a.withWidth (juce::jmin (140, a.getWidth())));
-                    r.removeFromTop (juce::jmin (10, r.getHeight()));
+                    const int textW = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, btns[i]->getButtonText()));
+                    // Symbol + Innenabstaende; linksBtn traegt kein Symbol.
+                    w[i] = textW + (btns[i] == &linksBtn ? 26 : 52);
+                    total += w[i];
                 }
-                line (byHead,     byName);
-                line (thanksHead, thanksText);
+                int x = row.getCentreX() - (total + gap * 3) / 2;
+                for (int i = 0; i < 4; ++i)
+                {
+                    btns[i]->setBounds (x, row.getY(), w[i], row.getHeight());
+                    x += w[i] + gap;
+                }
             }
+            r.removeFromBottom (14);
+
+            // Was bleibt, gehoert den Textzeilen.
+            auto line = [&r] (juce::Label& head, juce::Component& value, int extraGap)
+            {
+                head.setBounds (r.removeFromTop (juce::jmin (16, r.getHeight())));
+                r.removeFromTop (juce::jmin (2, r.getHeight()));
+                value.setBounds (r.removeFromTop (juce::jmin (24, r.getHeight())));
+                r.removeFromTop (juce::jmin (extraGap, r.getHeight()));
+            };
+            line (regHead, regName, 6);
+            {
+                auto a = r.removeFromTop (juce::jmin (28, r.getHeight()));
+                activateBtn.setBounds (a.withWidth (juce::jmin (150, a.getWidth())));
+                r.removeFromTop (juce::jmin (16, r.getHeight()));
+            }
+            line (byHead,     byName,     14);
+            line (thanksHead, thanksText, 0);
+
+            // Kein QR mehr (User Runde 58).
+            qrCaption.setBounds ({});
         }
 
     private:
-        juce::Rectangle<int> qrArea;
+        int ruleTopY = 0, ruleBottomY = 0;
     };
 
 
@@ -729,10 +713,15 @@ private:
         int index = 0;
         std::function<void()> onFinish;
         juce::TextButton backBtn { "Back" }, nextBtn { "Next" }, skipBtn { "Skip" };
+        // Runde 58 (User): die Tour zeigt sich beim ersten Start von selbst -
+        // also gehoert das "nicht mehr zeigen" hierher, nicht auf die
+        // Rueckseite.
+        juce::TextButton dontShowBtn { "Don't show again" };
+        std::function<void (bool)> onDontShow;
 
         TourOverlay()
         {
-            for (auto* b : { &backBtn, &nextBtn, &skipBtn })
+            for (auto* b : { &backBtn, &nextBtn, &skipBtn, &dontShowBtn })
             {
                 b->setWantsKeyboardFocus (false);
                 b->getProperties().set ("thinOnFrame", true);
@@ -746,6 +735,8 @@ private:
                 else if (onFinish) onFinish();
             };
             skipBtn.onClick = [this] { if (onFinish) onFinish(); };
+            dontShowBtn.setClickingTogglesState (true);
+            dontShowBtn.onClick = [this] { if (onDontShow) onDontShow (dontShowBtn.getToggleState()); };
             setInterceptsMouseClicks (true, true);
         }
 
@@ -793,7 +784,7 @@ private:
             g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)).withExtraKerningFactor (0.05f));
             g.drawText (st.head, inner.removeFromTop (22), juce::Justification::topLeft);
             inner.removeFromTop (4);
-            inner.removeFromBottom (36);
+            inner.removeFromBottom (dontShowBtn.isVisible() ? 62 : 36);
             g.setColour (juce::Colour (0xffb5b9c2));
             g.setFont (juce::Font (juce::FontOptions (13.0f)));
             g.drawFittedText (st.text, inner, juce::Justification::topLeft, 5);
@@ -804,7 +795,7 @@ private:
             if (steps.empty())
                 return;
             auto target = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)].target;
-            const int cw = 330, ch = 150, pad = 14;
+            const int cw = 330, ch = dontShowBtn.isVisible() ? 178 : 150, pad = 14;
             // Die Karte sitzt neben dem markierten Bereich - rechts, wenn dort
             // Platz ist, sonst links, sonst darunter.
             int cx = target.getRight() + pad;
@@ -813,12 +804,18 @@ private:
             int cy = juce::jlimit (8, juce::jmax (8, getHeight() - ch - 8), target.getCentreY() - ch / 2);
             cardArea = { cx, cy, cw, ch };
 
-            auto row = cardArea.reduced (18, 14).removeFromBottom (26);
+            auto inner = cardArea.reduced (18, 14);
+            auto row = inner.removeFromBottom (26);
             const int bw = 72, gap = 8;
             skipBtn.setBounds (row.removeFromLeft (bw));
             nextBtn.setBounds (row.removeFromRight (bw));
             row.removeFromRight (gap);
             backBtn.setBounds (row.removeFromRight (bw));
+            if (dontShowBtn.isVisible())
+                dontShowBtn.setBounds (inner.removeFromBottom (24).withTrimmedTop (4)
+                                             .withWidth (juce::jmin (150, inner.getWidth())));
+            else
+                dontShowBtn.setBounds ({});
         }
 
     private:

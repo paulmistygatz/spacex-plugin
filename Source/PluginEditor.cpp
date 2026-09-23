@@ -37,6 +37,8 @@ namespace
         inline constexpr const char* instagram   = "@paulmisty.studio";
         inline constexpr const char* instagramUrl= "https://www.instagram.com/paulmisty.studio/";
         inline constexpr const char* linksUrl    = "https://lnk.bio/paulmisty";
+        // Hier wird SpaceX verkauft - der DEMO-Aufkleber fuehrt direkt dorthin.
+        inline constexpr const char* shopUrl     = "https://ko-fi.com/paulmisty";
         inline constexpr const char* designer    = "Paul Misty";
         inline constexpr const char* thanks      = "Everyone who tested SpaceX and sent feedback";
     }
@@ -1139,7 +1141,7 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     // Der globale Knopf schaltet dieselbe Engine (User Runde 56), und der
     // Settings-Eintrag meint denselben Schalter (User Runde 57).
     globalGalaxyActivateButton.setButtonText (t ? "LCR" : "GALAXY");
-    settingsPanel.behavBtn[4].setButtonText (t ? "LCR On Startup (Latency)" : "Galaxy On Startup (Latency)");
+    settingsPanel.behavBtn[0].setButtonText (t ? "LCR On Startup (Latency)" : "Galaxy On Startup (Latency)");
     globalGalaxyActivateButton.setTooltip (t ? "LCR engine: needed for the L/C/R split. Switching it on adds latency"
                                              : "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
     // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
@@ -1179,6 +1181,19 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
     auto* comp = e.eventComponent;
     if (comp == nullptr)
         return;
+
+    // Runde 58 (User: "demo klicken geht immer noch nicht"): der DEMO-
+    // Aufkleber ist jetzt wirklich anklickbar und fuehrt dorthin, wo es
+    // SpaceX zu kaufen gibt. Die Flaeche kommt aus paintContent().
+    if (! demoChipArea.isEmpty() && ! processor.licensed.load (std::memory_order_relaxed))
+    {
+        const auto pos = e.getEventRelativeTo (&content).position;
+        if (demoChipArea.expanded (4.0f).contains (pos))
+        {
+            juce::URL (spacexContact::shopUrl).launchInDefaultBrowser();
+            return;
+        }
+    }
 
     // Footer: Klick auf die Beschriftung MONO/DRY schaltet wie das Icon
     // (User: "Klick Bereich erweitern -> auch auf SCHRIFT soll on off machen").
@@ -1770,7 +1785,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
 // Die Schritte werden bei jedem Start neu aus den AKTUELLEN Rahmen gebaut -
 // so stimmt die Markierung auch nach Layout-/Variantenwechsel, ohne dass
 // irgendwo Koordinaten doppelt gepflegt werden muessen.
-void LCRMSAudioProcessorEditor::startTour()
+void LCRMSAudioProcessorEditor::startTour (bool firstRun)
 {
     closeSettingsPanel();
     closeBackPanel();
@@ -1809,6 +1824,8 @@ void LCRMSAudioProcessorEditor::startTour()
          "Scales every modulation at once. At zero nothing moves; turn it up and the whole plugin breathes.");
 
     tourOverlay.index = 0;
+    tourOverlay.dontShowBtn.setVisible (firstRun);
+    tourOverlay.dontShowBtn.setToggleState (false, juce::dontSendNotification);
     tourOverlay.setBounds (content.getLocalBounds());
     tourOverlay.setVisible (true);
     tourOverlay.toFront (true);
@@ -1893,13 +1910,14 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     }
     settingsPanel.layoutBtn[2].setToggleState (technicalLabels, juce::dontSendNotification);
 
-    settingsPanel.behavBtn[0].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
+    // Reihenfolge seit Runde 58 umgedreht - siehe behavIds().
+    settingsPanel.behavBtn[4].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
-    settingsPanel.behavBtn[1].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
+    settingsPanel.behavBtn[3].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
                                                                                                juce::dontSendNotification);
     settingsPanel.behavBtn[2].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (advancedModVisible,                              juce::dontSendNotification);
-    settingsPanel.behavBtn[4].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (advancedModVisible,                              juce::dontSendNotification);
+    settingsPanel.behavBtn[0].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     backPanel.activateBtn.setButtonText (lic ? "Activated" : "Activate...");
     backPanel.activateBtn.setToggleState (lic, juce::dontSendNotification);
@@ -3922,11 +3940,16 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         tourOverlay.setVisible (false);
         content.repaint();
     };
+    tourOverlay.onDontShow = [this] (bool dontShow)
+    {
+        juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
+        wp.setValue ("seenWelcome", dontShow);
+        wp.saveIfNeeded();
+    };
     backPanel.mailBtn.onClick   = [this] { juce::URL (juce::String ("mailto:") + spacexContact::email).launchInDefaultBrowser(); };
     backPanel.webBtn.onClick    = [this] { juce::URL (spacexContact::websiteUrl).launchInDefaultBrowser(); };
     backPanel.instaBtn.onClick  = [this] { juce::URL (spacexContact::instagramUrl).launchInDefaultBrowser(); };
     backPanel.linksBtn.onClick  = [this] { juce::URL (spacexContact::linksUrl).launchInDefaultBrowser(); };
-    backPanel.qrImage = juce::ImageCache::getFromMemory (SpaceXManualData::qr_links_png, SpaceXManualData::qr_links_pngSize);
     settingsPanel.onAction = [this] (int id) { handleSettingsAction (id); };
     settingsPanel.onClose  = [this] { closeSettingsPanel(); };
     content.addMouseListener (this, true);   // Klicks auf Titel-/Footer-Labels (mouseUp)
@@ -4032,16 +4055,15 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", false);
         applyLabelStyle();
 
-        // Beim allerersten Oeffnen zeigt sich die Rueckseite von selbst - dort
-        // steht, was das hier ist, und daneben der Knopf zur Tour. Mit
-        // "Don't show again" ist das ein einziges Mal (User Runde 57).
+        // Runde 58 (User-Korrektur): beim allerersten Oeffnen startet direkt
+        // die TOUR - nicht die Rueckseite. Die Checkbox sitzt in der Tour.
         {
             juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
             if (! wp.getBoolValue ("seenWelcome", false))
                 juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<LCRMSAudioProcessorEditor> (this)]
                 {
                     if (safe != nullptr)
-                        safe->showBackPanel (true);
+                        safe->startTour (true);
                 });
         }
         keepSoloWhenSectionOff = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("keepSoloWhenSectionOff", true);
@@ -5207,7 +5229,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             const float chipW   = juce::GlyphArrangement::getStringWidth (f, "DEMO") + 16.0f;
             juce::Rectangle<float> chip ((float) sloganLine.getX() + sloganW + 14.0f,
                                          (float) sloganLine.getCentreY() - 8.5f, chipW, 17.0f);
-            demoChipArea = chip;   // paintOverContent zeichnet sie waehrend der Absenkung nochmal
+            demoChipArea = chip;   // klickbar (siehe mouseUp) und leuchtet waehrend der Absenkung
             g.setColour (themePalette().frameRaye.withAlpha (0.18f));
             g.fillRoundedRectangle (chip, 8.0f);
             g.setColour (themePalette().frameRaye.withAlpha (0.75f));
@@ -5882,7 +5904,13 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
 
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
 {
-    drawHintBar (g);
+    // Runde 58 (User-Bug: "Info Zeile ist doppelt ... AutoGain scheint auch
+    // durch"): paintOverChildren laeuft NACH allen Kindern, die Zeile lag
+    // deshalb ueber jedem Overlay. Sie gehoert zur normalen Oberflaeche, also
+    // pausiert sie, solange ein Overlay offen ist.
+    const bool overlayOpen = settingsPanel.isVisible() || backPanel.isVisible() || tourOverlay.isVisible();
+    if (! overlayOpen)
+        drawHintBar (g);
     auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
 
     // View-Panel offen: die Sektionsspalte rechts abdunkeln, damit das Panel
@@ -6271,13 +6299,18 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // drei Spalten nebeneinander stehen.
     {
         const int sw = 760, sh = 630;   // groesser, Platz fuer die Theme-Vorschau (User)
-        // Runde 57 (User): randlos ueber die gesamte Oberflaeche.
+        // Runde 58 (User: "jetzt ist zwar die gesamte Flaeche genutzt, aber
+        // auch alles am aeusseren Rand"): wieder eine Karte, aber deutlich
+        // grosszuegiger als frueher - genug Rand, damit sie als eigenes Blatt
+        // ueber der Oberflaeche liegt.
         juce::ignoreUnused (sw, sh);
-        settingsPanel.setBounds (0, 0, kDesignW, kDesignH);
+        const int pw = kDesignW - 150;
+        const int ph = kDesignH - 96;
+        settingsPanel.setBounds ((kDesignW - pw) / 2, (kDesignH - ph) / 2, pw, ph);
         // Back Panel: etwas kleiner als die Einstellungen - es ist ein
         // Typenschild, kein Arbeitsbereich.
-        const int bw = juce::jmin (640, kDesignW - 150);
-        const int bh = juce::jmin (466, kDesignH - 90);
+        const int bw = juce::jmin (560, kDesignW - 200);
+        const int bh = juce::jmin (430, kDesignH - 110);
         backPanel.setBounds ((kDesignW - bw) / 2, (kDesignH - bh) / 2 - 8, bw, bh);
         if (tourOverlay.isVisible())
             tourOverlay.setBounds (content.getLocalBounds());
