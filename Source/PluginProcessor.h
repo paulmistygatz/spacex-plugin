@@ -452,11 +452,15 @@ public:
     // Runde 44: Parallax-Modi als WEGPUNKTE. Amount faehrt der Reihe nach
     // von Punkt zu Punkt (gleichmaessig verteilt). amountIsMix: nur ein
     // Punkt, Amount ist dann der Parallax-Mix (0..100 %).
-    struct ParallaxPoint { float driftPct, bendCt, tiltPct, mixPct, gainDb; };
+    // panPct (Runde 75): eigene Balance des Modus, skaliert wie Mix und Gain
+    // mit dem Amount. Damit kann ein Modus den Seitenversatz, den sein Haas
+    // erzeugt, selbst wieder ausgleichen - ohne dass der Nutzer nachregeln
+    // muss. Positiv = nach rechts (linke Seite wird abgesenkt).
+    struct ParallaxPoint { float driftPct, bendCt, tiltPct, mixPct, gainDb, panPct; };
     // Runde 45: Amount 0 % ist IMMER "alles auf 0" (User). amountIsMix: die
     // Einstellung steht fest, Amount dreht nur den Mix von 0 bis zum Wert des
     // Presets (nie darueber). Sonst: Amount faehrt von Null ueber die Punkte.
-    static constexpr int kParallaxModes = 6;
+    static constexpr int kParallaxModes = 7;   // Runde 75: HALO kommt dazu
     struct ParallaxModeDef { int numPoints; bool amountIsMix; bool balance; float amountMax; ParallaxPoint pts[4]; };
     static const ParallaxModeDef& parallaxModeDef (int mode) noexcept;
     static ParallaxPoint evalParallaxMode (int mode, float amount01) noexcept;
@@ -519,6 +523,7 @@ private:
     // der Parallax-Stufe (entspricht dem globalen Mix, mit dem die Punkte
     // eingestellt wurden).
     juce::SmoothedValue<float> pxMixSmoothed, pxGainSmoothed, pxTiltLSmoothed, pxTiltRSmoothed;
+    juce::SmoothedValue<float> pxPanLSmoothed, pxPanRSmoothed;   // Runde 75
     std::atomic<float>* pParallaxMode = nullptr;
     std::atomic<float>* pParallaxAmount = nullptr;
     StereoSTFTExtractor lcrExtractor;

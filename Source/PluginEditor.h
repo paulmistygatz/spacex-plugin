@@ -1915,7 +1915,7 @@ private:
     // PARALLAX neu: ein Regler + vier Modus-Knoepfe (Runde 34).
     juce::Slider parallaxAmountSlider;
     juce::Label  parallaxAmountLabel;
-    static constexpr int kPxModes = 6;   // Double, Wide, Illusion, 3D, Drift, Flux (Runde 47)
+    static constexpr int kPxModes = 7;   // Runde 75: Flux, Halo, 3D, Drift, Double, Wide, Illusion
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
     juce::Rectangle<float> demoChipArea;   // DEMO-Plakette (leuchtet waehrend der Absenkung)

@@ -202,25 +202,33 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
 // Mix war beim Einstellen der GLOBALE Mix - hier ist es der Parallax-eigene.
 const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef (int mode) noexcept
 {
+    // Runde 75 (User): neue Reihenfolge - erst die drei, die das Bild BEWEGEN
+    // (Flux, Halo, 3D), dann die Widener, jeweils ansteigend.
     static const ParallaxModeDef defs[kParallaxModes] = {
-        // Runde 47: alle Werte aus den Presets des Users. amountMax kuerzt den
-        // Amount-Weg (Illusion: das alte 3-Uhr-Ende ist das neue Maximum).
-        // 1 DOUBLE - Amount = Mix bis 36,7 %
-        { 1, true,  true,  1.0000f, { { -100.0f, 0.00f, 27.5f, 36.7f, 0.00f } } },
-        // 2 WIDE ("AAA Wide Neu"): altes Ultra ganz aufgedreht, Mix 83 % -
-        //   zusammengerechnet 33,2 % Parallax-Mix. Amount = nur der Mix.
-        { 1, true,  false, 1.0000f, { {   -6.6f, 0.88f,  0.0f, 33.2f, 2.33f } } },
-        // 3 ILLUSION (frueher Wide): zwei Wegpunkte, Amount endet bei 3 Uhr
-        { 2, false, true,  0.8125f, { {  -38.6f, 6.58f,  0.0f, 30.7f, 0.00f },
-                                      { -100.0f, 6.39f,  6.9f, 32.9f, 0.00f } } },
-        // 4 3D ("3D"): altes Ultra bei 72 %, Mix 100 %
-        { 1, true,  false, 1.0000f, { {  -90.3f, 0.09f, 27.5f, 38.0f, 0.17f } } },
-        // 5 DRIFT ("Drift"): altes Ultra bei 97 %, Mix 100 %, dazu etwas mehr
+        // 1 FLUX: zwei Wegpunkte, der Mix wandert - als einziger Modus
+        //   bewegt Amount das Signal an verschiedene Stellen statt den
+        //   Effekt nur groesser zu machen.
+        { 2, false, false, 1.0000f, { {    5.1f, 0.00f, -7.0f, 41.0f, 0.00f, 0.0f },
+                                      {    5.1f, 0.00f, -7.0f,100.0f, 0.00f, 0.0f } } },
+        // 2 HALO (Runde 75, aus Pauls Preset "1 NEU DRIFT"): Drifts Werte,
+        //   aber der Amount-Weg endet bei 64,9 % - und der Modus zieht sich
+        //   ueber seine eigene Balance (+19,1 % bei vollem Amount) selbst
+        //   wieder in die Mitte. Ergebnis ist die weiche Umrandung, die auch
+        //   auf vollen Drums traegt.
+        { 1, true,  false, 0.6490f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f, 19.1f } } },
+        // 3 3D ("3D"): altes Ultra bei 72 %, Mix 100 %
+        { 1, true,  false, 1.0000f, { {  -90.3f, 0.09f, 27.5f, 38.0f, 0.17f, 0.0f } } },
+        // 4 DRIFT ("Drift"): altes Ultra bei 97 %, Mix 100 %, dazu etwas mehr
         //   Tilt nach rechts (User: "soll wieder mittiger klingen")
-        { 1, true,  false, 1.0000f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f } } },
-        // 6 FLUX: 0 -> 4.2 -> 4.3 (endet vor dem Punkt mit Shift)
-        { 2, false, false, 1.0000f, { {    5.1f, 0.00f, -7.0f, 41.0f, 0.00f },
-                                      {    5.1f, 0.00f, -7.0f,100.0f, 0.00f } } }
+        { 1, true,  false, 1.0000f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f, 0.0f } } },
+        // 5 DOUBLE - Amount = Mix bis 36,7 %
+        { 1, true,  true,  1.0000f, { { -100.0f, 0.00f, 27.5f, 36.7f, 0.00f, 0.0f } } },
+        // 6 WIDE ("AAA Wide Neu"): altes Ultra ganz aufgedreht, Mix 83 % -
+        //   zusammengerechnet 33,2 % Parallax-Mix. Amount = nur der Mix.
+        { 1, true,  false, 1.0000f, { {   -6.6f, 0.88f,  0.0f, 33.2f, 2.33f, 0.0f } } },
+        // 7 ILLUSION (frueher Wide): zwei Wegpunkte, Amount endet bei 3 Uhr
+        { 2, false, true,  0.8125f, { {  -38.6f, 6.58f,  0.0f, 30.7f, 0.00f, 0.0f },
+                                      { -100.0f, 6.39f,  6.9f, 32.9f, 0.00f, 0.0f } } }
     };
     return defs[juce::jlimit (0, kParallaxModes - 1, mode)];
 }
@@ -234,11 +242,12 @@ LCRMSAudioProcessor::ParallaxPoint LCRMSAudioProcessor::evalParallaxMode (int mo
         ParallaxPoint p = d.pts[0];
         p.mixPct = d.pts[0].mixPct * amount01;          // nie ueber den Preset-Wert
         p.gainDb = d.pts[0].gainDb * amount01;
+        p.panPct = d.pts[0].panPct * amount01;          // Balance faehrt mit (Runde 75)
         return p;
     }
     // Punkt 0 ist immer "alles auf 0", danach die Punkte des Modus -
     // gleichmaessig ueber den Amount-Weg verteilt.
-    const ParallaxPoint zero { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    const ParallaxPoint zero { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
     const int segs = d.numPoints;                       // Null + numPoints Punkte
     const float pos = amount01 * (float) segs;
     const int   i0  = juce::jlimit (0, segs - 1, (int) std::floor (pos));
@@ -247,7 +256,7 @@ LCRMSAudioProcessor::ParallaxPoint LCRMSAudioProcessor::evalParallaxMode (int mo
     const auto& b = d.pts[i0];
     auto lerp = [t] (float x, float y) { return x + (y - x) * t; };
     return { lerp (a.driftPct, b.driftPct), lerp (a.bendCt, b.bendCt), lerp (a.tiltPct, b.tiltPct),
-             lerp (a.mixPct, b.mixPct), lerp (a.gainDb, b.gainDb) };
+             lerp (a.mixPct, b.mixPct), lerp (a.gainDb, b.gainDb), lerp (a.panPct, b.panPct) };
 }
 
 // SpaceXraye (Runde 41): vier Charaktere. Sweep = das bisherige RAYE.
@@ -398,7 +407,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Double", "Wide", "Illusion", "3D", "Drift", "3D Flux" }, 0));
+        juce::StringArray { "Flux", "Halo", "3D", "Drift", "Double", "Wide", "Illusion" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -770,10 +779,13 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     movementSmoothed.reset (sampleRate, knobRampSeconds);
     movementSmoothed.setCurrentAndTargetValue (pMovement->load() * 0.01f);
     bendSmoothed.reset (sampleRate, knobRampSeconds);
-    for (auto* sv : { &pxMixSmoothed, &pxGainSmoothed, &pxTiltLSmoothed, &pxTiltRSmoothed })
+    for (auto* sv : { &pxMixSmoothed, &pxGainSmoothed, &pxTiltLSmoothed, &pxTiltRSmoothed,
+                      &pxPanLSmoothed, &pxPanRSmoothed })
         sv->reset (sampleRate, knobRampSeconds);
     pxMixSmoothed.setCurrentAndTargetValue (0.0f);
     pxGainSmoothed.setCurrentAndTargetValue (1.0f);
+    pxPanLSmoothed.setCurrentAndTargetValue (1.0f);
+    pxPanRSmoothed.setCurrentAndTargetValue (1.0f);
     pxTiltLSmoothed.setCurrentAndTargetValue (1.0f);
     pxTiltRSmoothed.setCurrentAndTargetValue (1.0f);
     bendSmoothed.setCurrentAndTargetValue (pBend->load());
@@ -1108,6 +1120,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         pxBend   = pt.bendCt;
         pxMixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pt.mixPct * 0.01f));
         pxGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (pt.gainDb));
+        {
+            // Eigene Balance des Modus (Runde 75) - dieselbe Rechnung wie beim
+            // Pan-Regler: die gehaltene Seite bleibt unveraendert.
+            const float pn = juce::jlimit (-1.0f, 1.0f, pt.panPct * 0.01f);
+            pxPanLSmoothed.setTargetValue (pn > 0.0f ? 1.0f - pn : 1.0f);
+            pxPanRSmoothed.setTargetValue (pn < 0.0f ? 1.0f + pn : 1.0f);
+        }
         const float panPos = juce::jlimit (-1.0f, 1.0f, pt.tiltPct * 0.01f);
         const float angle  = (panPos + 1.0f) * (juce::MathConstants<float>::pi * 0.25f);
         pxTiltLSmoothed.setTargetValue (std::cos (angle) * juce::MathConstants<float>::sqrt2);
@@ -1803,8 +1822,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 const float pxG  = pxGainSmoothed.getNextValue();
                 const float pxTL = pxTiltLSmoothed.getNextValue();
                 const float pxTR = pxTiltRSmoothed.getNextValue();
-                const float outL = (l + (lDriftBal * pxTL - l) * pxM) * pxG;
-                const float outR = (r + (rDriftBal * pxTR - r) * pxM) * pxG;
+                const float outL = (l + (lDriftBal * pxTL - l) * pxM) * pxG * pxPanLSmoothed.getNextValue();
+                const float outR = (r + (rDriftBal * pxTR - r) * pxM) * pxG * pxPanRSmoothed.getNextValue();
                 l = l + (outL - l) * dGain;
                 r = r + (outR - r) * dGain;
             }
