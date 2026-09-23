@@ -373,6 +373,11 @@ public:
     // Ganz simpler Ausgangs-Trim (+-6dB, kein Wertetext) - allerletzte
     // Gain-Stufe der gesamten Kette, sitzt in der GUI ueber dem Mono-Icon.
     static constexpr auto ID_VOL_TRIM     = "volTrim";
+    // Runde 74 (User): Balance ganz am Ende der Kette. Gedacht zum Pruefen,
+    // ob 3D und DRIFT auch dann noch eigenstaendig klingen, wenn man ihren
+    // Versatz wieder in die Mitte zieht - deshalb bewusst eine BALANCE
+    // (die gehaltene Seite bleibt unveraendert laut) und kein Pan.
+    static constexpr auto ID_OUT_PAN      = "outPan";
     // Globaler MIX (0..100 %): Menge von Dimension, Hyperdrive, Vision und
     // RAYE gegen den Abgriff nach Galaxy+Timewarp (siehe processBlock,
     // "MIX-Abgriff"). Bewusst KEIN Dry/Wet ueber die ganze Kette: das
@@ -598,6 +603,7 @@ private:
     std::atomic<float>* pMonoDry = nullptr;
     std::atomic<float>* pSoloSection = nullptr;
     std::atomic<float>* pVolTrim = nullptr;
+    std::atomic<float>* pOutPan  = nullptr;
     std::atomic<float>* pMix = nullptr;
     std::atomic<float>* pGlobalModBypass = nullptr;
     std::atomic<float>* pLife = nullptr;
@@ -609,6 +615,7 @@ private:
     juce::SmoothedValue<float> sensSmoothed, blendSmoothed, widthSmoothed, boostSmoothed, movementSmoothed, bendSmoothed;
     juce::SmoothedValue<float> offsetSmoothed, posWidthSmoothed, distanceSmoothed, elevateSmoothed;
     juce::SmoothedValue<float> volTrimSmoothed;
+    juce::SmoothedValue<float> outPanLGain, outPanRGain;
     juce::SmoothedValue<float> mixSmoothed;
 
     // Section-On/Off als weich ein-/ausgeblendete Gains (0..1) statt harter

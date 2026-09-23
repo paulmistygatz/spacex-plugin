@@ -2030,6 +2030,10 @@ private:
     // Gain-Stufe der gesamten Signalkette (nach Mono-Check, "am ende").
     LockableSlider volSlider;
     juce::Label volLabel;
+    // Runde 74 (User): Balance ganz am Ende der Kette, zum Zurueckziehen der
+    // Modi, die das Bild hoerbar zur Seite schieben (3D, Drift).
+    juce::Slider panSlider;
+    juce::Label  panLabel;
     // Globaler MIX (bearbeitet gegen Original), sitzt zwischen DRY und VOL.
     LockableSlider mixSlider;
     juce::Label mixLabel;
@@ -2358,6 +2362,7 @@ private:
     std::unique_ptr<ButtonAttachment> posOnAttachment, monoCheckAttachment, monoDryAttachment;
     std::unique_ptr<SliderAttachment> offsetAttachment, posWidthAttachment, distanceAttachment, elevateAttachment;
     std::unique_ptr<SliderAttachment> volAttachment;
+    std::unique_ptr<SliderAttachment> panAttachment;   // Runde 74
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LCRMSAudioProcessorEditor)
 };

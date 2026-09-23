@@ -126,6 +126,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pMonoDry     = apvts.getRawParameterValue (ID_MONO_DRY);
     pSoloSection = apvts.getRawParameterValue (ID_SOLO_SECTION);
     pVolTrim     = apvts.getRawParameterValue (ID_VOL_TRIM);
+    pOutPan      = apvts.getRawParameterValue (ID_OUT_PAN);
     pMix         = apvts.getRawParameterValue (ID_MIX);
 
     pTimewarpMod   = apvts.getRawParameterValue (ID_TIMEWARP_MOD);
@@ -626,6 +627,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::ParameterID { ID_VOL_TRIM, 1 }, "Vol Trim",
         juce::NormalisableRange<float> (-6.0f, 6.0f, 0.01f), 0.0f, "dB"));
 
+    // Balance, allerletzte Stufe nach dem Vol-Trim (Runde 74).
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_OUT_PAN, 1 }, "Pan",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+
     // Globaler Mix, siehe ID_MIX-Kommentar im Header.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_MIX, 1 }, "Mix",
@@ -781,6 +787,13 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     elevateSmoothed.setCurrentAndTargetValue (pPosElevate->load() * 0.01f);
     volTrimSmoothed.reset (sampleRate, knobRampSeconds);
     volTrimSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (pVolTrim->load()));
+    {
+        const float pn = juce::jlimit (-1.0f, 1.0f, pOutPan->load() / 100.0f);
+        outPanLGain.reset (sampleRate, knobRampSeconds);
+        outPanRGain.reset (sampleRate, knobRampSeconds);
+        outPanLGain.setCurrentAndTargetValue (pn > 0.0f ? 1.0f - pn : 1.0f);
+        outPanRGain.setCurrentAndTargetValue (pn < 0.0f ? 1.0f + pn : 1.0f);
+    }
     mixSmoothed.reset (sampleRate, knobRampSeconds);
     mixSmoothed.setCurrentAndTargetValue (pMix->load() * 0.01f);
 
@@ -1376,6 +1389,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                                    std::memory_order_relaxed);
 
     volTrimSmoothed.setTargetValue (juce::Decibels::decibelsToGain (pVolTrim->load()));
+    {
+        // Balance statt Pan: die Seite, zu der man zieht, bleibt unveraendert,
+        // die andere wird abgesenkt. Kein Pegelsprung in der Mitte.
+        const float pn = juce::jlimit (-1.0f, 1.0f, pOutPan->load() / 100.0f);
+        outPanLGain.setTargetValue (pn > 0.0f ? 1.0f - pn : 1.0f);
+        outPanRGain.setTargetValue (pn < 0.0f ? 1.0f + pn : 1.0f);
+    }
     mixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pMix->load() * 0.01f));
 
     // Section-On/Off als weiche Gains statt harter Verzweigung - vermeidet
@@ -2222,6 +2242,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             r *= effectiveVolGain;
             meterL *= effectiveVolGain;
             meterR *= effectiveVolGain;
+        }
+
+        // Balance - allerletzte Stufe, nach dem Vol-Trim (Runde 74, User).
+        {
+            const float pgL = outPanLGain.getNextValue();
+            const float pgR = outPanRGain.getNextValue();
+            l *= pgL;  r *= pgR;
+            meterL *= pgL;  meterR *= pgR;
         }
 
         // "Chaos"-Duck (siehe chaosTriggerRequested-Kommentar im Header):

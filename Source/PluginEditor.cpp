@@ -1629,6 +1629,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (monoDryButton,   "Dry: while in mono, compare with the unprocessed input");
     tip (mixSlider,       "Mix: blend the processed sound with the original. Right-click to lock it - presets, A/B, Reset and Smart then leave it alone");
     tip (volSlider,       "Vol: output trim, plus or minus 6 dB. Right-click to lock it against presets and Reset");
+    tip (panSlider,       "Pan: balance at the very end of the chain. Left or right trims the other side - use it to pull a mode that leans to one side back to the centre");
     tip (prismOnButton,   "Focus: switch the focus range on or off. Wide open it does nothing at all");
     tip (prismBand,       "Focus: the range SpaceX works in. Drag an edge to resize, the middle to move, up and down or scroll to widen. Outside it the sound passes through untouched");
     tip (correlationMeter, "Correlation: to the right of centre is mono-safe, to the left it cancels in mono");
@@ -3804,6 +3805,16 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         l->setColour (juce::Label::textColourId, juce::Colour (0xffa9aeb8));
     content.addAndMakeVisible (volLabel);
     volAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_VOL_TRIM, volSlider);
+
+    // --- Pan (Balance), allerletzte Stufe (Runde 74, User) ---
+    styleRotary (panSlider, false);
+    panSlider.getProperties().set ("centerOut", true);
+    panSlider.getProperties().set ("footerKnob", true);
+    content.addAndMakeVisible (panSlider);
+    styleLabel (panLabel, "Pan");
+    content.addAndMakeVisible (panLabel);
+    panAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_OUT_PAN, panSlider);
+    panSlider.setDoubleClickReturnValue (true, 0.0);
     volSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
     // MIX (User-Frage "Gesamter Mix Regler?"): bearbeitet gegen Original,
     // latenzgleich, Polarity-Flip wird aufs Original uebernommen (siehe
@@ -4648,6 +4659,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // bei Bypass aber genauso ausgegraut werden wie alle anderen Regler (bei
     // Bypass hat Mono-Check ohnehin keine Wirkung mehr, siehe DSP).
     setSectionOff (volSlider, ! uiBypassed);
+    setSectionOff (panSlider, ! uiBypassed);
     setSectionOff (mixSlider, ! uiBypassed);
     setSectionOff (monoCheckButton, ! uiBypassed);
     setSectionOff (monoDryButton, ! uiBypassed);
@@ -6505,14 +6517,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
 
-        juce::Component* elems[4]  = { &monoCheckButton, &monoDryButton, &mixSlider, &volSlider };
-        juce::Label*     labels[4] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &volLabel  };
-        int x = prismLeft - kGap - iconSize;   // rechte Kante von VOL = PRISM-Kachel minus Luecke
-        for (int i = 3; i >= 0; --i)
+        juce::Component* elems[5]  = { &monoCheckButton, &monoDryButton, &mixSlider, &volSlider, &panSlider };
+        juce::Label*     labels[5] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &volLabel,  &panLabel  };
+        int x = prismLeft - kGap - iconSize;   // rechte Kante von PAN = PRISM-Kachel minus Luecke
+        for (int i = 4; i >= 0; --i)
         {
-            // MIX und VOL 3px groesser als die beiden Icons (User) - wachsen
-            // um ihre Mitte, die Luecken bleiben gleich.
-            if (elems[i] == &volSlider || elems[i] == &mixSlider)
+            // MIX, VOL und PAN 3px groesser als die beiden Icons (User) -
+            // wachsen um ihre Mitte, die Luecken bleiben gleich.
+            if (elems[i] == &volSlider || elems[i] == &mixSlider || elems[i] == &panSlider)
                 elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
             else
                 elems[i]->setBounds (x, blockTop, iconSize, iconSize);
