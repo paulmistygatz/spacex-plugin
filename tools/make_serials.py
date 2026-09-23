@@ -5,11 +5,15 @@
     python3 tools/make_serials.py 1 --name "Jeff Ellis"
                                                 -> eine Nummer, aus dem Namen
                                                    abgeleitet (gleicher Name =
-                                                   gleiche Nummer)
+                                                   gleiche Nummer). Das Plugin
+                                                   prueft bei der Aktivierung,
+                                                   ob Name und Nummer zusammen-
+                                                   passen, und schreibt den
+                                                   Namen dann aufs Back Panel.
 
 Das Verfahren muss identisch zu Source/Licence.h bleiben.
 """
-import sys, secrets, hashlib
+import sys, secrets
 
 ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 SALT     = "SpaceX/PaulMisty/v1:"
@@ -33,9 +37,15 @@ def serial(payload: str) -> str:
 def payload_random() -> str:
     return "".join(secrets.choice(ALPHABET) for _ in range(8))
 
+def name_key(name: str) -> str:
+    """Nur a-z und 0-9 - identisch zu spacex::nameKey() in Source/Licence.h.
+    Dadurch ist es egal, wie der Kunde seinen Namen spaeter eintippt."""
+    return "".join(c for c in name.lower() if c.isascii() and c.isalnum())
+
 def payload_from_name(name: str) -> str:
-    d = hashlib.sha256(name.strip().lower().encode("utf-8")).digest()
-    return "".join(ALPHABET[b & 31] for b in d[:8])
+    """Muss Zeichen fuer Zeichen zu spacex::payloadFromName() passen."""
+    h = fnv1a64(SALT + "name:" + name_key(name))
+    return "".join(ALPHABET[(h >> (i * 5)) & 31] for i in range(8))
 
 if __name__ == "__main__":
     args = sys.argv[1:]

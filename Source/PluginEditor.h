@@ -261,6 +261,9 @@ private:
         static constexpr int kBehav   = 6;
 
         juce::Label title, themeHead, layoutHead, smartHead, behavHead;
+        // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
+        // unabhaengig vom "?"-Schalter im Hauptfenster.
+        juce::Label hintLine;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], smartBtn[kSmart], behavBtn[kBehav];
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
@@ -293,6 +296,12 @@ private:
             head (layoutHead, "LAYOUT",    13.0f, juce::Colour (0xff8f96a4));
             head (smartHead,  "SMART",     13.0f, juce::Colour (0xff8f96a4));
             head (behavHead,  "BEHAVIOUR", 13.0f, juce::Colour (0xff8f96a4));
+            hintLine.setFont (juce::Font (juce::FontOptions (12.0f)));
+            hintLine.setColour (juce::Label::textColourId, juce::Colour (0xff9aa0ab));
+            hintLine.setJustificationType (juce::Justification::centredLeft);
+            hintLine.setMinimumHorizontalScale (1.0f);
+            hintLine.setInterceptsMouseClicks (false, false);
+            addAndMakeVisible (hintLine);
             title.setTooltip ("Click to close");
 
             static const char* const themeNames[kThemes]  = { "Moon", "Day & Night", "Fireflies", "Sci-Fi", "Pop" };   // altes "Moon" geloescht, "Silver" heisst jetzt "Moon" (User)
@@ -315,6 +324,7 @@ private:
                 b.setWantsKeyboardFocus (false);
                 b.getProperties().set ("noGlow", true);
                 b.onClick = [this, id] { if (onAction) onAction (id); };
+                b.addMouseListener (this, false);   // fuer die Hinweiszeile
                 addAndMakeVisible (b);
             };
             for (int i = 0; i < kThemes;  ++i) setup (themeBtn[i],  themeNames[i],  themeIds()[i]);
@@ -368,11 +378,17 @@ private:
 
         void mouseEnter (const juce::MouseEvent& e) override
         {
+            // Hinweiszeile: der Tooltip des ueberfahrenen Knopfes, ohne dass
+            // man dafuer irgendwo etwas einschalten muss.
+            if (auto* b = dynamic_cast<juce::Button*> (e.eventComponent))
+                if (b->getTooltip().isNotEmpty())
+                    hintLine.setText (b->getTooltip(), juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i]) { hoverTheme = i; repaint (previewArea.expanded (4)); return; }
         }
         void mouseExit (const juce::MouseEvent& e) override
         {
+            hintLine.setText ({}, juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i] && hoverTheme == i) { hoverTheme = -1; repaint (previewArea.expanded (4)); return; }
         }
@@ -447,7 +463,9 @@ private:
                 resetBtn.setBounds (row2.removeFromRight (w));
 
                 auto row1 = r.removeFromBottom (30);
-                r.removeFromBottom (11);
+                r.removeFromBottom (4);
+                hintLine.setBounds (r.removeFromBottom (18));
+                r.removeFromBottom (7);
                 // "Save Window Size" ist weg - die Groesse merkt sich das
                 // Plugin jetzt selbst.
                 sizeBtn.setVisible (false);
@@ -539,7 +557,7 @@ private:
             lab (qrCaption,  11.0f, juce::Colour (0xff8f96a4), false, juce::Justification::centred);
             lab (footer,     13.0f, juce::Colour (0xffb5b9c2), false, juce::Justification::centred);
             title.setText ("SPACEX", juce::dontSendNotification);
-            slogan.setText ("Stereo imaging, built by one person", juce::dontSendNotification);
+            slogan.setText ("Stereo imaging, tuned by ear", juce::dontSendNotification);
             regHead.setText ("REGISTERED TO", juce::dontSendNotification);
             byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
             thanksHead.setText ("THANKS TO", juce::dontSendNotification);
@@ -569,7 +587,7 @@ private:
             // Feiner Trennstrich unter dem Kopf - wie auf einer echten
             // Geraeterueckseite das Typenschild vom Rest getrennt ist.
             g.setColour (juce::Colours::white.withAlpha (0.08f));
-            g.fillRect (b.getX() + 28.0f, b.getY() + 92.0f, b.getWidth() - 56.0f, 1.0f);
+            g.fillRect (b.getX() + 28.0f, b.getY() + 104.0f, b.getWidth() - 56.0f, 1.0f);
 
             auto qr = qrArea.toFloat();
             if (! qr.isEmpty())
@@ -593,10 +611,13 @@ private:
 
         void resized() override
         {
-            auto r = getLocalBounds().reduced (28, 22);
-            title.setBounds (r.removeFromTop (30));
-            slogan.setBounds (r.removeFromTop (18));
-            r.removeFromTop (28);
+            // Runde 53 (User: "bisschen noch oben und unten ziehen"): mehr
+            // Luft um Titel und Slogan, damit die Schrift nicht gequetscht wirkt.
+            auto r = getLocalBounds().reduced (28, 26);
+            title.setBounds (r.removeFromTop (34));
+            r.removeFromTop (4);
+            slogan.setBounds (r.removeFromTop (22));
+            r.removeFromTop (32);
 
             auto bottom = r.removeFromBottom (34);
             {
@@ -608,8 +629,8 @@ private:
                 row.removeFromLeft (gap);
                 closeBtn.setBounds (row);
             }
-            footer.setBounds (r.removeFromBottom (24));
-            r.removeFromBottom (12);
+            footer.setBounds (r.removeFromBottom (26));
+            r.removeFromBottom (16);
 
             auto right = r.removeFromRight (juce::jmin (150, r.getWidth() / 3));
             r.removeFromRight (18);
@@ -622,13 +643,14 @@ private:
 
             auto line = [&r] (juce::Label& head, juce::Component& value, int valueH)
             {
-                head.setBounds (r.removeFromTop (15));
+                head.setBounds (r.removeFromTop (17));
+                r.removeFromTop (2);
                 value.setBounds (r.removeFromTop (valueH));
-                r.removeFromTop (12);
+                r.removeFromTop (14);
             };
-            line (regHead,    regName,    22);
-            line (byHead,     byName,     20);
-            line (thanksHead, thanksText, 20);
+            line (regHead,    regName,    24);
+            line (byHead,     byName,     22);
+            line (thanksHead, thanksText, 22);
 
             const int bh = 28;
             mailBtn.setBounds  (r.removeFromTop (bh).withTrimmedRight (r.getWidth() / 3));
@@ -1770,6 +1792,7 @@ private:
     static constexpr int kPxModes = 6;   // Double, Wide, Illusion, 3D, Drift, Flux (Runde 47)
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
+    juce::Rectangle<float> demoChipArea;   // DEMO-Plakette (leuchtet waehrend der Absenkung)
     // Runde 46: die Punkte sind klickbar - Klick auf einen Punkt waehlt den Modus.
     struct ModeDots : public juce::Component, public juce::SettableTooltipClient
     {

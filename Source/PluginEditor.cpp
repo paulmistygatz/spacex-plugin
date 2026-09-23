@@ -43,7 +43,10 @@ namespace
 
     void styleLabel (juce::Label& l, const juce::String& text)
     {
-        l.setText (text.toUpperCase(), juce::dontSendNotification);
+        // Runde 53 (User: "alles in Grossbuchstaben oder Normal?"): normal.
+        // Versalien lesen sich in kleinen Groessen schlechter - die Hierarchie
+        // macht jetzt allein der Sektionstitel (der bleibt in Versalien).
+        l.setText (text, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setFont (paramFont());
         // Bug-Fix (User: "MONO Icon + MONO Schrift sieht gestaucht aus"):
@@ -799,8 +802,14 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     // sofort sieht, wohin die Kategorie wirkt (User: "Smart-Icon highlighten").
     globalChaosSectionsButton.getProperties().set ("categoryArmed", catOn);
     // Der Wuerfel wechselt zwischen schmal und breit - das ist Layout.
+    // WICHTIG: content.resized(), nicht resized(). resized() setzt nur die
+    // Bounds von content neu; sind die unveraendert, ruft JUCE dessen
+    // resized() gar nicht auf - das Layout lief dadurch erst beim naechsten
+    // Anlass und hing genau einen Schritt hinterher (User Runde 53: "grosser
+    // Wuerfel ist nicht aktiv wenn Kategorie selektiert ist - aber dafuer
+    // wenn keine an ist").
     if (getWidth() > 0)
-        resized();
+        content.resized();
     globalChaosButton.repaint();
     globalChaosSectionsButton.repaint();
 }
@@ -2488,14 +2497,15 @@ void LCRMSAudioProcessorEditor::promptActivate()
     }
 
     presetNameDialog = std::make_unique<juce::AlertWindow> ("Activate SpaceX",
-                                                              "Enter your serial number:",
+                                                              "Enter your name and serial number,\n"
+                                                              "exactly as they appear in your order.",
                                                               juce::MessageBoxIconType::NoIcon);
+    // Der Name gehoert zur Nummer: tools/make_serials.py leitet die Nutzlast
+    // aus ihm ab, das Plugin prueft sie gegen den eingetippten Namen (siehe
+    // Licence.h). Dadurch steht auf dem Back Panel nie ein erfundener Name.
+    presetNameDialog->addTextEditor ("owner", juce::String(), "Your name");
     presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
-    if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
-    // In der Seriennummer selbst steckt kein Name (sie ist nur Nutzlast +
-    // Pruefsumme) - fuer "Registered to" auf dem Back Panel wird er hier
-    // einmal abgefragt und lokal gemerkt.
-    presetNameDialog->addTextEditor ("owner", juce::String(), "Your name (shown on the back panel)");
+    if (auto* te = presetNameDialog->getTextEditor ("owner")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
     presetNameDialog->addButton ("Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
@@ -2512,24 +2522,37 @@ void LCRMSAudioProcessorEditor::promptActivate()
         if (result != 1)
             return;
 
-        if (spacex::isValidSerial (entered))
-        {
-            processor.storeLicence (entered);
-            {
-                juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
-                props.setValue ("licenceName", owner);
-                props.saveIfNeeded();
-            }
-            refreshSettingsPanel();
-            content.repaint();
-            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
-                "SpaceX", "Activated. Thank you for supporting independent plugins.");
-        }
-        else
+        if (! spacex::isValidSerial (entered))
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                 "SpaceX", "That serial number was not recognised.\n\nIt looks like: SPX1-XXXX-XXXX-XXXX");
+            return;
         }
+        // Ein Name wurde eingetippt, passt aber nicht zur Nummer: nicht
+        // aktivieren. Sonst koennte jeder einen beliebigen Namen eintragen und
+        // "Registered to" waere wertlos. Ohne Namen (leeres Feld) gilt wie
+        // bisher allein die Pruefsumme - dafuer gibt es die Zufallsnummern
+        // fuer Tester.
+        if (owner.isNotEmpty() && ! spacex::serialMatchesName (entered, owner))
+        {
+            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                "SpaceX", "Name and serial number do not match.\n\n"
+                          "Please type your name exactly as it appears in your order, "
+                          "or leave the name empty.");
+            return;
+        }
+
+        processor.storeLicence (entered);
+        {
+            juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
+            props.setValue ("licenceName", owner);
+            props.saveIfNeeded();
+        }
+        refreshSettingsPanel();
+        content.repaint();
+        juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
+            "SpaceX", owner.isNotEmpty() ? "Activated. Thank you, " + owner + "."
+                                         : juce::String ("Activated. Thank you for supporting independent plugins."));
     }), false);
 }
 
@@ -3620,6 +3643,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     volSlider.getProperties().set ("centerOut", true);
     content.addAndMakeVisible (volSlider);
     styleLabel (volLabel, "Vol");
+    // Runde 53 (User): Mono/Dry/Mix/Vol MINIMAL weniger leuchtend.
+    for (auto* l : { &monoCheckLabel, &monoDryLabel, &mixLabel, &volLabel })
+        l->setColour (juce::Label::textColourId, juce::Colour (0xffa9aeb8));
     content.addAndMakeVisible (volLabel);
     volAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_VOL_TRIM, volSlider);
     volSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
@@ -3643,8 +3669,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // war; das ist im neuen Footer-Layout behoben (Zeilenhoehe = Label-Hoehe).
     // Nur die Ausrichtung weicht bewusst ab: linksbuendig, weil die
     // Beschriftung hier NEBEN dem Balken steht und nicht darunter.
-    styleLabel (inputMeterLabel, "IN");
-    styleLabel (outputMeterLabel, "OUT");
+    styleLabel (inputMeterLabel, "I");    // kuerzer, sitzt ruhiger (User)
+    styleLabel (outputMeterLabel, "O");
     inputMeterLabel.setJustificationType (juce::Justification::centredLeft);
     outputMeterLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (inputMeterLabel);
@@ -4307,6 +4333,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
         setLabelOff (offsetLabel,    isDriftOn);
         setLabelOff (distanceLabel,  isWidthBoostOn);
         setLabelOff (rayRateLabel,   isRayOn);
+        // Runde 53 (User): die beiden AMOUNT-Labels blieben hell, wenn ihre
+        // Sektion aus war.
+        setLabelOff (parallaxAmountLabel, isDriftOn);
+        setLabelOff (rayAmountLabel,      isRayOn);
     }
     // Speed ist bei Pair inaktiv - dann diktiert Hyperdrive die Rate.
     {
@@ -5025,6 +5055,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             const float chipW   = juce::GlyphArrangement::getStringWidth (f, "DEMO") + 16.0f;
             juce::Rectangle<float> chip ((float) sloganLine.getX() + sloganW + 14.0f,
                                          (float) sloganLine.getCentreY() - 8.5f, chipW, 17.0f);
+            demoChipArea = chip;   // paintOverContent zeichnet sie waehrend der Absenkung nochmal
             g.setColour (themePalette().frameRaye.withAlpha (0.18f));
             g.fillRoundedRectangle (chip, 8.0f);
             g.setColour (themePalette().frameRaye.withAlpha (0.75f));
@@ -5642,9 +5673,7 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
 {
     if (hintBarArea.isEmpty()) return;
     auto r = hintBarArea.toFloat();
-    // Feine Trennlinie darueber - sonst schwebt der Text im Nichts.
-    g.setColour (juce::Colours::white.withAlpha (0.055f));
-    g.fillRect (r.getX() - 30.0f, r.getY() - 7.0f, r.getWidth() + 30.0f, 1.0f);
+    // (Runde 53, User: der Strich lief ueber die ganze UI und stoerte - raus.)
 
     // ===== AUTO-GAIN-ANZEIGE =====
     // Rechts in derselben Zeile; die Flaeche kommt aus layoutContent(), weil
@@ -5658,11 +5687,16 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
         const juce::String txt = ! agOn ? juce::String ("off")
                                : (std::abs (db) < 0.05f) ? juce::String ("0.0 dB")
                                                          : juce::String (db, 1) + " dB";
-        g.setFont (juce::Font (juce::FontOptions (12.0f)));
+        // "AG" sitzt direkt links vom Wert statt am linken Rand der Flaeche
+        // (User Runde 53: "AG bisschen naeher zum dB Feld").
+        const auto agFont = juce::Font (juce::FontOptions (12.0f));
+        g.setFont (agFont);
+        const float txtW = juce::GlyphArrangement::getStringWidth (agFont, txt);
+        auto agArea = autoGainReadoutArea.toFloat().withTrimmedRight (txtW + 6.0f);
         g.setColour (themePalette().knob.withAlpha (agOn ? 0.40f : 0.22f));
-        g.drawText ("AG", autoGainReadoutArea.withWidth (24).toFloat(), juce::Justification::centredLeft, false);
+        g.drawText ("AG", agArea, juce::Justification::centredRight, false);
         g.setColour (themePalette().knob.withAlpha (agOn ? 0.85f : 0.30f));
-        g.drawText (txt, autoGainReadoutArea.withTrimmedLeft (24).toFloat(), juce::Justification::centredRight, false);
+        g.drawText (txt, autoGainReadoutArea.toFloat(), juce::Justification::centredRight, false);
         r = r.withTrimmedRight ((float) autoGainReadoutArea.getWidth() + 10.0f);
     }
     else
@@ -5749,6 +5783,30 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         {
             g.setColour (juce::Colour (0xff0a0b0e).withAlpha ((1.0f - duck) * 0.58f));
             g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+
+            // Runde 53 (User: "wenn fade outs kommen soll DEMO mehr
+            // leuchten"): die Plakette wird UEBER dem Schleier noch einmal
+            // gezeichnet, im selben Mass heller, wie das Signal leiser wird.
+            // So ist die Absenkung nie ein Raetsel - man sieht sofort, wer
+            // sie verursacht.
+            if (! demoChipArea.isEmpty() && ! processor.licensed.load (std::memory_order_relaxed))
+            {
+                const float t = juce::jlimit (0.0f, 1.0f, 1.0f - duck);
+                const auto col = themePalette().frameRaye;
+                for (int layer = 3; layer >= 1; --layer)
+                {
+                    const float grow = 4.0f * (float) layer;
+                    g.setColour (col.withAlpha (0.10f * t * (float) (4 - layer)));
+                    g.fillRoundedRectangle (demoChipArea.expanded (grow), 8.0f + grow);
+                }
+                g.setColour (col.withAlpha (0.18f + 0.55f * t));
+                g.fillRoundedRectangle (demoChipArea, 8.0f);
+                g.setColour (col.withAlpha (0.75f + 0.25f * t));
+                g.drawRoundedRectangle (demoChipArea.reduced (0.5f), 8.0f, 1.0f + t);
+                g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f));
+                g.setColour (juce::Colours::white.withAlpha (0.75f + 0.25f * t));
+                g.drawText ("DEMO", demoChipArea, juce::Justification::centred, false);
+            }
         }
     }
 
@@ -6247,8 +6305,26 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // weit nach rechts").
     auto fitTitle = [] (juce::Label& title, juce::Rectangle<int> area)
     {
-        const int textW = juce::GlyphArrangement::getStringWidthInt (title.getFont(), title.getText()) + 12;
-        title.setBounds (area.withWidth (juce::jmax (40, juce::jmin (area.getWidth(), textW))));
+        // Runde 53 (User: "Zeilenabstand unregelmaessig ... teilweise
+        // abgeschnitten"): Titel werden NIE mehr gestaucht. JUCE quetscht
+        // Text horizontal, sobald er nicht passt - dadurch stehen die
+        // Buchstaben in einem Titel enger als im naechsten, und genau das
+        // sah ungleichmaessig aus. Stattdessen wird die Schrift in halben
+        // Punkten kleiner, bis der Name ganz hineinpasst. Wichtig: IMMER von
+        // der Basisgroesse aus rechnen, sonst schrumpft ein Titel bei jedem
+        // Layout-Durchlauf weiter.
+        auto f = sectionTitleFont();
+        const int maxW = juce::jmax (40, area.getWidth());
+        auto widthOf = [&f, &title] { return juce::GlyphArrangement::getStringWidthInt (f, title.getText()) + 8; };
+        int textW = widthOf();
+        while (textW > maxW && f.getHeight() > 9.5f)
+        {
+            f = f.withHeight (f.getHeight() - 0.5f);
+            textW = widthOf();
+        }
+        title.setFont (f);
+        title.setMinimumHorizontalScale (1.0f);
+        title.setBounds (area.withWidth (juce::jmin (maxW, textW)));
     };
 
     auto layoutHeader = [&] (juce::Rectangle<int> frame, juce::TextButton& powerBtn, juce::TextButton& soloBtn, juce::Label& title, juce::TextButton* modBtn = nullptr, juce::Slider* modDepthSlider = nullptr, juce::TextButton* lockBtn = nullptr, juce::TextButton* filterBtn = nullptr) -> juce::Rectangle<int>

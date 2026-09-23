@@ -18,10 +18,10 @@ if [ ! -d "$JUCE_SRC" ]; then
     exit 1
 fi
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-VARIANTS="${*:-dotsin dotsout}"
+VARIANTS="${*:-dotsout}"   # Runde 53 (User): nur noch SpaceXout
 
 # Alte Varianten (A/B/C, noV, SpaceFX, para, presets, raye) aus dem Plugin-Ordner raeumen.
-sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST/SpaceXnoV.vst3" "$DST/SpaceFX.vst3" "$DST/SpaceXpara.vst3" "$DST/SpaceXpresets.vst3" "$DST/SpaceXclick.vst3" "$DST/SpaceXraye.vst3" "$DST/SpaceXraye1.vst3" "$DST/SpaceXraye2.vst3"
+sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST/SpaceXnoV.vst3" "$DST/SpaceFX.vst3" "$DST/SpaceXpara.vst3" "$DST/SpaceXpresets.vst3" "$DST/SpaceXclick.vst3" "$DST/SpaceXraye.vst3" "$DST/SpaceXraye1.vst3" "$DST/SpaceXraye2.vst3" "$DST/SpaceXin.vst3"
 
 for V in $VARIANTS; do
     case "$V" in
@@ -49,4 +49,4 @@ for V in $VARIANTS; do
 done
 
 echo ""
-echo "Fertig. Im Host neu scannen: SpaceXin, SpaceXout."
+echo "Fertig. Im Host neu scannen: SpaceXout."

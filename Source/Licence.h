@@ -67,6 +67,45 @@ namespace spacex
         return cs;
     }
 
+    // ===== NAME <-> SERIENNUMMER =====
+    // tools/make_serials.py leitet die Nutzlast aus dem Namen ab. Das ist eine
+    // Einbahnstrasse - aus der Nummer laesst sich der Name NICHT zurueck-
+    // rechnen. Man kann ihn aber PRUEFEN: wer bei der Aktivierung seinen Namen
+    // eintippt, bekommt genau dann "Registered to <Name>", wenn Name und Nummer
+    // zusammengehoeren. Damit steht auf dem Back Panel nie ein erfundener Name.
+    //
+    // Der Namensschluessel ist bewusst hart normalisiert: nur a-z und 0-9,
+    // alles andere faellt weg. "Jeff Ellis", "jeff ellis" und "Jeff  Ellis"
+    // ergeben denselben Schluessel - der Kunde muss also nicht auf
+    // Gross-/Kleinschreibung oder Leerzeichen achten. Umlaute und Akzente
+    // fallen auf beiden Seiten gleichermassen heraus (Python: dieselbe Regel
+    // in make_serials.py).
+    inline juce::String nameKey (const juce::String& name)
+    {
+        const auto lower = name.toLowerCase();
+        juce::String out;
+        for (int i = 0; i < lower.length(); ++i)
+        {
+            const auto c = lower[i];
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                out += juce::String::charToString (c);
+        }
+        return out;
+    }
+
+    inline juce::String payloadFromName (const juce::String& name)
+    {
+        // Dieselbe FNV-1a-Funktion wie fuer die Pruefsumme, nur mit eigenem
+        // Praefix, damit Nutzlast und Pruefsumme nicht aus demselben Wert
+        // fallen. 8 Zeichen a 5 Bit = 40 der 64 Bit.
+        const juce::uint64 h = serialHash ("name:" + nameKey (name));
+        const juce::String alpha (serialAlphabet());
+        juce::String out;
+        for (int i = 0; i < 8; ++i)
+            out += juce::String::charToString (alpha[(int) ((h >> (i * 5)) & 31ULL)]);
+        return out;
+    }
+
     inline bool isValidSerial (const juce::String& raw)
     {
         const auto s = normaliseSerial (raw);
@@ -78,6 +117,16 @@ namespace spacex
             if (! alpha.containsChar (payload[i]))
                 return false;
         return s.substring (12, 16) == checksumFor (payload);
+    }
+
+    // Gehoert diese Nummer zu diesem Namen? (Nur sinnvoll fuer Nummern, die
+    // mit --name erzeugt wurden; zufaellige Nummern passen zu keinem Namen.)
+    inline bool serialMatchesName (const juce::String& rawSerial, const juce::String& name)
+    {
+        const auto s = normaliseSerial (rawSerial);
+        if (s.length() != 16 || nameKey (name).isEmpty())
+            return false;
+        return s.substring (4, 12) == payloadFromName (name);
     }
 
     // Zur Anzeige: SPX1-XXXX-XXXX-CCCC

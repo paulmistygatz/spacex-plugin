@@ -1032,8 +1032,11 @@ public:
         // nur nicht mehr laut.
         if (modePill)
         {
-            g.setColour (juce::Colour (0xff3a3d45).withAlpha (sectionIsOffNow ? 0.65f : 1.0f));
-            g.drawRoundedRectangle (bounds, cornerSize, 1.0f);
+            // Runde 53 (User): "bisschen mehr leuchtend" - heller Grundton
+            // statt des dunklen 0xff3a3d45, bei ausgeschalteter Sektion
+            // gedimmt statt unsichtbar.
+            g.setColour (juce::Colour (0xff5b6069).withAlpha (sectionIsOffNow ? 0.60f : 1.0f));
+            g.drawRoundedRectangle (bounds, cornerSize, 1.1f);
             return;
         }
         if (sectionIsOffNow)
@@ -1314,7 +1317,9 @@ public:
                 {
                     g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
                                         : juce::Colour (0xffc3c8d2));
-                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.34f, 12.0f)))
+                    // Fett, aber klein: das ist die halbe Pixelstaerke mehr,
+                    // ohne dass der Name wieder laut wird (User Runde 53).
+                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.32f, 11.5f), juce::Font::bold))
                                    .withExtraKerningFactor (0.13f));
                 }
                 else
