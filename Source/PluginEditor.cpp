@@ -4915,7 +4915,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
         {
             // Runde 62 (User): derselbe Rahmenton wie bei RAYE - zwei
             // verschiedene Modus-Pillen nebeneinander wirkten unruhig.
-            const int want = (int) rayTitleLabel.findColour (juce::Label::textColourId).getARGB();
+            // Bug (User Runde 68): die Farbe kam aus der LIVE-Titelfarbe von
+            // RAYE, und die wird gedimmt, sobald RAYE ausgeschaltet ist -
+            // dadurch haing die Parallax-Pille am Zustand einer fremden
+            // Sektion. Jetzt direkt aus der Palette, ungedimmt; das Dimmen
+            // der eigenen Sektion macht der LookAndFeel ueber "sectionOff".
+            const int want = (int) themePalette().frameRaye.getARGB();
             if ((int) parallaxModeButtons[0].getProperties().getWithDefault ("pillColour", 0) != want)
             {
                 parallaxModeButtons[0].getProperties().set ("pillColour", want);
@@ -4935,7 +4940,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
             if (rayCharButton.getButtonText() != charNames[c])
                 rayCharButton.setButtonText (charNames[c]);
             {
-                const int want = (int) rayTitleLabel.findColour (juce::Label::textColourId).getARGB();
+                const int want = (int) themePalette().frameRaye.getARGB();   // siehe oben: nicht die gedimmte Live-Farbe
                 if ((int) rayCharButton.getProperties().getWithDefault ("pillColour", 0) != want)
                 {
                     rayCharButton.getProperties().set ("pillColour", want);
