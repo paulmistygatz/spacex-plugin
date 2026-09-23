@@ -122,7 +122,8 @@ juce_add_binary_data(SpaceXManual
                 docs/theme-previews/theme_daynight.png
                 docs/theme-previews/theme_fireflies.png
                 docs/theme-previews/theme_scifi.png
-                docs/theme-previews/theme_pop.png)
+                docs/theme-previews/theme_pop.png
+                docs/qr_links.png)
 
 target_sources(LCRMSPlugin PRIVATE
     Source/PluginProcessor.cpp

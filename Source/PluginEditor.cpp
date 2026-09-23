@@ -25,16 +25,18 @@ namespace
     juce::Font titleFont()  { return juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.12f); }
 
     // ===== KONTAKTDATEN FUER DAS BACK PANEL =====
-    // TODO Paul: hier die echten Adressen eintragen. Sie stehen nur hier und
-    // sonst nirgends im Code.
+    // Alles an EINER Stelle. Der QR-Code zeigt auf die lnk.bio-Seite, nicht
+    // auf eine einzelne Adresse - eine Seite, die Paul selbst pflegen kann,
+    // ohne dass ein neues Plugin gebaut werden muss. Genau deshalb steht sie
+    // hier und nicht die Einzellinks.
     namespace spacexContact
     {
-        inline constexpr const char* email       = "hello@spacex-audio.com";
-        inline constexpr const char* website     = "www.spacex-audio.com";
-        inline constexpr const char* websiteUrl  = "https://www.spacex-audio.com";
-        inline constexpr const char* instagram   = "@spacex.audio";
-        inline constexpr const char* instagramUrl= "https://instagram.com/spacex.audio";
-        inline constexpr const char* coffeeUrl   = "https://buymeacoffee.com/spacexaudio";
+        inline constexpr const char* email       = "info@paulmisty.com";
+        inline constexpr const char* website     = "paulmisty.com";
+        inline constexpr const char* websiteUrl  = "https://www.paulmisty.com/";
+        inline constexpr const char* instagram   = "@paulmisty.studio";
+        inline constexpr const char* instagramUrl= "https://www.instagram.com/paulmisty.studio/";
+        inline constexpr const char* linksUrl    = "https://lnk.bio/paulmisty";
         inline constexpr const char* designer    = "Paul Misty";
         inline constexpr const char* thanks      = "Everyone who tested SpaceX and sent feedback";
     }
@@ -1794,7 +1796,7 @@ void LCRMSAudioProcessorEditor::showBackPanel()
     backPanel.mailBtn.setButtonText (spacexContact::email);
     backPanel.webBtn.setButtonText (spacexContact::website);
     backPanel.instaBtn.setButtonText (spacexContact::instagram);
-    backPanel.coffeeBtn.setButtonText ("Buy me a coffee");
+    backPanel.linksBtn.setButtonText ("lnk.bio/paulmisty");
 
     settingsBackdrop.setVisible (true);
     settingsBackdrop.toFront (false);
@@ -3826,7 +3828,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     backPanel.mailBtn.onClick   = [this] { juce::URL (juce::String ("mailto:") + spacexContact::email).launchInDefaultBrowser(); };
     backPanel.webBtn.onClick    = [this] { juce::URL (spacexContact::websiteUrl).launchInDefaultBrowser(); };
     backPanel.instaBtn.onClick  = [this] { juce::URL (spacexContact::instagramUrl).launchInDefaultBrowser(); };
-    backPanel.coffeeBtn.onClick = [this] { juce::URL (spacexContact::coffeeUrl).launchInDefaultBrowser(); };
+    backPanel.linksBtn.onClick  = [this] { juce::URL (spacexContact::linksUrl).launchInDefaultBrowser(); };
+    backPanel.qrImage = juce::ImageCache::getFromMemory (SpaceXManualData::qr_links_png, SpaceXManualData::qr_links_pngSize);
     settingsPanel.onAction = [this] (int id) { handleSettingsAction (id); };
     settingsPanel.onClose  = [this] { closeSettingsPanel(); };
     content.addMouseListener (this, true);   // Klicks auf Titel-/Footer-Labels (mouseUp)

@@ -509,7 +509,7 @@ private:
     public:
         juce::Label title, slogan, regHead, regName, byHead, byName,
                     thanksHead, thanksText, footer, qrCaption;
-        juce::TextButton mailBtn, webBtn, instaBtn, coffeeBtn,
+        juce::TextButton mailBtn, webBtn, instaBtn, linksBtn,
                          tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" };
         std::function<void()> onTour;
         std::function<void()> onClose;
@@ -544,9 +544,9 @@ private:
             byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
             thanksHead.setText ("THANKS TO", juce::dontSendNotification);
             footer.setText ("Thanks for your support - happy mixing.", juce::dontSendNotification);
-            qrCaption.setText ("Buy me a coffee", juce::dontSendNotification);
+            qrCaption.setText ("Everything in one place", juce::dontSendNotification);
 
-            for (auto* b : { &mailBtn, &webBtn, &instaBtn, &coffeeBtn, &tourBtn, &manualBtn, &closeBtn })
+            for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn })
             {
                 b->setWantsKeyboardFocus (false);
                 b->getProperties().set ("thinOnFrame", true);
@@ -617,7 +617,7 @@ private:
                 const int qs = juce::jmin (right.getWidth(), 116);
                 qrArea = { right.getCentreX() - qs / 2, right.getY() + 6, qs, qs };
                 qrCaption.setBounds (right.getX(), qrArea.getBottom() + 4, right.getWidth(), 16);
-                coffeeBtn.setBounds (right.getX(), qrCaption.getBottom() + 6, right.getWidth(), 28);
+                linksBtn.setBounds (right.getX(), qrCaption.getBottom() + 6, right.getWidth(), 28);
             }
 
             auto line = [&r] (juce::Label& head, juce::Component& value, int valueH)
