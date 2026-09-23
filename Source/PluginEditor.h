@@ -335,11 +335,21 @@ private:
             // themeNames. Beim Ueberfahren eines Namens zeigt sie DIESES Theme,
             // sonst das gerade aktive - man kann also durchfahren und sehen,
             // was einen erwartet, ohne etwas umzustellen.
-            themeShot[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_silver_png,    SpaceXManualData::theme_silver_pngSize);
-            themeShot[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
-            themeShot[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
-            themeShot[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
-            themeShot[4] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
+            // Runde 59: je Theme ZWEI Bilder - 3D und Outline. So zeigt der
+            // Hover auf einen Theme-Namen dieses Theme im aktuellen Layout,
+            // und der Hover auf ein Layout das aktuelle Theme in jenem Layout.
+            // Pop hat kein Layout zur Auswahl, dort steht in beiden Feldern
+            // dasselbe Bild.
+            themeShot[0][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_moon_3d_jpg,           SpaceXManualData::pv_moon_3d_jpgSize);
+            themeShot[0][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_moon_outline_jpg,      SpaceXManualData::pv_moon_outline_jpgSize);
+            themeShot[1][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_daynight_3d_jpg,       SpaceXManualData::pv_daynight_3d_jpgSize);
+            themeShot[1][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_daynight_outline_jpg,  SpaceXManualData::pv_daynight_outline_jpgSize);
+            themeShot[2][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_fireflies_3d_jpg,      SpaceXManualData::pv_fireflies_3d_jpgSize);
+            themeShot[2][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_fireflies_outline_jpg, SpaceXManualData::pv_fireflies_outline_jpgSize);
+            themeShot[3][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_scifi_3d_jpg,          SpaceXManualData::pv_scifi_3d_jpgSize);
+            themeShot[3][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_scifi_outline_jpg,     SpaceXManualData::pv_scifi_outline_jpgSize);
+            themeShot[4][0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,            SpaceXManualData::theme_pop_pngSize);
+            themeShot[4][1] = themeShot[4][0];
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
@@ -395,13 +405,29 @@ private:
                     hintLine.setText (b->getTooltip(), juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i]) { hoverTheme = i; repaint (previewArea.expanded (4)); return; }
+            // Runde 59 (User): auch die beiden Layout-Knoepfe zeigen sofort,
+            // was sie bedeuten - im gerade gewaehlten Theme.
+            for (int i = 0; i < 2; ++i)
+                if (e.eventComponent == &layoutBtn[i]) { hoverLayout = i; repaint (previewArea.expanded (4)); return; }
         }
         void mouseExit (const juce::MouseEvent& e) override
         {
             hintLine.setText ({}, juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i] && hoverTheme == i) { hoverTheme = -1; repaint (previewArea.expanded (4)); return; }
+            for (int i = 0; i < 2; ++i)
+                if (e.eventComponent == &layoutBtn[i] && hoverLayout == i) { hoverLayout = -1; repaint (previewArea.expanded (4)); return; }
         }
+
+        // Welches Theme/Layout ist gerade aktiv? Das Panel liest es aus den
+        // eigenen Schaltzustaenden - es kennt den Editor nicht.
+        int activeThemeIdx() const
+        {
+            for (int i = 0; i < kThemes; ++i)
+                if (themeBtn[i].getToggleState()) return i;
+            return 0;
+        }
+        int activeLayoutIdx() const { return layoutBtn[1].getToggleState() ? 1 : 0; }
 
         void paint (juce::Graphics& g) override
         {
@@ -422,12 +448,10 @@ private:
             }
             // Vorschau des gerade aktiven (oder ueberfahrenen) Themes.
             {
-                int idx = hoverTheme;
-                if (idx < 0)
-                    for (int i = 0; i < kThemes; ++i)
-                        if (themeBtn[i].getToggleState()) { idx = i; break; }
+                const int idx = hoverTheme >= 0 ? hoverTheme : activeThemeIdx();
+                const int lay = hoverLayout >= 0 ? hoverLayout : activeLayoutIdx();
                 auto pr = previewArea.toFloat();
-                if (idx >= 0 && idx < kThemes && themeShot[idx].isValid() && ! pr.isEmpty())
+                if (idx >= 0 && idx < kThemes && themeShot[idx][lay].isValid() && ! pr.isEmpty())
                 {
                     juce::Path clip;
                     clip.addRoundedRectangle (pr, 7.0f);
@@ -438,9 +462,9 @@ private:
                     // Pop (aktiv 1.0, sonst 0.55). Nur mit Pop aktiv war die
                     // Vorschau deshalb voll hell.
                     g.setOpacity (1.0f);
-                    g.drawImage (themeShot[idx], pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
+                    g.drawImage (themeShot[idx][lay], pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
                     g.restoreState();
-                    g.setColour (juce::Colours::white.withAlpha (hoverTheme >= 0 ? 0.30f : 0.16f));
+                    g.setColour (juce::Colours::white.withAlpha ((hoverTheme >= 0 || hoverLayout >= 0) ? 0.30f : 0.16f));
                     g.drawRoundedRectangle (pr.reduced (0.5f), 7.0f, 1.0f);
                 }
             }
@@ -525,8 +549,8 @@ private:
 
     private:
         int dividerX = 0, dividerX2 = 0;
-        int hoverTheme = -1;
-        juce::Image themeShot[kThemes];
+        int hoverTheme = -1, hoverLayout = -1;
+        juce::Image themeShot[kThemes][2];
         juce::Rectangle<int> previewArea;
     };
 
