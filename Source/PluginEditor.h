@@ -609,7 +609,11 @@ private:
             // "happy mixing" ist raus (User Runde 58) - die Seite sagt schon
             // genug, und eine Zeile weniger ist eine Zeile weniger.
             footer.setVisible (false);
-            qrCaption.setVisible (false);
+            // Runde 64 (User): die Versionsnummer gehoert auf die Rueckseite.
+            // Das frei gewordene QR-Label traegt sie jetzt.
+            qrCaption.setText ("Version " + juce::String (JucePlugin_VersionString) + "  \xc2\xb7  VST3",
+                               juce::dontSendNotification);
+            qrCaption.setVisible (true);
 
             for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn,
                              &activateBtn, &buyBtn, &supportBtn, &dontShowBtn })
@@ -663,7 +667,8 @@ private:
             title.setBounds (r.removeFromTop (32));
             r.removeFromTop (2);
             slogan.setBounds (r.removeFromTop (20));
-            r.removeFromTop (16);
+            qrCaption.setBounds (r.removeFromTop (16));
+            r.removeFromTop (12);
             ruleTopY = r.getY();
             r.removeFromTop (18);
 

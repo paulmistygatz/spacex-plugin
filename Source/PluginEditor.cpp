@@ -808,7 +808,7 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     for (int i = 0; i < kNumCategories; ++i)
         categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
 
-    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "VOCAL", "BACKING", "ADLIB", "FX" };
+    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "LEAD VOCAL", "BACKING", "ADLIB", "SEND FX" };
     categoryButton.setButtonText (pillNames[juce::jlimit (0, kNumCategories, mutateCategoryValue)]);
     const bool profileArmed = mutateCategoryValue > 0;
     categoryButton.getProperties().set ("pillStrong", true);
@@ -4059,7 +4059,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     {
         // Runde 37 (User): vier einfache Kategorien, geordnet danach, wie viel
         // veraendert werden darf.
-        static const char* const catNames[kNumCategories] = { "Vocal", "Backing", "Adlib", "FX" };
+        static const char* const catNames[kNumCategories] = { "Lead Vocal", "Backing", "Adlib", "Send FX" };
         // Die Hinweise sagen, WAS unter die Kategorie faellt - "Plucked" allein
         // beantwortet die Frage nicht (User).
         static const char* const catHints[kNumCategories] = {
@@ -6881,10 +6881,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
         polInner.removeFromTop (gapV);
         auto posRow = polInner.removeFromTop (posBtnH);
         juce::ignoreUnused (posBtnGap);
-        // Runde 62 (User): schmaler als L + R zusammen und ein Stueck tiefer,
-        // damit unten weniger Luft zum Rahmen steht.
-        polPos2Button.setBounds (posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap - 26, posBtnH)
-                                       .translated (0, 6));
+        // Runde 64 (User): schmaler als L + R zusammen, und die UNTERKANTE
+        // liegt genau auf der Oberkante von "Regain" in der LCR-Sektion
+        // daneben - so enden beide Rahmen auf derselben Linie. Die LCR-
+        // Sektion wird weiter oben gelegt, horizonLabel steht also schon.
+        {
+            auto posRect = posRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap - 26, posBtnH);
+            if (horizonLabel.getY() > 0)
+                posRect.setY (horizonLabel.getY() - posBtnH);
+            polPos2Button.setBounds (posRect);
+        }
         polPos3Button.setBounds ({});
         polPos1Button.setBounds ({});
         polPos4Button.setBounds ({});
@@ -7245,12 +7251,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto slotC = rayFrame;
         placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, juce::jmin (halfW, rayKnobAreaH));
         {
-            const int pw = juce::jmin (100, halfW);
+            // Runde 64 (User): schmaler, damit rechts mehr Luft zum
+            // Rahmenrand bleibt.
+            const int pw = juce::jmin (88, halfW);
             const int ph = juce::jmin (kDotsInside ? 36 : 30, rayKnobAreaH - (kDotsInside ? 8 : 14));
-            // Runde 62 (User): Pille und Punkte sassen zu weit vom rechten
-            // Rahmenrand weg - sie ruecken nach rechts, bleiben aber im Slot.
-            const int shiftX = juce::jmax (0, juce::jmin (12, (slotC.getWidth() - pw) / 2));
-            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (shiftX, kDotsInside ? -7 : -10);
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -7 : -10);
             rayCharButton.setBounds (col);
             const int dotsW = 4 * 10 + 6;
             if (kDotsInside)
@@ -7264,7 +7269,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
                 rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() + 5, dotsW, 12);
             }
             // Runde 55 (User: "fast und pair sind mir zu klein").
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (60, rayPairHeaderArea.getWidth()),
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayPairHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayPairHeaderArea.getHeight())));
             rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayFastHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayFastHeaderArea.getHeight())));

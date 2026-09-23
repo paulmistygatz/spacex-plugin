@@ -2895,7 +2895,10 @@ public:
         // Runde 61 (User: "BARS ist immer noch fetter als Spin, Drift, Early"):
         // das Bars-Feld ist eine ComboBox und lief deshalb an der gemeinsamen
         // Knopfschrift vorbei. Jetzt dieselbe Regel wie ueberall.
-        return unifiedButtonFont (box.getHeight());
+        // Runde 64 (User): eine Spur groesser als die Knopfschrift - im
+        // Bars-Feld steht eine Zahl, die man im Vorbeigehen lesen koennen muss.
+        auto f = unifiedButtonFont (box.getHeight());
+        return f.withHeight (f.getHeight() + 1.0f);
     }
 
     // ComboBox mit Glow-Rahmen, wenn die Component-Property "glowActive"
@@ -2925,8 +2928,12 @@ public:
         // Sektion (User: "Pop -> Hyperdrive Bars dunkel wenn section off").
         const juce::Colour boxOutline = isComicTheme() ? (boxSectionOff ? comicInk().withAlpha (0.30f) : comicInk())
                                       : boxSectionOff ? iconOffColour().withAlpha (0.35f)
+                                      // Runde 64 (User): BLAU heisst hier "Pair
+                                      // ist an" - so wie beim PAIR-Knopf selbst.
+                                      // Der Normalfall (Sync an, kein Pair) ist
+                                      // das Gold von FAST, nicht das Blau.
                                       : goldBox       ? pairAccentColour()
-                                      : glow          ? glowAccent
+                                      : glow          ? altAccentColour()
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
         g.drawRoundedRectangle (bounds, 6.0f, (glow || goldBox) ? 1.6f : 1.1f);
