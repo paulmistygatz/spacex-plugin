@@ -2880,22 +2880,33 @@ public:
         // jetzt direkt aus dem Wert, und der Strich laeuft innerhalb der
         // Bahn, mit halber Strichhoehe Abstand zu den runden Enden.
         const float markH = 3.0f;
-        const float travelTop = top + markH * 0.5f + 1.0f;
-        const float travelBot = bottom - markH * 0.5f - 1.0f;
         const float valT = juce::jlimit (0.0f, 1.0f,
                                          (float) slider.valueToProportionOfLength (slider.getValue()));
-        const float fillTopY = juce::jmap (valT, travelBot, travelTop);
+        // Bug (User Runde 79): die Fuellung lief von travelBot bis travelTop,
+        // also 2,5 px INNERHALB der Bahn - oben blieb dadurch die dunkle
+        // Kappe der Bahn stehen, obwohl der Regler auf 100 % stand. Und weil
+        // die Fuellung ein Rechteck ueber die VOLLE Breite war, standen ihre
+        // Ecken dort, wo die Kapsel schon rund wird, seitlich heraus. Beides
+        // sah aus, als laege die Fuellung neben der Form.
+        // Jetzt: die Fuellung nutzt die GANZE Bahn (top..bottom) und wird auf
+        // deren Form beschnitten - voll heisst voll, leer heisst leer.
+        const float fillTopY = juce::jmap (valT, bottom, top);
         const float t = valT;
+
+        juce::Path clipTrack;
+        clipTrack.addRoundedRectangle (track, trackR);
 
         auto valueCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, t);
         if (t > 0.001f)
         {
-            juce::Path fill;
-            fill.addRoundedRectangle (track.getX(), fillTopY, track.getWidth(), bottom - fillTopY,
-                                      trackR, trackR, false, false, true, true);
+            g.saveState();
+            g.reduceClipRegion (clipTrack);
             g.setColour (valueCol.withAlpha (0.90f));
-            g.fillPath (fill);
+            g.fillRect (track.getX(), fillTopY, track.getWidth(), bottom - fillTopY);
+            g.restoreState();
         }
+        const float travelTop = top;
+        const float travelBot = bottom;
 
         // Live-Mod-Anzeige fuer Orbit (Galaxy-Mod) - gleiches Prinzip wie
         // der leuchtende Punkt bei den Rotary-Reglern (siehe
@@ -2941,8 +2952,6 @@ public:
         // eigenes Element unter dem Fader statt als dessen Stellung).
         auto dotCol = offVisual ? juce::Colour (0xff777b85) : valueCol;
         {
-            juce::Path clipTrack;
-            clipTrack.addRoundedRectangle (track, trackR);
             g.saveState();
             g.reduceClipRegion (clipTrack);
             // Bug (User Runde 71): an den Endanschlaegen lag der weisse
