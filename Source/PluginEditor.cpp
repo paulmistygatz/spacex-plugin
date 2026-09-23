@@ -6963,11 +6963,23 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int linkAreaH = headerH;
         const int linkGapV = 4;
         const int blockH = linkAreaH + linkGapV + lrBtnH + gapV + posBtnH;
-        // Runde 69 (User): L/R stand zu dicht ueber EARLY/LATE. EARLY sitzt
-        // fest auf der Regain-Linie der Sektion daneben, also kann der Abstand
-        // nur oben entstehen - Link und L/R ruecken ein Stueck hoch.
-        const int topMargin = juce::jmax (0, (polInner.getHeight() - blockH) / 2 - 11);
-        polInner.removeFromTop (topMargin);
+        // Runde 77 (User): der feste Versatz von Runde 69 war geraten und
+        // immer noch zu knapp. Jetzt wird nicht mehr der GANZE Block zentriert
+        // (was ohnehin falsch war, weil EARLY/LATE seine Position gar nicht
+        // von hier bekommt, sondern fest auf der Regain-Linie sitzt), sondern
+        // Link + L/R werden mittig in den Bereich DARUEBER gesetzt. Der
+        // Abstand nach unten ergibt sich damit von selbst und bleibt bei
+        // jeder Fenstergroesse stimmig.
+        {
+            const int lateTop  = (horizonLabel.getY() > 0 ? horizonLabel.getY() - posBtnH
+                                                          : polInner.getBottom() - posBtnH);
+            const int upperH   = lrBtnH + linkGapV + linkAreaH;
+            const int freeTop  = polInner.getY();
+            const int freeBot  = lateTop - gapV;            // Mindestluft zu LATE
+            const int topMargin = juce::jmax (0, freeTop + (freeBot - freeTop - upperH) / 2 - freeTop);
+            polInner.removeFromTop (topMargin);
+        }
+        juce::ignoreUnused (blockH);
 
         auto linkRow = polInner.removeFromTop (linkAreaH);
         polLinkButton.setBounds (linkRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, linkAreaH));
