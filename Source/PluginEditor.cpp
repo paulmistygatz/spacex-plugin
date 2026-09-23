@@ -6962,37 +6962,35 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // kleineren Werts.
         const int linkAreaH = headerH;
         const int linkGapV = 4;
-        const int blockH = linkAreaH + linkGapV + lrBtnH + gapV + posBtnH;
-        // Runde 77 (User): der feste Versatz von Runde 69 war geraten und
-        // immer noch zu knapp. Jetzt wird nicht mehr der GANZE Block zentriert
-        // (was ohnehin falsch war, weil EARLY/LATE seine Position gar nicht
-        // von hier bekommt, sondern fest auf der Regain-Linie sitzt), sondern
-        // Link + L/R werden mittig in den Bereich DARUEBER gesetzt. Der
-        // Abstand nach unten ergibt sich damit von selbst und bleibt bei
-        // jeder Fenstergroesse stimmig.
-        {
-            const int lateTop  = (horizonLabel.getY() > 0 ? horizonLabel.getY() - posBtnH
-                                                          : polInner.getBottom() - posBtnH);
-            const int upperH   = lrBtnH + linkGapV + linkAreaH;
-            const int freeTop  = polInner.getY();
-            const int freeBot  = lateTop - gapV;            // Mindestluft zu LATE
-            const int topMargin = juce::jmax (0, freeTop + (freeBot - freeTop - upperH) / 2 - freeTop);
-            polInner.removeFromTop (topMargin);
-        }
-        juce::ignoreUnused (blockH);
+        juce::ignoreUnused (linkAreaH + linkGapV + lrBtnH + gapV + posBtnH);
+        // Runde 78 (User: "immer noch"): zweimal daneben, weil ich von OBEN
+        // nach unten gerechnet habe. EARLY/LATE sitzt aber fest auf der
+        // Regain-Linie - es ist der einzige Fixpunkt. Bleibt oben zu wenig
+        // Platz, fraesst jede Verteilung von oben zuerst den Abstand nach
+        // unten weg. Jetzt wird deshalb von UNTEN nach oben gesetzt: der
+        // Abstand zu LATE steht zuerst fest, danach L/R, danach der Link.
+        // Wird es eng, schrumpft die Link-Zeile - nicht die Luft dazwischen.
+        const int lateTop  = (horizonLabel.getY() > 0 ? horizonLabel.getY() - posBtnH
+                                                      : polInner.getBottom() - posBtnH);
+        const int gapToLate = 22;
+        const int lrBottom  = lateTop - gapToLate;
+        const int lrTop     = lrBottom - lrBtnH;
 
-        auto linkRow = polInner.removeFromTop (linkAreaH);
-        polLinkButton.setBounds (linkRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, linkAreaH));
-        polInner.removeFromTop (linkGapV);
-
-        auto polRow = polInner.removeFromTop (lrBtnH);
-        auto lrCentered = polRow.withSizeKeepingCentre (lrBtnW * 2 + lrGap, lrBtnH);
+        auto lrCentered = juce::Rectangle<int> (polInner.getX(), lrTop, polInner.getWidth(), lrBtnH)
+                             .withSizeKeepingCentre (lrBtnW * 2 + lrGap, lrBtnH);
         polLButton.setBounds (lrCentered.removeFromLeft (lrBtnW));
         lrCentered.removeFromLeft (lrGap);
         polRButton.setBounds (lrCentered);
 
-        polInner.removeFromTop (gapV);
-        auto posRow = polInner.removeFromTop (posBtnH);
+        {
+            const int linkBottom = lrTop - linkGapV;
+            const int linkH      = juce::jlimit (12, linkAreaH, linkBottom - polInner.getY());
+            polLinkButton.setBounds (juce::Rectangle<int> (polInner.getX(), linkBottom - linkH,
+                                                           polInner.getWidth(), linkH)
+                                        .withSizeKeepingCentre (lrBtnW * 2 + lrGap, linkH));
+        }
+
+        auto posRow = juce::Rectangle<int> (polInner.getX(), lateTop, polInner.getWidth(), posBtnH);
         juce::ignoreUnused (posBtnGap);
         // Runde 64 (User): schmaler als L + R zusammen, und die UNTERKANTE
         // liegt genau auf der Oberkante von "Regain" in der LCR-Sektion
