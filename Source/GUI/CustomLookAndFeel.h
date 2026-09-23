@@ -1043,8 +1043,21 @@ public:
             auto pillCol = button.getProperties().contains ("pillColour")
                              ? juce::Colour ((juce::uint32) (int) button.getProperties()["pillColour"])
                              : themePalette().frameMain;
-            g.setColour (pillCol.withAlpha (sectionIsOffNow ? 0.28f : 0.55f));
-            g.drawRoundedRectangle (bounds, cornerSize, 1.1f);
+            // "pillStrong" (Runde 60): das Smart-Profil traegt einen etwas
+            // kraeftigeren Rand als die Modus-Pillen in den Sektionen und
+            // bekommt eine leichte Fuellung, sobald wirklich ein Profil
+            // gewaehlt ist - "kein Profil" muss man auf den ersten Blick
+            // davon unterscheiden koennen (User).
+            const bool strong = button.getProperties().getWithDefault ("pillStrong", false);
+            const bool armed  = button.getProperties().getWithDefault ("pillArmed", false);
+            if (strong && armed)
+            {
+                g.setColour (pillCol.withAlpha (0.14f));
+                g.fillRoundedRectangle (bounds, cornerSize);
+            }
+            const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.62f);
+            g.setColour (pillCol.withAlpha (pillAlpha));
+            g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.5f : 1.2f);
             return;
         }
         if (sectionIsOffNow)
@@ -1321,21 +1334,17 @@ public:
                 // hoeher als Sync. Mit dem Deckel sind alle Sektions-Knoepfe
                 // gleich gross beschriftet.
             {
-                // Modus-Pillen (SHIMMER, ILLUSION ...): kleiner, nicht fett und
-                // etwas weiter gesperrt - der Name ist eine Anzeige, keine
-                // Ansage (User Runde 51: "die Schrift bisschen dezenter").
-                const bool modePillText = button.getProperties().getWithDefault ("modePill", false);
-                if (modePillText)
-                {
+                // Runde 60 (User: "Early, Bars sind fett; Shimmer, Double,
+                // Fast, Pair sind duenn - genau die MITTE von beidem nehmen
+                // und auf ALLE Buttons anwenden"): eine einzige Regel fuer
+                // jede Beschriftung. Vorher hingen Groesse und Sperrung an
+                // der Knopfart, und je nach Knopfhoehe kam etwas anderes raus.
+                if (button.getProperties().getWithDefault ("modePill", false))
                     g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
                                         : juce::Colour (0xffc3c8d2));
-                    // Fett, aber klein: das ist die halbe Pixelstaerke mehr,
-                    // ohne dass der Name wieder laut wird (User Runde 53).
-                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.32f, 11.5f), juce::Font::bold))
-                                   .withExtraKerningFactor (0.17f));   // etwas luftiger (User Runde 55)
-                }
-                else
-                    g.setFont (juce::Font (juce::FontOptions (juce::jmin (button.getHeight() * 0.42f, 14.5f), juce::Font::bold)).withExtraKerningFactor (0.04f));
+                if (button.getProperties().getWithDefault ("goldText", false))
+                    g.setColour (juce::Colour (0xffd9b45f));   // lnk.bio, Unterstuetzen (User Runde 60)
+                g.setFont (unifiedButtonFont (button.getHeight()));
             }
             // "textYShift" (Runde 49): schiebt die Beschriftung nach oben,
             // wenn die Modus-Punkte INNERHALB der Pille sitzen.
@@ -1365,6 +1374,13 @@ public:
     // Einheitliche Schriftgroesse fuer die gesamte globale Button-Zeile
     // (Reset/A-B/Mod-Bypass) - exakt dieselbe wie die Parameter-Labels
     // (EXPAND/BOOST/...), siehe drawButtonText/drawABContent/drawModBypassContent.
+    // Die eine Beschriftungsschrift fuer alle Knoepfe (Runde 60).
+    static juce::Font unifiedButtonFont (int buttonHeight)
+    {
+        return juce::Font (juce::FontOptions (juce::jmin ((float) buttonHeight * 0.40f, 13.0f), juce::Font::bold))
+                   .withExtraKerningFactor (0.10f);
+    }
+
     static juce::Font globalRowFont()
     {
         return juce::Font (juce::FontOptions (12.0f, juce::Font::bold)).withExtraKerningFactor (0.06f);

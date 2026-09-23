@@ -595,10 +595,9 @@ void GoniometerComponent::timerCallback()
     const float gravityNorm        = galaxyOn ? juce::jlimit (0.0f, 1.0f, gravityRaw / 100.0f) : 0.0f;
     const float orbitNorm          = galaxyOn ? juce::jlimit (0.0f, 1.0f, orbitRaw / 100.0f) : 0.0f;
     const float airNorm            = galaxyOn ? juce::jlimit (0.0f, 1.0f, airRaw / 100.0f) : 0.0f;
-    // GRAVITY -> FARBINTENSITAET (User): der Regler faerbt das Feld, statt
-    // den Planeten zu schieben. 0 % laesst alles wie bisher, 100 % zieht die
-    // Linien deutlich kraeftiger und bunter.
-    const float colourIntensity    = 1.0f + gravityNorm * 0.9f;
+    // Runde 60 (User-Korrektur): Gravity macht wieder NUR den Planeten. Die
+    // Farbintensitaet haengt an nichts mehr - ein Regler, eine Wirkung.
+    const float colourIntensity    = 1.0f;
     // Size wirkt jetzt staerker auf die Liniendicke (User-Wunsch: "Size soll
     // Linien noch ein bisschen dicker machen"). Nicht der Rohwert wird
     // skaliert, sondern seine ABWEICHUNG von 1.0 - dadurch bleibt die
@@ -2225,11 +2224,8 @@ void GoniometerComponent::timerCallback()
         // im Header). Bei 30Hz entspricht 0.08 einer Angleichzeit von rund
         // einer halben Sekunde: schnell genug, dass Reglerbewegungen direkt
         // wirken, langsam genug, dass ein Schaltvorgang gleitet.
-        // Runde 50 (User): der Planet haengt jetzt an ORBIT, nicht mehr an
-        // Gravity - Gravity faerbt stattdessen das Feld (colourIntensity).
-        // Der geglaettete Wert und alles darunter bleiben unveraendert, nur
-        // die Quelle ist eine andere.
-        gravityVisSmoothed += (orbitNorm - gravityVisSmoothed) * 0.08f;
+        // Runde 60 (User): zurueck zu Gravity - der Planet ist seine Anzeige.
+        gravityVisSmoothed += (gravityNorm - gravityVisSmoothed) * 0.08f;
         gravVisSlow        += (gravityVisSmoothed - gravVisSlow) * 0.004f;   // ~8 s, folgt nur dem Reglerstand
         // Stars-Ansicht: nur noch 10 % der Modulationsbewegung (User).
         const float gravRaw  = gravityVisSmoothed;

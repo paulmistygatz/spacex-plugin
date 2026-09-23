@@ -788,10 +788,10 @@ juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
 {
     switch (cat)
     {
-        case 1: return "Vocal: wide, centre stays put.";
-        case 2: return "Backing: wide, but still tidy.";
-        case 3: return "Adlib: space, movement, clear sides.";
-        case 4: return "FX: anything goes.";
+        case 1: return "Lead vocal - wide, centre stays put.";
+        case 2: return "Backing stacks and busses - wide, but tidy.";
+        case 3: return "Ad-libs - space, movement, clear sides.";
+        case 4: return "Send FX - anything goes.";
         default: return {};   // kein Profil, keine Zeile (User)
     }
 }
@@ -810,7 +810,11 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
 
     static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "VOCAL", "BACKING", "ADLIB", "FX" };
     categoryButton.setButtonText (pillNames[juce::jlimit (0, kNumCategories, mutateCategoryValue)]);
-    categoryButton.getProperties().set ("pillColour", (int) themePalette().knob.getARGB());
+    const bool profileArmed = mutateCategoryValue > 0;
+    categoryButton.getProperties().set ("pillStrong", true);
+    categoryButton.getProperties().set ("pillArmed", profileArmed);
+    categoryButton.getProperties().set ("pillColour",
+        (int) (profileArmed ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
     categoryButton.repaint();
     catDots.index = mutateCategoryValue;
     catDots.repaint();
@@ -1146,6 +1150,45 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
                                              : "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
     // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
 
+    // ===== HINWEISZEILE (Runde 60, User: "komplett ueberpruefen, stimmt
+    // alles noch? und auch die technical Terms darin aktualisieren") =====
+    // Alles, was einen Sektions- oder Reglernamen nennt, steht hier - und nur
+    // hier. Sonst laufen Beschriftung und Hinweis irgendwann auseinander,
+    // genau das war bei TIMEWARP passiert (die Sektion heisst seit Langem
+    // PARALLAX).
+    auto tipFor = [] (juce::SettableTooltipClient& c, const juce::String& text) { c.setTooltip (text); };
+    tipFor (lcrTitleLabel,        t ? "LCR: pulls the centre out of the stereo image and treats L, C and R apart"
+                                    : "GALAXY: pulls the centre out of the stereo image and treats L, C and R apart");
+    tipFor (polTitleLabel,        t ? "POLARITY: flips the phase of one channel at a chosen point in the chain"
+                                    : "ECLIPSE: flips the phase of one channel at a chosen point in the chain");
+    tipFor (driftTitleLabel,      t ? "MICROPITCH: opens a mono-ish sound into a wide one - a little delay, a little detune"
+                                    : "PARALLAX: opens a mono-ish sound into a wide one - a little delay, a little detune");
+    tipFor (widthBoostTitleLabel, t ? "MID-SIDE: the width stage - how far the sides reach and how much weight they carry"
+                                    : "DIMENSION: the width stage - how far the sides reach and how much weight they carry");
+    tipFor (flowTitleLabel,       t ? "AUTOPAN: slow automatic movement through the stereo field"
+                                    : "HYPERDRIVE: slow automatic movement through the stereo field");
+    tipFor (rayTitleLabel,        t ? "PHASER: a specially tuned phaser that moves the image instead of the tone"
+                                    : "RAYE: a specially tuned phaser that moves the image instead of the tone");
+
+    tipFor (gravitySlider,   t ? "C-Weight: how strongly the centre is separated from the sides"
+                               : "Gravity: how strongly the centre is separated from the sides");
+    tipFor (orbitSlider,     t ? "L/R: how much of the sides comes back in. All the way down is centre only"
+                               : "Orbit: how much of the sides comes back in. All the way down is centre only");
+    tipFor (horizonSlider,   "Regain: how much of the level the split takes away comes back");
+    tipFor (sideWidthSlider, t ? "Width: how far the image reaches. Below 100 % pulls it in, above pushes it out"
+                               : "Size: how far the image reaches. Below 100 % pulls it in, above pushes it out");
+    tipFor (sideBoostSlider, t ? "Gain: gives the sides weight without touching what sits in the centre"
+                               : "Boost: gives the sides weight without touching what sits in the centre");
+    tipFor (distanceSlider,  "Depth: left moves the sound back into the room, right pulls it close");
+    tipFor (movementSlider,  t ? "Width: how far the sound travels left and right"
+                               : "Flow: how far the sound travels left and right");
+    tipFor (rayPairButton,   t ? "Pair: follow Autopan at half its speed"
+                               : "Pair: follow Hyperdrive at half its speed");
+    tipFor (parallaxAmountSlider, "Amount: the single dial for this style - from off to the full effect");
+    tipFor (rayAmountSlider,      "Amount: how strong the movement is");
+    tipFor (categoryButton,  "Smart profile: click for the next one, Cmd-click to go back. The dice then stays inside what fits that source");
+    tipFor (globalChaosButton, "Smart: rolls a new setting and decides which sections belong in it");
+
     if (getWidth() > 0)
         resized();
     repaint();
@@ -1190,7 +1233,23 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
         const auto pos = e.getEventRelativeTo (&content).position;
         if (demoChipArea.expanded (4.0f).contains (pos))
         {
-            juce::URL (spacexContact::shopUrl).launchInDefaultBrowser();
+            // Runde 60 (User): erst fragen, was der Nutzer eigentlich will -
+            // direkt in den Browser zu springen waere uebergriffig. Eigene
+            // Knopfbeschriftungen, damit man vor dem Klick weiss, was kommt.
+            demoDialog = std::make_unique<juce::AlertWindow> ("SpaceX Demo",
+                "This copy runs in demo mode and goes quiet for a moment every 50 seconds.\n\n"
+                "Already bought it? Enter your serial. Otherwise have a look at the shop.",
+                juce::MessageBoxIconType::NoIcon);
+            demoDialog->addButton ("Enter Serial",  1);
+            demoDialog->addButton ("Buy SpaceX",    2);
+            demoDialog->addButton ("Continue Demo", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            styleNameDialog (*demoDialog);
+            demoDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int r)
+            {
+                demoDialog.reset();
+                if (r == 1)      promptActivate();
+                else if (r == 2) juce::URL (spacexContact::shopUrl).launchInDefaultBrowser();
+            }), false);
             return;
         }
     }
@@ -1802,13 +1861,14 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     add (groupLcrArea, t ? "LCR" : "Galaxy",
          "Splits the signal into a real centre and real sides. Orbit decides how much of the sides you keep, "
          "Gravity how strictly the centre is held. This is the only section with latency - it is off until you arm it.");
+    // Reihenfolge wie in der Oberflaeche: Galaxy, Eclipse, dann weiter (User).
+    add (groupPolArea, t ? "Polarity" : "Eclipse",
+         "Flips the polarity of one side. The biggest single change in the plugin - use it deliberately, and check mono.");
     add (groupDriftArea, t ? "MicroPitch" : "Parallax",
          "Makes a mono source stereo. Pick a style with the button, then use Amount as the single dial. "
          "The dots under the button jump straight to a style.");
     add (groupWidthBoostArea, t ? "Mid-Side" : "Dimension",
          "Classic mid/side: Size opens or closes the sides, Boost lifts them, Depth pushes the source away or pulls it forward.");
-    add (groupPolArea, t ? "Polarity" : "Eclipse",
-         "Flips the polarity of one side. The biggest single change in the plugin - use it deliberately, and check mono.");
     add (groupFlowArea, t ? "Autopan" : "Hyperdrive",
          "Moves the image over time. Flow is how far it travels, Speed how fast - sync it to the host if you want it musical.");
     add (groupRayArea, t ? "Phaser" : "Raye",
@@ -1847,7 +1907,7 @@ void LCRMSAudioProcessorEditor::showBackPanel (bool welcomeMode)
     juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     const auto owner = props.getValue ("licenceName", juce::String()).trim();
-    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Activate...");
+    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Enter Serial");
     backPanel.activateBtn.setToggleState (lic, juce::dontSendNotification);
     backPanel.regName.setText (! lic ? "Demo - not activated"
                                      : owner.isNotEmpty() ? owner : "This copy is activated",
@@ -1919,7 +1979,7 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[1].setToggleState (advancedModVisible,                              juce::dontSendNotification);
     settingsPanel.behavBtn[0].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
-    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Activate...");
+    backPanel.activateBtn.setButtonText (lic ? "Activated" : "Enter Serial");
     backPanel.activateBtn.setToggleState (lic, juce::dontSendNotification);
     backPanel.activateBtn.setTooltip (lic ? "Add or change the name shown above"
                                           : "Enter your name and serial number to remove the demo mute");
@@ -2577,7 +2637,18 @@ void LCRMSAudioProcessorEditor::promptActivate()
     // Licence.h). Dadurch steht auf dem Back Panel nie ein erfundener Name.
     presetNameDialog->addTextEditor ("owner", juce::String(), "Your name");
     presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
-    if (auto* te = presetNameDialog->getTextEditor ("owner")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    if (auto* te = presetNameDialog->getTextEditor ("owner"))
+    {
+        te->setSelectAllWhenFocused (true);
+        te->selectAll();
+        // JUCE setzt den Fokus sonst auf das zuletzt angelegte Feld - der
+        // Cursor stand dadurch in der Seriennummer statt im Namen (User).
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<juce::TextEditor> (te)]
+        {
+            if (safe != nullptr)
+                safe->grabKeyboardFocus();
+        });
+    }
     presetNameDialog->addButton (alreadyLicensed ? "Save" : "Activate", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
@@ -3928,6 +3999,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     backPanel.onManual = [this] { openManual(); };
     backPanel.onTour   = [this] { closeBackPanel(); startTour(); };
     backPanel.onActivate = [this] { promptActivate(); };
+    backPanel.onBuy      = [this] { juce::URL (spacexContact::shopUrl).launchInDefaultBrowser(); };
+    backPanel.onSupport  = [this] { juce::URL (spacexContact::shopUrl).launchInDefaultBrowser(); };
     backPanel.onDontShow = [this] (bool dontShow)
     {
         juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
@@ -6309,8 +6382,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         settingsPanel.setBounds ((kDesignW - pw) / 2, (kDesignH - ph) / 2, pw, ph);
         // Back Panel: etwas kleiner als die Einstellungen - es ist ein
         // Typenschild, kein Arbeitsbereich.
-        const int bw = juce::jmin (560, kDesignW - 200);
-        const int bh = juce::jmin (430, kDesignH - 110);
+        const int bw = juce::jmin (620, kDesignW - 160);
+        const int bh = juce::jmin (470, kDesignH - 90);
         backPanel.setBounds ((kDesignW - bw) / 2, (kDesignH - bh) / 2 - 8, bw, bh);
         if (tourOverlay.isVisible())
             tourOverlay.setBounds (content.getLocalBounds());
@@ -6719,12 +6792,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int orbitW = juce::jlimit (42, 74, juce::roundToInt ((float) (availW - leftInset) * 0.22f));
         auto orbitCol = lcrInner.removeFromLeft (orbitW);
         orbitLabel.setBounds (orbitCol.removeFromBottom (14));
-        orbitSlider.setBounds (orbitCol);
         lcrInner.removeFromLeft (gap);
 
         const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
         const int knobD = (kVariant == 0) ? juce::jlimit (34, 190, juce::jmin (knobAreaH, colW))
                                           : juce::jmin (kBig, juce::jmin (knobAreaH, colW));
+        // Runde 60 (User): der Orbit-Fader ist genauso hoch wie die Regler
+        // daneben und steht buendig mit ihnen - vorher nahm er die ganze
+        // Spaltenhoehe und wirkte dadurch verschoben.
+        orbitSlider.setBounds (orbitCol.withSizeKeepingCentre (orbitCol.getWidth(),
+                                                               juce::jmin (orbitCol.getHeight(), knobD)));
 
         auto horCol = lcrInner.removeFromLeft (colW);
         // Reihenfolge Orbit - Gravity - Air (User). Die mittlere Spalte

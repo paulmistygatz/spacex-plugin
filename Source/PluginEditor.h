@@ -468,6 +468,11 @@ private:
                     g.drawRoundedRectangle (pr.reduced (0.5f), 7.0f, 1.0f);
                 }
             }
+            if (behavRuleY > 0)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.10f));
+                g.fillRect ((float) behavRuleX1, (float) behavRuleY, (float) (behavRuleX2 - behavRuleX1), 1.0f);
+            }
             if (dividerX > 0)
             {
                 g.setColour (juce::Colours::white.withAlpha (0.08f));
@@ -536,20 +541,30 @@ private:
                 }
             };
             stack (col1, themeHead,  themeBtn,  kThemes,  16);
-            col1.removeFromTop (12);
-            {
-                auto pv = col1.withTrimmedLeft (16);
-                const int pw = pv.getWidth();
-                previewArea = juce::Rectangle<int> (pv.getX(), pv.getY(), pw,
-                                                    juce::jmin (pv.getHeight(), (int) ((float) pw / 1.413f)));
-            }
             stack (col2, layoutHead, layoutBtn, kLayouts, 0);
             stack (col3, behavHead,  behavBtn,  kBehav,   0);
+
+            // Runde 60 (User): die Vorschau sitzt jetzt in der LAYOUT-Spalte
+            // unter "Technical Labels" - dort ist der Platz, und sie gehoert
+            // ohnehin zu beidem (Theme UND Layout).
+            {
+                col2.removeFromTop (16);
+                auto pv = col2;
+                const int pw = pv.getWidth();
+                previewArea = juce::Rectangle<int> (pv.getX(), pv.getY(), pw,
+                                                    juce::jmin (pv.getHeight(), (int) ((float) pw / 1.918f)));
+            }
+            // Feine Linie zwischen den Anzeige- und den Klang-Schaltern
+            // (User): Show Modulation | Bass Guard.
+            behavRuleY = (behavBtn[2].getBottom() + behavBtn[3].getY()) / 2;
+            behavRuleX1 = behavBtn[3].getX();
+            behavRuleX2 = behavBtn[3].getRight();
         }
 
     private:
         int dividerX = 0, dividerX2 = 0;
         int hoverTheme = -1, hoverLayout = -1;
+        int behavRuleY = 0, behavRuleX1 = 0, behavRuleX2 = 0;
         juce::Image themeShot[kThemes][2];
         juce::Rectangle<int> previewArea;
     };
@@ -567,9 +582,12 @@ private:
                     thanksHead, thanksText, footer, qrCaption;
         juce::TextButton mailBtn, webBtn, instaBtn, linksBtn,
                          tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" },
-                         activateBtn { "Activate..." }, dontShowBtn { "Don't show again" };
+                         activateBtn { "Enter Serial" }, buyBtn { "Buy SpaceX" },
+                         supportBtn { "Buy me a coffee" }, dontShowBtn { "Don't show again" };
         std::function<void()> onTour;
         std::function<void()> onActivate;
+        std::function<void()> onBuy;
+        std::function<void()> onSupport;
         std::function<void (bool)> onDontShow;
         std::function<void()> onClose;
         std::function<void()> onManual;
@@ -608,7 +626,7 @@ private:
             qrCaption.setVisible (false);
 
             for (auto* b : { &mailBtn, &webBtn, &instaBtn, &linksBtn, &tourBtn, &manualBtn, &closeBtn,
-                             &activateBtn, &dontShowBtn })
+                             &activateBtn, &buyBtn, &supportBtn, &dontShowBtn })
             {
                 b->setWantsKeyboardFocus (false);
                 b->getProperties().set ("thinOnFrame", true);
@@ -623,6 +641,14 @@ private:
             manualBtn.onClick = [this] { if (onManual) onManual(); };
             tourBtn.onClick     = [this] { if (onTour)     onTour(); };
             activateBtn.onClick = [this] { if (onActivate) onActivate(); };
+            buyBtn.onClick      = [this] { if (onBuy)      onBuy(); };
+            supportBtn.onClick  = [this] { if (onSupport)  onSupport(); };
+            // lnk.bio und der Unterstuetzer-Knopf in Gold (User Runde 60).
+            // "goldText" wird in drawButtonText ausgewertet - die Farb-IDs von
+            // TextButton greifen hier nicht, weil die Beschriftung komplett
+            // selbst gezeichnet wird.
+            linksBtn.getProperties().set ("goldText", true);
+            supportBtn.getProperties().set ("goldText", true);
             dontShowBtn.setClickingTogglesState (true);
             dontShowBtn.onClick = [this] { if (onDontShow) onDontShow (dontShowBtn.getToggleState()); };
         }
@@ -677,23 +703,44 @@ private:
             // Kontaktzeile: die Knoepfe sind nur so breit wie ihr Inhalt
             // (User Runde 58: "viel zu lang") und stehen mittig nebeneinander.
             {
-                auto row = r.removeFromBottom (30);
-                const auto f = juce::Font (juce::FontOptions (13.0f));
+                // Runde 60 (Bug: "komplett abgeschnitten"): die Breiten wurden
+                // ohne die Sperrung der Schrift geschaetzt, dadurch lief die
+                // Reihe rechts aus dem Panel. Jetzt wird mit DERSELBEN Schrift
+                // gemessen, die drawContactContent benutzt - und wenn es
+                // trotzdem nicht in eine Zeile passt, werden es zwei.
+                auto rowArea = r.removeFromBottom (30);
+                const auto f = juce::Font (juce::FontOptions (13.0f)).withExtraKerningFactor (0.02f);
                 juce::TextButton* btns[4] = { &mailBtn, &webBtn, &instaBtn, &linksBtn };
                 int w[4] = {}, total = 0;
                 const int gap = 8;
                 for (int i = 0; i < 4; ++i)
                 {
-                    const int textW = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, btns[i]->getButtonText()));
-                    // Symbol + Innenabstaende; linksBtn traegt kein Symbol.
-                    w[i] = textW + (btns[i] == &linksBtn ? 26 : 52);
+                    const int textW = juce::roundToInt (juce::GlyphArrangement::getStringWidth (f, btns[i]->getButtonText())) + 2;
+                    w[i] = textW + (btns[i] == &linksBtn ? 30 : 56);
                     total += w[i];
                 }
-                int x = row.getCentreX() - (total + gap * 3) / 2;
-                for (int i = 0; i < 4; ++i)
+                if (total + gap * 3 <= rowArea.getWidth())
                 {
-                    btns[i]->setBounds (x, row.getY(), w[i], row.getHeight());
-                    x += w[i] + gap;
+                    int x = rowArea.getCentreX() - (total + gap * 3) / 2;
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        btns[i]->setBounds (x, rowArea.getY(), w[i], rowArea.getHeight());
+                        x += w[i] + gap;
+                    }
+                }
+                else
+                {
+                    r.removeFromBottom (6);
+                    auto upper = r.removeFromBottom (30);
+                    auto place2 = [gap] (juce::Rectangle<int> line, juce::TextButton* a, int wa,
+                                                                    juce::TextButton* b, int wb)
+                    {
+                        int x = line.getCentreX() - (wa + wb + gap) / 2;
+                        a->setBounds (x, line.getY(), wa, line.getHeight());
+                        b->setBounds (x + wa + gap, line.getY(), wb, line.getHeight());
+                    };
+                    place2 (upper,   &mailBtn,  w[0], &webBtn,   w[1]);
+                    place2 (rowArea, &instaBtn, w[2], &linksBtn, w[3]);
                 }
             }
             r.removeFromBottom (14);
@@ -708,8 +755,16 @@ private:
             };
             line (regHead, regName, 6);
             {
-                auto a = r.removeFromTop (juce::jmin (28, r.getHeight()));
-                activateBtn.setBounds (a.withWidth (juce::jmin (150, a.getWidth())));
+                // Links: Seriennummer eintragen und kaufen. Rechts: der
+                // Unterstuetzer-Knopf (User Runde 60).
+                auto a = r.removeFromTop (juce::jmin (30, r.getHeight()));
+                const bool lic = activateBtn.getToggleState();
+                supportBtn.setBounds (a.removeFromRight (juce::jmin (156, a.getWidth() / 2)));
+                activateBtn.setBounds (a.removeFromLeft (juce::jmin (126, a.getWidth())));
+                a.removeFromLeft (8);
+                buyBtn.setVisible (! lic);
+                buyBtn.setBounds (lic ? juce::Rectangle<int>()
+                                      : a.removeFromLeft (juce::jmin (118, a.getWidth())));
                 r.removeFromTop (juce::jmin (16, r.getHeight()));
             }
             line (byHead,     byName,     14);
@@ -1865,6 +1920,7 @@ private:
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
     juce::Rectangle<float> demoChipArea;   // DEMO-Plakette (leuchtet waehrend der Absenkung)
+    std::unique_ptr<juce::AlertWindow> demoDialog;   // Klick auf DEMO
     // Runde 46: die Punkte sind klickbar - Klick auf einen Punkt waehlt den Modus.
     struct ModeDots : public juce::Component, public juce::SettableTooltipClient
     {
