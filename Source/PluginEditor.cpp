@@ -6801,8 +6801,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 60 (User): der Orbit-Fader ist genauso hoch wie die Regler
         // daneben und steht buendig mit ihnen - vorher nahm er die ganze
         // Spaltenhoehe und wirkte dadurch verschoben.
+        // Runde 62 (User, mehrfach): der Fader sass optisch zu tief. Der
+        // Regler daneben hat unten seine Kegeloeffnung, also endet seine
+        // sichtbare Masse hoeher als sein Rechteck - der Fader muss ein
+        // Stueck nach oben, damit beide auf einer Linie WIRKEN.
         orbitSlider.setBounds (orbitCol.withSizeKeepingCentre (orbitCol.getWidth(),
-                                                               juce::jmin (orbitCol.getHeight(), knobD)));
+                                                               juce::jmin (orbitCol.getHeight(), knobD))
+                                       .translated (0, -7));
 
         auto horCol = lcrInner.removeFromLeft (colW);
         // Reihenfolge Orbit - Gravity - Air (User). Die mittlere Spalte

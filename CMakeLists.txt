@@ -129,17 +129,7 @@ juce_add_binary_data(SpaceXManual
                 docs/theme-previews/theme_daynight.png
                 docs/theme-previews/theme_fireflies.png
                 docs/theme-previews/theme_scifi.png
-                docs/theme-previews/theme_pop.png
-                # Runde 59: Vorschau je Theme UND Layout (Pauls Screenshots,
-                # einheitlich auf die MICROPITCH-Kachel zugeschnitten).
-                docs/previews/pv_moon_3d.jpg
-                docs/previews/pv_moon_outline.jpg
-                docs/previews/pv_daynight_3d.jpg
-                docs/previews/pv_daynight_outline.jpg
-                docs/previews/pv_fireflies_3d.jpg
-                docs/previews/pv_fireflies_outline.jpg
-                docs/previews/pv_scifi_3d.jpg
-                docs/previews/pv_scifi_outline.jpg)
+                docs/theme-previews/theme_pop.png)
 
 target_sources(LCRMSPlugin PRIVATE
     Source/PluginProcessor.cpp

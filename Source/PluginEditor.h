@@ -335,25 +335,8 @@ private:
             // themeNames. Beim Ueberfahren eines Namens zeigt sie DIESES Theme,
             // sonst das gerade aktive - man kann also durchfahren und sehen,
             // was einen erwartet, ohne etwas umzustellen.
-            // Runde 59: je Theme ZWEI Bilder - 3D und Outline. So zeigt der
-            // Hover auf einen Theme-Namen dieses Theme im aktuellen Layout,
-            // und der Hover auf ein Layout das aktuelle Theme in jenem Layout.
-            // Pop hat kein Layout zur Auswahl, dort steht in beiden Feldern
-            // dasselbe Bild.
-            themeShot[0][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_moon_3d_jpg,           SpaceXManualData::pv_moon_3d_jpgSize);
-            themeShot[0][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_moon_outline_jpg,      SpaceXManualData::pv_moon_outline_jpgSize);
-            themeShot[1][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_daynight_3d_jpg,       SpaceXManualData::pv_daynight_3d_jpgSize);
-            themeShot[1][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_daynight_outline_jpg,  SpaceXManualData::pv_daynight_outline_jpgSize);
-            themeShot[2][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_fireflies_3d_jpg,      SpaceXManualData::pv_fireflies_3d_jpgSize);
-            themeShot[2][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_fireflies_outline_jpg, SpaceXManualData::pv_fireflies_outline_jpgSize);
-            themeShot[3][0] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_scifi_3d_jpg,          SpaceXManualData::pv_scifi_3d_jpgSize);
-            themeShot[3][1] = juce::ImageCache::getFromMemory (SpaceXManualData::pv_scifi_outline_jpg,     SpaceXManualData::pv_scifi_outline_jpgSize);
-            themeShot[4][0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,            SpaceXManualData::theme_pop_pngSize);
-            themeShot[4][1] = themeShot[4][0];
-            // Runde 61 (User): im Normalfall zeigt die Vorschau die GANZE
-            // Oberflaeche im gewaehlten Theme. Nur solange die Maus ueber 3D
-            // oder Outline steht, tritt an genau dieselbe Stelle der
-            // Rahmen-Ausschnitt - dort sieht man den Unterschied ueberhaupt.
+            // Runde 62 (User): die Vorschau zeigt schlicht die ganze
+            // Oberflaeche im jeweiligen Theme - kein Layout-Hover mehr.
             themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_silver_png,    SpaceXManualData::theme_silver_pngSize);
             themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
             themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
@@ -414,18 +397,12 @@ private:
                     hintLine.setText (b->getTooltip(), juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i]) { hoverTheme = i; repaint (previewArea.expanded (4)); return; }
-            // Runde 59 (User): auch die beiden Layout-Knoepfe zeigen sofort,
-            // was sie bedeuten - im gerade gewaehlten Theme.
-            for (int i = 0; i < 2; ++i)
-                if (e.eventComponent == &layoutBtn[i]) { hoverLayout = i; repaint (previewArea.expanded (4)); return; }
         }
         void mouseExit (const juce::MouseEvent& e) override
         {
             hintLine.setText ({}, juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i] && hoverTheme == i) { hoverTheme = -1; repaint (previewArea.expanded (4)); return; }
-            for (int i = 0; i < 2; ++i)
-                if (e.eventComponent == &layoutBtn[i] && hoverLayout == i) { hoverLayout = -1; repaint (previewArea.expanded (4)); return; }
         }
 
         // Welches Theme/Layout ist gerade aktiv? Das Panel liest es aus den
@@ -458,9 +435,7 @@ private:
             // Vorschau des gerade aktiven (oder ueberfahrenen) Themes.
             {
                 const int idx = hoverTheme >= 0 ? hoverTheme : activeThemeIdx();
-                // Layout-Hover ersetzt das Bild voruebergehend durch den
-                // Rahmen-Ausschnitt; sonst steht dort die ganze Oberflaeche.
-                const auto& shot = hoverLayout >= 0 ? themeShot[idx][hoverLayout] : themeFull[idx];
+                const auto& shot = themeFull[idx];
                 auto pr = previewArea.toFloat();
                 if (idx >= 0 && idx < kThemes && shot.isValid() && ! pr.isEmpty())
                 {
@@ -475,7 +450,7 @@ private:
                     g.setOpacity (1.0f);
                     g.drawImage (shot, pr, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
                     g.restoreState();
-                    g.setColour (juce::Colours::white.withAlpha ((hoverTheme >= 0 || hoverLayout >= 0) ? 0.30f : 0.16f));
+                    g.setColour (juce::Colours::white.withAlpha (hoverTheme >= 0 ? 0.30f : 0.16f));
                     g.drawRoundedRectangle (pr.reduced (0.5f), 7.0f, 1.0f);
                 }
             }
@@ -574,9 +549,8 @@ private:
 
     private:
         int dividerX = 0, dividerX2 = 0;
-        int hoverTheme = -1, hoverLayout = -1;
+        int hoverTheme = -1;
         int behavRuleY = 0, behavRuleX1 = 0, behavRuleX2 = 0;
-        juce::Image themeShot[kThemes][2];   // Rahmen-Ausschnitt je Layout
         juce::Image themeFull[kThemes];      // ganze Oberflaeche je Theme
         juce::Rectangle<int> previewArea;
     };
