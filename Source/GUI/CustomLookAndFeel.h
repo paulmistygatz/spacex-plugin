@@ -2991,7 +2991,14 @@ public:
                                       // BARS stand sonst eine Spur kraeftiger
                                       // neben DOUBLE und SWEEP.
                                       : goldBox       ? pairAccentColour().withAlpha (0.54f)
-                                      : glow          ? altAccentColour().withAlpha (0.54f)
+                                      // Runde 73 (User: "check nochmal alle 3
+                                      // Boxen"): altAccentColour() entsaettigt
+                                      // in Fairy Tale um 40 % - das ist fuer
+                                      // FAST gewollt, hier aber falsch: das
+                                      // Bars-Feld stand dadurch blasser als
+                                      // DOUBLE und SWEEP daneben. Jetzt
+                                      // dieselbe Quelle wie die Modus-Pillen.
+                                      : glow          ? themePalette().frameRaye.withAlpha (0.54f)
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
         g.drawRoundedRectangle (bounds, boxCorner, 1.35f);

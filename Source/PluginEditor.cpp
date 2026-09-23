@@ -4886,7 +4886,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // der so hart leuchtete - jetzt derselbe Ton wie "Vol" und die anderen
     // Beschriftungen.
     speedBox.setColour (juce::ComboBox::textColourId,
-                         isSyncOn ? altAccentColour().interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
+                         isSyncOn ? themePalette().frameRaye.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
                                   : juce::Colour (0xff6a6e78));
 
     // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
