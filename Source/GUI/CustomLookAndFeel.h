@@ -2936,7 +2936,9 @@ public:
                                       : glow          ? altAccentColour()
                                                       : themePalette().frameMain.withAlpha (0.55f);
         g.setColour (boxOutline);
-        g.drawRoundedRectangle (bounds, 6.0f, (glow || goldBox) ? 1.6f : 1.1f);
+        // Runde 65 (User): genauso stark wie die Modus-Pillen (SWEEP,
+        // ILLUSION) - das Bars-Feld ist eine Auswahl wie sie, kein Schalter.
+        g.drawRoundedRectangle (bounds, 6.0f, 1.35f);
 
         if (box.getProperties().getWithDefault ("noArrow", false))
             return;   // ohne Pfeil (User: jeder erkennt ein Dropdown)

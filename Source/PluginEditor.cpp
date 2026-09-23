@@ -1190,7 +1190,16 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     tipFor (globalChaosButton, "Smart: rolls a new setting and decides which sections belong in it");
 
     if (getWidth() > 0)
+    {
         resized();
+        // Bug (User Runde 65): schaltet man die Beschriftung bei GEOEFFNETEM
+        // Fenster um, standen die neuen Namen abgeschnitten da - erst nach
+        // Schliessen und Neuoeffnen sassen sie richtig. Grund ist der alte
+        // JUCE-Stolperstein: resized() auf dem Editor ruft das resized() des
+        // Kindes NICHT auf, solange dessen Bounds gleich bleiben - und genau
+        // dort rechnet fitTitle die Schriftgroesse neu.
+        content.resized();
+    }
     repaint();
 }
 
@@ -4881,8 +4890,11 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // ist (User-Feedback: "nicht zu hell von der Schrift wenn Sync off ist,
     // damit man direkt sieht 'ach, Sync ist off'") - unabhaengig vom
     // bestehenden Glow-Rahmen oben, der nur den Rand betrifft.
+    // Runde 65 (User): reines Weiss war der einzige Punkt in der Oberflaeche,
+    // der so hart leuchtete - jetzt derselbe Ton wie "Vol" und die anderen
+    // Beschriftungen.
     speedBox.setColour (juce::ComboBox::textColourId,
-                         isSyncOn ? juce::Colours::white : juce::Colour (0xff6a6e78));
+                         isSyncOn ? juce::Colour (0xffcfd3da) : juce::Colour (0xff6a6e78));
 
     // PARALLAX-Modus-Knoepfe mit dem Parameter synchron halten.
     {
@@ -6806,13 +6818,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 60 (User): der Orbit-Fader ist genauso hoch wie die Regler
         // daneben und steht buendig mit ihnen - vorher nahm er die ganze
         // Spaltenhoehe und wirkte dadurch verschoben.
-        // Runde 62 (User, mehrfach): der Fader sass optisch zu tief. Der
-        // Regler daneben hat unten seine Kegeloeffnung, also endet seine
-        // sichtbare Masse hoeher als sein Rechteck - der Fader muss ein
-        // Stueck nach oben, damit beide auf einer Linie WIRKEN.
-        orbitSlider.setBounds (orbitCol.withSizeKeepingCentre (orbitCol.getWidth(),
-                                                               juce::jmin (orbitCol.getHeight(), knobD))
-                                       .translated (0, -7));
+        // Runde 65 (User): der Fader wird nach OBEN laenger, die Unterkante
+        // bleibt buendig mit dem Regler daneben - vorher war der ganze Fader
+        // verschoben statt gewachsen.
+        {
+            auto orbitRect = orbitCol.withSizeKeepingCentre (orbitCol.getWidth(),
+                                                             juce::jmin (orbitCol.getHeight(), knobD));
+            orbitRect.setTop (orbitRect.getY() - 7);
+            orbitSlider.setBounds (orbitRect);
+        }
 
         auto horCol = lcrInner.removeFromLeft (colW);
         // Reihenfolge Orbit - Gravity - Air (User). Die mittlere Spalte
