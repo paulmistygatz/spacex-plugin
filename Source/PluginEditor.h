@@ -1965,6 +1965,8 @@ private:
     void applyParallaxMode();
     // Filter-Bypass je Sektion (siehe LookAndFeel "filterIcon").
     juce::TextButton galaxyFilterButton, dimFilterButton, posFilterButton;
+    // Runde 76 (Test): Hochpass auf dem Parallax-Nassanteil, drei Stufen.
+    juce::TextButton parallaxHpButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> galaxyFilterAttachment, dimFilterAttachment, posFilterAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> driftBalanceAttachment;
     juce::Slider bendSlider;

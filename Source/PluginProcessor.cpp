@@ -127,6 +127,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pSoloSection = apvts.getRawParameterValue (ID_SOLO_SECTION);
     pVolTrim     = apvts.getRawParameterValue (ID_VOL_TRIM);
     pOutPan      = apvts.getRawParameterValue (ID_OUT_PAN);
+    pPxHp        = apvts.getRawParameterValue (ID_PX_HP);
     pMix         = apvts.getRawParameterValue (ID_MIX);
 
     pTimewarpMod   = apvts.getRawParameterValue (ID_TIMEWARP_MOD);
@@ -408,6 +409,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
         juce::StringArray { "Flux", "Halo", "3D", "Drift", "Double", "Wide", "Illusion" }, 0));
+
+    // Runde 76: Hochpass auf dem Parallax-Nassanteil (Test).
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ID_PX_HP, 1 }, "Parallax HP",
+        juce::StringArray { "Off", "400 Hz", "800 Hz" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -736,6 +742,8 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // nicht mit einer hoerbaren Einschwingphase beginnt.
     updateHighpassCoeffs (bassGuardCoeffs, sampleRate, 120.0f);
     bassGuardDim = {};
+    updateHighpassCoeffs (pxHpCoeffs, sampleRate, 400.0f);
+    pxHpL = {}; pxHpR = {};
 
     updateHighpassCoeffs  (kwHpCoeffs,    sampleRate, 60.0f);
     updateHighShelfCoeffs (kwShelfCoeffs, sampleRate, 1500.0f, 4.0f);
@@ -1415,6 +1423,17 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         outPanLGain.setTargetValue (pn > 0.0f ? 1.0f - pn : 1.0f);
         outPanRGain.setTargetValue (pn < 0.0f ? 1.0f + pn : 1.0f);
     }
+    {
+        // Runde 76: Trennfrequenz des Parallax-Hochpasses.
+        const int hpSel = juce::jlimit (0, 2, (int) std::round (pPxHp->load()));
+        const float hpHz = hpSel == 2 ? 800.0f : 400.0f;
+        if (hpSel != lastPxHpSel)
+        {
+            updateHighpassCoeffs (pxHpCoeffs, currentSampleRate, hpHz);
+            lastPxHpSel = hpSel;
+        }
+        pxHpActive = hpSel != 0;
+    }
     mixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pMix->load() * 0.01f));
 
     // Section-On/Off als weiche Gains statt harter Verzweigung - vermeidet
@@ -1822,8 +1841,18 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 const float pxG  = pxGainSmoothed.getNextValue();
                 const float pxTL = pxTiltLSmoothed.getNextValue();
                 const float pxTR = pxTiltRSmoothed.getNextValue();
-                const float outL = (l + (lDriftBal * pxTL - l) * pxM) * pxG * pxPanLSmoothed.getNextValue();
-                const float outR = (r + (rDriftBal * pxTR - r) * pxM) * pxG * pxPanRSmoothed.getNextValue();
+                // Runde 76: gefiltert wird NUR die Differenz zum Original.
+                // Unterhalb der Trennfrequenz bleibt damit nass = trocken -
+                // der Bass geht unveraendert durch, er wird bloss nicht mehr
+                // verbreitert. Der Filter laeuft immer mit, damit beim
+                // Umschalten nichts knackst.
+                float diffL = lDriftBal * pxTL - l;
+                float diffR = rDriftBal * pxTR - r;
+                const float hpL = pxHpL.process (diffL, pxHpCoeffs);
+                const float hpR = pxHpR.process (diffR, pxHpCoeffs);
+                if (pxHpActive) { diffL = hpL; diffR = hpR; }
+                const float outL = (l + diffL * pxM) * pxG * pxPanLSmoothed.getNextValue();
+                const float outR = (r + diffR * pxM) * pxG * pxPanRSmoothed.getNextValue();
                 l = l + (outL - l) * dGain;
                 r = r + (outR - r) * dGain;
             }

@@ -447,6 +447,13 @@ public:
     // eine feste Einstellung, Amount skaliert sie. Vorlaeufig schreibt die
     // GUI daraus Drift/Shift - die echten Werte der vier Modi liefert der
     // User noch (MicroPitch / altes Parallax).
+    // Runde 76 (User, Test): Hochpass NUR auf dem Parallax-Nasssignal.
+    // 0 = aus, 1 = 400 Hz, 2 = 800 Hz. Unterhalb der Trennfrequenz ist nass
+    // gleich trocken - es geht also kein Bass verloren, er wird nur nicht
+    // mehr verbreitert. Gedacht zum Vergleichen; wenn klar ist, welcher Modus
+    // welche Frequenz will, wandert die Zahl in die Modus-Tabelle und der
+    // Knopf verschwindet wieder.
+    static constexpr auto ID_PX_HP           = "parallaxHp";
     static constexpr auto ID_PARALLAX_MODE   = "parallaxMode";
     static constexpr auto ID_PARALLAX_AMOUNT = "parallaxAmount";
     // Runde 44: Parallax-Modi als WEGPUNKTE. Amount faehrt der Reihe nach
@@ -717,6 +724,11 @@ private:
     // Kammfilter, und bei neutralen Einstellungen bleibt alles bitgenau.
     BiquadCoeffs bassGuardCoeffs;
     BiquadState  bassGuardDim;   // nur noch Mid/Side - Galaxy filtert in der FFT
+    BiquadState  pxHpL, pxHpR;   // Runde 76: Hochpass auf dem Parallax-Nassanteil
+    BiquadCoeffs pxHpCoeffs;
+    std::atomic<float>* pPxHp = nullptr;
+    int  lastPxHpSel = -1;
+    bool pxHpActive  = false;
     // ===== AUTO GAIN =====
     // Gemessen wird K-gewichtet (vereinfachtes ITU-R BS.1770: Hochpass gegen
     // den Bassueberschuss, Hoehenschelf fuer die Ohrkurve) auf der Monosumme.

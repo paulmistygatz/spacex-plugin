@@ -1566,6 +1566,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (gravitySlider,   "Gravity: how strongly the centre is separated from the sides");
     tip (orbitSlider,     "Orbit: down keeps the centre only, up keeps the sides only, middle is the original");
     tip (galaxyFilterButton, "Focus: Galaxy only separates inside the focus range. Click to let it work across the whole spectrum");
+    tip (parallaxHpButton,   "High-pass on the Parallax effect only: off, 400 Hz, 800 Hz. The low end stays exactly as it came in - it just no longer gets widened");
     tip (galaxyModButton, "Mod: switch modulation on or off for this section");
     tip (galaxyModDepthSlider, "Depth: how far the modulation moves this section");
 
@@ -3292,6 +3293,23 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         b->setVisible (false);
         b->setEnabled (false);
     }
+    // --- Parallax-Hochpass (Runde 76, Test) ---
+    // Drei Stufen auf EINEM Knopf: aus / 400 / 800. Der Zustand steht im
+    // Symbol (Zahl der Kurvenstriche), nicht in einem zweiten Element.
+    parallaxHpButton.setClickingTogglesState (false);
+    parallaxHpButton.setWantsKeyboardFocus (false);
+    parallaxHpButton.getProperties().set ("filterIcon", true);
+    parallaxHpButton.getProperties().set ("focusDirect", true);
+    content.addAndMakeVisible (parallaxHpButton);
+    parallaxHpButton.onClick = [this]
+    {
+        if (auto* p = processor.apvts.getParameter (LCRMSAudioProcessor::ID_PX_HP))
+        {
+            const int cur  = juce::jlimit (0, 2, (int) std::round (p->convertFrom0to1 (p->getValue())));
+            const int next = (cur + 1) % 3;
+            p->setValueNotifyingHost ((float) next / 2.0f);
+        }
+    };
     galaxyFilterAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_GALAXY, galaxyFilterButton);
     dimFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_DIM,    dimFilterButton);
     posFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_VIS,    posFilterButton);
@@ -4661,6 +4679,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Bypass hat Mono-Check ohnehin keine Wirkung mehr, siehe DSP).
     setSectionOff (volSlider, ! uiBypassed);
     setSectionOff (panSlider, ! uiBypassed);
+    {
+        // Runde 76: Stufe des Parallax-Hochpasses ins Symbol spiegeln.
+        const int hpStage = juce::jlimit (0, 2, (int) std::round (
+            processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PX_HP)->load()));
+        if ((int) parallaxHpButton.getProperties().getWithDefault ("hpStage", -1) != hpStage)
+        {
+            parallaxHpButton.getProperties().set ("hpStage", hpStage);
+            parallaxHpButton.setToggleState (hpStage != 0, juce::dontSendNotification);
+            parallaxHpButton.repaint();
+        }
+    }
     setSectionOff (mixSlider, ! uiBypassed);
     setSectionOff (monoCheckButton, ! uiBypassed);
     setSectionOff (monoDryButton, ! uiBypassed);
@@ -7094,7 +7123,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     }
     else
     {
-    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
+    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton, &parallaxHpButton);
     if (! kNewParallax)
     {
         // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die

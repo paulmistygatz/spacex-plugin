@@ -775,6 +775,22 @@ public:
             g.strokePath (curve, juce::PathStrokeType (juce::jmax (1.2f, s2 * 0.085f),
                                                        juce::PathStrokeType::curved,
                                                        juce::PathStrokeType::rounded));
+            // Runde 76: der Parallax-Hochpass hat DREI Stufen. Die Stufe steht
+            // als ein bzw. zwei Punkte unter der Kurve - aus bleibt leer.
+            const int hpStage = (int) button.getProperties().getWithDefault ("hpStage", 0);
+            if (hpStage > 0)
+            {
+                const float dr = juce::jmax (1.0f, s2 * 0.05f);
+                const float dy = box.getBottom() + dr * 2.2f;
+                const float cx = box.getCentreX();
+                if (hpStage == 1)
+                    g.fillEllipse (cx - dr, dy - dr, dr * 2.0f, dr * 2.0f);
+                else
+                {
+                    g.fillEllipse (cx - dr * 3.2f, dy - dr, dr * 2.0f, dr * 2.0f);
+                    g.fillEllipse (cx + dr * 1.2f, dy - dr, dr * 2.0f, dr * 2.0f);
+                }
+            }
             // Frueher lag hier zusaetzlich ein Schraegstrich fuer "aus". Das war
             // dieselbe Information zweimal (Licht aus UND durchgestrichen) und
             // hat den Knopf technisch wirken lassen - Leuchten oder nicht reicht.
