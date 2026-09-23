@@ -4111,7 +4111,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         smartInfoLabel.setJustificationType (juce::Justification::centredLeft);
         // Runde 66 (User): rechts stand noch reichlich Platz frei, selbst bei
         // der laengsten Zeile (Backings) - die Schrift darf also groesser.
-        smartInfoLabel.setFont (juce::Font (juce::FontOptions (13.5f)));
+        smartInfoLabel.setFont (juce::Font (juce::FontOptions (14.5f)));
         smartInfoLabel.setColour (juce::Label::textColourId, juce::Colour (0xff8f96a4));
         smartInfoLabel.setMinimumHorizontalScale (1.0f);
         smartInfoLabel.setBorderSize (juce::BorderSize<int> (0));
