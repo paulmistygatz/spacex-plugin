@@ -3410,7 +3410,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             // Runde 82 (User): kleine Luecke nach den ersten beiden - links
             // die Modi, die formen und mittig bleiben (Halo, 3D), rechts die,
             // die breit machen (Double, Illusion).
-            pxModeDots.groupAfter = 2;
+            pxModeDots.groupAfter = 0;   // Runde 89 (User): Luecke wieder weg
             pxModeDots.setTooltip ("Parallax mode: click a dot to pick it directly");
             pxModeDots.onPick = [this] (int i)
             {
@@ -7199,7 +7199,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int btnGap = 6;
        #if SPACEX_PARALLAX_UI == 2
         const int btnW   = juce::jmin ((kChoiceW - 6) / 2, (driftInner.getWidth() - knobS - gap - 6) / 2);   // Runde 68: ergibt kChoiceW
-        const int blockW = btnW * 2 + btnGap;
+        // Runde 89 (User: "die Box ist zu klein, aber wir haben ja noch Platz
+        // in der Section"): seit das Diagramm links in der Pille sitzt, bleibt
+        // fuer das Wort zu wenig uebrig. Die Pille nimmt jetzt so viel Breite,
+        // wie neben dem Regler noch frei ist - bis zu 116 px.
+        const int blockW = juce::jlimit (btnW * 2 + btnGap, 116,
+                                         driftInner.getWidth() - knobS - gap);
        #else
         // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
         const int btnW   = juce::jmin (70, (driftInner.getWidth() - knobS - gap - btnGap * 2) / 3);
