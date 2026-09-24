@@ -4324,6 +4324,12 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     }
 
     startTimerHz (20);
+    // Runde 97 (User: "beim Oeffnen sind Sektionen erst an und gehen dann
+    // aus"): der Abgleich mit den Parametern lief bisher erst beim ERSTEN
+    // Timer-Tick, also bis zu 50 ms nach dem ersten Anstrich. Bis dahin zeigte
+    // die Oberflaeche ihre Konstruktor-Vorgaben - daher das kurze Flackern.
+    // Einmal von Hand aufrufen, bevor gezeichnet wird.
+    timerCallback();
 }
 
 LCRMSAudioProcessorEditor::~LCRMSAudioProcessorEditor()
