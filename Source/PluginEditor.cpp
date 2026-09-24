@@ -3343,11 +3343,11 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     };
     {
         // Runde 45: fuenf Modi aus den User-Presets (Namen folgen).
-        static const char* modeNames[kPxModes] = { "HALO", "3D", "DOUBLE", "ILLUSION" };
-        static const char* modeTips[kPxModes]  = { "Halo: a soft ring around the sound - stays centred, holds up on a full mix",
-                                                   "3D: Amount blends in a deep, wide image, pulled back to the centre",
-                                                   "Double: the widest of the four, with the strongest character",
-                                                   "Illusion: tighter than Double - stays close to the middle" };
+        static const char* modeNames[kPxModes] = { "VELVET", "HALO", "ILLUSION", "DOUBLE" };
+        static const char* modeTips[kPxModes]  = { "Velvet: the gentlest - soft and close, the centre barely moves",
+                                                   "Halo: a soft ring around the sound - stays centred, holds up on a full mix",
+                                                   "Illusion: sounds wider than it is, but stays tight",
+                                                   "Double: the widest of the four, with the strongest character" };
         for (int i = 0; i < kPxModes; ++i)
         {
             auto& b = parallaxModeButtons[i];
@@ -4924,7 +4924,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // Bild je nach Amount mal nach rechts, mal nach links (zwei Wegpunkte
         // mit wanderndem Mix) und gehoert damit zu 3D und DRIFT in die
         // Familie der plastischen Modi, nicht zu den Widenern.
-        static const char* const modeNames[kPxModes] = { "HALO", "3D", "DOUBLE", "ILLUSION" };
+        static const char* const modeNames[kPxModes] = { "VELVET", "HALO", "ILLUSION", "DOUBLE" };
         // Runde 51 (User): in BEIDEN Builds Punkte, kein Fuellbalken mehr -
         // die beiden Builds unterscheiden sich nur noch darin, ob die Punkte
         // IN der Pille oder darunter sitzen.

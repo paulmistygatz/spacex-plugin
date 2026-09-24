@@ -208,27 +208,27 @@ const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef
     // (Flux, Halo, 3D), dann die Widener, jeweils ansteigend.
     static const ParallaxModeDef defs[kParallaxModes] = {
         // (FLUX ist in Runde 81 raus - User-Entscheidung nach dem Hoertest.)
-        // 1 HALO (aus Pauls Presets "1 NEU DRIFT" und "111 HALO"): Drifts
+        // 1 VELVET (aus Pauls Presets "1 NEU DRIFT" und "111 HALO"): Drifts
         //   Werte, Amount-Weg endet bei 64,9 %. Die eigene Balance steht auf
         //   39,8 - das ergibt bei vollem Amount 39,8 x 0,649 = 25,8 % nach
         //   rechts, also genau die Summe aus der ersten Fassung (12,4) und
         //   dem, was Paul am Pan-Regler nachgelegt hat (13,4).
         { 1, true,  false, 0.6490f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f, 39.8f } } },
-        // 2 3D (Preset "111 3D"): eigene Balance +22,6 % bei vollem Amount -
+        // 2 HALO (frueher "3D", Preset "111 3D"): Balance +22,6 % bei vollem Amount -
         //   der Modus zieht sich damit selbst in die Mitte, statt nach links
         //   zu kippen.
         { 1, true,  false, 1.0000f, { {  -90.3f, 0.09f, 27.5f, 38.0f, 0.17f, 22.6f } } },
         // (DRIFT ist in Runde 80 rausgeflogen - User-Entscheidung nach dem
-        //  Hoervergleich; HALO deckt dieselbe Richtung ab, bleibt aber mittig.)
-        // 3 DOUBLE - Amount = Mix bis 36,7 %
-        { 1, true,  true,  1.0000f, { { -100.0f, 0.00f, 27.5f, 36.7f, 0.00f, 0.0f } } },
+        //  Hoervergleich; VELVET deckt dieselbe Richtung ab, bleibt mittig.)
         // (WIDE ist in Runde 81 raus - im Pegelvergleich praktisch
         //  deckungsgleich mit ILLUSION auf 100 %.)
-        // 4 ILLUSION: zwei Wegpunkte, Amount endet bei 3 Uhr. 3 % Balance
+        // 3 ILLUSION: zwei Wegpunkte, Amount endet bei 3 Uhr. 3 % Balance
         //   nach LINKS, damit es sich klar von DOUBLE absetzt (User:
         //   "Illusion klingt tighter, Double weiter").
         { 2, false, true,  0.8125f, { {  -38.6f, 6.58f,  0.0f, 30.7f, 0.00f, -3.0f },
-                                      { -100.0f, 6.39f,  6.9f, 32.9f, 0.00f, -3.0f } } }
+                                      { -100.0f, 6.39f,  6.9f, 32.9f, 0.00f, -3.0f } } },
+        // 4 DOUBLE - Amount = Mix bis 36,7 %. Der weiteste der vier.
+        { 1, true,  true,  1.0000f, { { -100.0f, 0.00f, 27.5f, 36.7f, 0.00f, 0.0f } } }
     };
     return defs[juce::jlimit (0, kParallaxModes - 1, mode)];
 }
@@ -407,7 +407,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Halo", "3D", "Double", "Illusion" }, 0));
+        juce::StringArray { "Velvet", "Halo", "Illusion", "Double" }, 0));
 
     // Runde 80 (User): zwei unabhaengige Wege zum selben Filter.
     //  - Knopf: fest 120 Hz, genau wie Bass Protect - die Absicherung.
