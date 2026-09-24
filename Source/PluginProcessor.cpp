@@ -128,6 +128,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pVolTrim     = apvts.getRawParameterValue (ID_VOL_TRIM);
     pOutPan      = apvts.getRawParameterValue (ID_OUT_PAN);
     pPxHp        = apvts.getRawParameterValue (ID_PX_HP);
+    pPxHpFreq    = apvts.getRawParameterValue (ID_PX_HP_FREQ);
     pMix         = apvts.getRawParameterValue (ID_MIX);
 
     pTimewarpMod   = apvts.getRawParameterValue (ID_TIMEWARP_MOD);
@@ -219,15 +220,14 @@ const LCRMSAudioProcessor::ParallaxModeDef& LCRMSAudioProcessor::parallaxModeDef
         { 1, true,  false, 0.6490f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f, 19.1f } } },
         // 3 3D ("3D"): altes Ultra bei 72 %, Mix 100 %
         { 1, true,  false, 1.0000f, { {  -90.3f, 0.09f, 27.5f, 38.0f, 0.17f, 0.0f } } },
-        // 4 DRIFT ("Drift"): altes Ultra bei 97 %, Mix 100 %, dazu etwas mehr
-        //   Tilt nach rechts (User: "soll wieder mittiger klingen")
-        { 1, true,  false, 1.0000f, { {  -19.3f, 0.76f,  8.0f, 39.8f, 2.01f, 0.0f } } },
-        // 5 DOUBLE - Amount = Mix bis 36,7 %
+        // (DRIFT ist in Runde 80 rausgeflogen - User-Entscheidung nach dem
+        //  Hoervergleich; HALO deckt dieselbe Richtung ab, bleibt aber mittig.)
+        // 4 DOUBLE - Amount = Mix bis 36,7 %
         { 1, true,  true,  1.0000f, { { -100.0f, 0.00f, 27.5f, 36.7f, 0.00f, 0.0f } } },
-        // 6 WIDE ("AAA Wide Neu"): altes Ultra ganz aufgedreht, Mix 83 % -
+        // 5 WIDE ("AAA Wide Neu"): altes Ultra ganz aufgedreht, Mix 83 % -
         //   zusammengerechnet 33,2 % Parallax-Mix. Amount = nur der Mix.
         { 1, true,  false, 1.0000f, { {   -6.6f, 0.88f,  0.0f, 33.2f, 2.33f, 0.0f } } },
-        // 7 ILLUSION (frueher Wide): zwei Wegpunkte, Amount endet bei 3 Uhr
+        // 6 ILLUSION (frueher Wide): zwei Wegpunkte, Amount endet bei 3 Uhr
         { 2, false, true,  0.8125f, { {  -38.6f, 6.58f,  0.0f, 30.7f, 0.00f, 0.0f },
                                       { -100.0f, 6.39f,  6.9f, 32.9f, 0.00f, 0.0f } } }
     };
@@ -408,12 +408,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_PARALLAX_MODE, 1 }, "Parallax Mode",
-        juce::StringArray { "Flux", "Halo", "3D", "Drift", "Double", "Wide", "Illusion" }, 0));
+        juce::StringArray { "Flux", "Halo", "3D", "Double", "Wide", "Illusion" }, 0));
 
-    // Runde 76: Hochpass auf dem Parallax-Nassanteil (Test).
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { ID_PX_HP, 1 }, "Parallax HP",
-        juce::StringArray { "Off", "400 Hz", "800 Hz" }, 0));
+    // Runde 80 (User): zwei unabhaengige Wege zum selben Filter.
+    //  - Knopf: fest 120 Hz, genau wie Bass Protect - die Absicherung.
+    //  - Regler: frei einstellbar, fuer den Klang ("nur oberhalb verbreitern").
+    // Gerechnet wird EIN Filter mit der hoeheren der beiden Frequenzen, damit
+    // sich nicht zwei Hochpaesse stapeln und die Flanke unvorhersehbar wird.
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_PX_HP, 1 }, "Parallax Bass Protect", false));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_PX_HP_FREQ, 1 }, "Parallax HP Freq",
+        juce::NormalisableRange<float> (20.0f, 1000.0f, 1.0f, 0.35f), 20.0f, "Hz"));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_PARALLAX_AMOUNT, 1 }, "Parallax Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
@@ -1424,15 +1430,16 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         outPanRGain.setTargetValue (pn < 0.0f ? 1.0f + pn : 1.0f);
     }
     {
-        // Runde 76: Trennfrequenz des Parallax-Hochpasses.
-        const int hpSel = juce::jlimit (0, 2, (int) std::round (pPxHp->load()));
-        const float hpHz = hpSel == 2 ? 800.0f : 400.0f;
-        if (hpSel != lastPxHpSel)
+        // Runde 80: die hoehere der beiden Vorgaben gewinnt - ein Filter.
+        const float guardHz = pPxHp->load() > 0.5f ? 120.0f : 0.0f;
+        const float freeHz  = pPxHpFreq->load();
+        const float wishHz  = juce::jmax (guardHz, freeHz > 25.0f ? freeHz : 0.0f);
+        pxHpActive = wishHz > 25.0f;
+        if (pxHpActive && std::abs (wishHz - lastPxHpHz) > 0.5f)
         {
-            updateHighpassCoeffs (pxHpCoeffs, currentSampleRate, hpHz);
-            lastPxHpSel = hpSel;
+            updateHighpassCoeffs (pxHpCoeffs, currentSampleRate, wishHz);
+            lastPxHpHz = wishHz;
         }
-        pxHpActive = hpSel != 0;
     }
     mixSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pMix->load() * 0.01f));
 

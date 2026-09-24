@@ -453,7 +453,8 @@ public:
     // mehr verbreitert. Gedacht zum Vergleichen; wenn klar ist, welcher Modus
     // welche Frequenz will, wandert die Zahl in die Modus-Tabelle und der
     // Knopf verschwindet wieder.
-    static constexpr auto ID_PX_HP           = "parallaxHp";
+    static constexpr auto ID_PX_HP           = "parallaxHp";        // Bass Protect fuer Parallax (120 Hz)
+    static constexpr auto ID_PX_HP_FREQ      = "parallaxHpFreq";    // freier Hochpass, 20..1000 Hz
     static constexpr auto ID_PARALLAX_MODE   = "parallaxMode";
     static constexpr auto ID_PARALLAX_AMOUNT = "parallaxAmount";
     // Runde 44: Parallax-Modi als WEGPUNKTE. Amount faehrt der Reihe nach
@@ -467,7 +468,7 @@ public:
     // Runde 45: Amount 0 % ist IMMER "alles auf 0" (User). amountIsMix: die
     // Einstellung steht fest, Amount dreht nur den Mix von 0 bis zum Wert des
     // Presets (nie darueber). Sonst: Amount faehrt von Null ueber die Punkte.
-    static constexpr int kParallaxModes = 7;   // Runde 75: HALO kommt dazu
+    static constexpr int kParallaxModes = 6;   // Runde 80: Drift raus
     struct ParallaxModeDef { int numPoints; bool amountIsMix; bool balance; float amountMax; ParallaxPoint pts[4]; };
     static const ParallaxModeDef& parallaxModeDef (int mode) noexcept;
     static ParallaxPoint evalParallaxMode (int mode, float amount01) noexcept;
@@ -726,9 +727,10 @@ private:
     BiquadState  bassGuardDim;   // nur noch Mid/Side - Galaxy filtert in der FFT
     BiquadState  pxHpL, pxHpR;   // Runde 76: Hochpass auf dem Parallax-Nassanteil
     BiquadCoeffs pxHpCoeffs;
-    std::atomic<float>* pPxHp = nullptr;
-    int  lastPxHpSel = -1;
-    bool pxHpActive  = false;
+    std::atomic<float>* pPxHp     = nullptr;
+    std::atomic<float>* pPxHpFreq = nullptr;
+    float lastPxHpHz = -1.0f;
+    bool  pxHpActive = false;
     // ===== AUTO GAIN =====
     // Gemessen wird K-gewichtet (vereinfachtes ITU-R BS.1770: Hochpass gegen
     // den Bassueberschuss, Hoehenschelf fuer die Ohrkurve) auf der Monosumme.
