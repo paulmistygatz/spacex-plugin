@@ -1915,7 +1915,7 @@ private:
     // PARALLAX neu: ein Regler + vier Modus-Knoepfe (Runde 34).
     juce::Slider parallaxAmountSlider;
     juce::Label  parallaxAmountLabel;
-    static constexpr int kPxModes = 6;   // Runde 80: Flux, Halo, 3D, Double, Wide, Illusion (Drift raus)
+    static constexpr int kPxModes = 4;   // Runde 81: Halo, 3D, Double, Illusion
     juce::TextButton parallaxModeButtons[kPxModes];
     juce::Rectangle<int> pxModeDotsArea;   // SpaceXclick: Punkte unter dem Klick-Knopf
     juce::Rectangle<float> demoChipArea;   // DEMO-Plakette (leuchtet waehrend der Absenkung)
@@ -1968,7 +1968,6 @@ private:
     // Runde 80 (Test): Bass Protect fuer Parallax (Knopf, fest 120 Hz) und
     // ein frei einstellbarer Hochpass daneben.
     juce::TextButton parallaxHpButton;
-    juce::Slider     parallaxHpSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> galaxyFilterAttachment, dimFilterAttachment, posFilterAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> driftBalanceAttachment;
     juce::Slider bendSlider;
@@ -2367,7 +2366,6 @@ private:
     std::unique_ptr<SliderAttachment> offsetAttachment, posWidthAttachment, distanceAttachment, elevateAttachment;
     std::unique_ptr<SliderAttachment> volAttachment;
     std::unique_ptr<SliderAttachment> panAttachment;   // Runde 74
-    std::unique_ptr<SliderAttachment> parallaxHpAttachment;
     std::unique_ptr<ButtonAttachment> parallaxHpBtnAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LCRMSAudioProcessorEditor)

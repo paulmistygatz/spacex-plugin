@@ -1567,7 +1567,6 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (orbitSlider,     "Orbit: down keeps the centre only, up keeps the sides only, middle is the original");
     tip (galaxyFilterButton, "Focus: Galaxy only separates inside the focus range. Click to let it work across the whole spectrum");
     tip (parallaxHpButton,   "Bass Protect for Parallax: keeps everything below 120 Hz out of the widening. The low end stays exactly as it came in");
-    tip (parallaxHpSlider,   "High-pass for Parallax: only above this frequency does the effect widen. All the way down is off");
     tip (galaxyModButton, "Mod: switch modulation on or off for this section");
     tip (galaxyModDepthSlider, "Depth: how far the modulation moves this section");
 
@@ -3304,11 +3303,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (parallaxHpButton);
     parallaxHpBtnAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PX_HP, parallaxHpButton);
 
-    styleRotary (parallaxHpSlider, false);
-    parallaxHpSlider.getProperties().set ("footerKnob", true);
-    content.addAndMakeVisible (parallaxHpSlider);
-    parallaxHpAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PX_HP_FREQ, parallaxHpSlider);
-    parallaxHpSlider.setDoubleClickReturnValue (true, 20.0);
+
     galaxyFilterAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_GALAXY, galaxyFilterButton);
     dimFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_DIM,    dimFilterButton);
     posFilterAttachment    = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PRISM_VIS,    posFilterButton);
@@ -3348,13 +3343,11 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     };
     {
         // Runde 45: fuenf Modi aus den User-Presets (Namen folgen).
-        static const char* modeNames[kPxModes] = { "FLUX", "HALO", "3D", "DOUBLE", "WIDE", "ILLUSION" };
-        static const char* modeTips[kPxModes]  = { "Flux: Amount moves the image around instead of just widening it",
-                                                   "Halo: a soft ring around the sound - stays centred, holds up on a full mix",
-                                                   "3D: Amount blends in a deep, wide image",
-                                                   "Double: Amount blends in a wide double",
-                                                   "Wide: Amount blends in a wide, close double",
-                                                   "Illusion: Amount grows it, then widens further" };
+        static const char* modeNames[kPxModes] = { "HALO", "3D", "DOUBLE", "ILLUSION" };
+        static const char* modeTips[kPxModes]  = { "Halo: a soft ring around the sound - stays centred, holds up on a full mix",
+                                                   "3D: Amount blends in a deep, wide image, pulled back to the centre",
+                                                   "Double: the widest of the four, with the strongest character",
+                                                   "Illusion: tighter than Double - stays close to the middle" };
         for (int i = 0; i < kPxModes; ++i)
         {
             auto& b = parallaxModeButtons[i];
@@ -4927,7 +4920,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // Bild je nach Amount mal nach rechts, mal nach links (zwei Wegpunkte
         // mit wanderndem Mix) und gehoert damit zu 3D und DRIFT in die
         // Familie der plastischen Modi, nicht zu den Widenern.
-        static const char* const modeNames[kPxModes] = { "FLUX", "HALO", "3D", "DOUBLE", "WIDE", "ILLUSION" };
+        static const char* const modeNames[kPxModes] = { "HALO", "3D", "DOUBLE", "ILLUSION" };
         // Runde 51 (User): in BEIDEN Builds Punkte, kein Fuellbalken mehr -
         // die beiden Builds unterscheiden sich nur noch darin, ob die Punkte
         // IN der Pille oder darunter sitzen.
@@ -7122,11 +7115,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     else
     {
     auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton, &parallaxHpButton);
-    {
-        // Runde 80: der freie Hochpass sitzt direkt links neben seinem Knopf.
-        auto fb = parallaxHpButton.getBounds();
-        parallaxHpSlider.setBounds (fb.getX() - 4 - fb.getWidth(), fb.getY(), fb.getWidth(), fb.getHeight());
-    }
+
     if (! kNewParallax)
     {
         // Das Regler-Paar wird als Ganzes horizontal zentriert, damit die
