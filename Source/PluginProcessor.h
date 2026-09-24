@@ -438,6 +438,11 @@ public:
     // Runde 49: Speed-Regler ist in SpaceXraye raus - FAST legt pauschal
     // 30 % auf das Charakter-Tempo drauf.
     static constexpr auto ID_RAY_FAST     = "rayFast";
+    // Runde 105 (User): Seiten-EQ in MID-SIDE statt DEPTH/Distance. Sieben
+    // feste Kurven, x2 verdoppelt die dB. Siehe kMsEqTable in processBlock.
+    static constexpr auto ID_MS_EQ        = "msEq";
+    static constexpr auto ID_MS_EQ_X2     = "msEqX2";
+    static constexpr int  kMsEqModes      = 7;
     static constexpr auto ID_RAY_AMOUNT   = "rayAmount";   // SpaceXraye
     static constexpr auto ID_RAY_CHAR     = "rayCharacter"; // SpaceXraye
     struct RayCharacter { float centreHz, sweepMul, fbMul, mixMul, stereoOffset, rateMul; };
@@ -618,6 +623,8 @@ private:
     std::atomic<float>* pBassGuard = nullptr;
     std::atomic<float>* pHorizon = nullptr;
     std::atomic<float>* pDepth = nullptr;
+    std::atomic<float>* pMsEq   = nullptr;
+    std::atomic<float>* pMsEqX2 = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;
@@ -711,6 +718,14 @@ private:
     };
     BiquadCoeffs elevateCoeffs;
     BiquadState elevateStateL, elevateStateR;
+    // Seiten-EQ (Runde 105): ein High Shelf auf der Mitte, ein Low und ein
+    // High Shelf auf den Seiten. Jede Stellung setzt nur Gain/Frequenz; die
+    // Werte gleiten pro Block (msEqCur), damit Umschalten nicht knackt.
+    BiquadCoeffs msEqMidHsC, msEqSideLsC, msEqSideHsC;
+    BiquadState  msEqMidHs, msEqSideLs, msEqSideHs;
+    float msEqCur[6] = { 0.0f, 11.55f, 0.0f, 8.81f, 0.0f, 10.55f };   // dB, log2(Hz) je Filter
+    static void updateShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb,
+                                   float slope, bool highShelf) noexcept;
     static void updatePeakingCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb, float q) noexcept;
 
     // ===== PRISM-Filter =====

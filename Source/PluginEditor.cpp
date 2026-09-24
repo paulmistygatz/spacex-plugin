@@ -3950,6 +3950,51 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     distanceSlider.getProperties().set ("centerOut", true);
     distanceAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_DEPTH, distanceSlider);
     distanceSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+    // Runde 105 (User): DEPTH ist raus - der Regler bleibt nur als Objekt
+    // bestehen (Attachment), wird aber nicht mehr gezeigt.
+    distanceSlider.setVisible (false);
+    distanceLabel.setVisible (false);
+
+    // ===== SEITEN-EQ (Runde 105) =====
+    // Icon-Feld wie Micropitch und Phaser: Kurve oben, Name darunter, Punkte
+    // unter dem Feld. x2 sitzt im Kopf, wie FAST beim Phaser.
+    msEqButton.setClickingTogglesState (false);
+    msEqButton.setWantsKeyboardFocus (false);
+    msEqButton.getProperties().set ("thinOnFrame", true);
+    msEqButton.getProperties().set ("modePill", true);
+    msEqButton.getProperties().set ("eqDiagram",
+        juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
+                      (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load())));
+    msEqButton.setTooltip ("Sides EQ: Flat, Low Cut, Air, Tilt, Soft, Mid Soft, Cross. Click for the next one, Cmd-click to go back");
+    content.addAndMakeVisible (msEqButton);
+    msEqButton.onClick = [this]
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MS_EQ))
+        {
+            constexpr int n = LCRMSAudioProcessor::kMsEqModes;
+            const int cur = juce::jlimit (0, n - 1, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
+            const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) ((cur + (back ? n - 1 : 1)) % n)));
+        }
+    };
+    msEqDots.count = LCRMSAudioProcessor::kMsEqModes;
+    msEqDots.setTooltip ("Sides EQ: click a dot to pick it directly");
+    msEqDots.onPick = [this] (int i)
+    {
+        if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MS_EQ))
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
+    };
+    content.addAndMakeVisible (msEqDots);
+
+    msEqX2Button.setButtonText ("x2");
+    msEqX2Button.setClickingTogglesState (true);
+    msEqX2Button.setWantsKeyboardFocus (false);
+    msEqX2Button.getProperties().set ("thinOnFrame", true);
+    msEqX2Button.getProperties().set ("altAccent", true);   // wie FAST
+    msEqX2Button.getProperties().set ("headerPill", true);
+    msEqX2Button.setTooltip ("x2: doubles the curve of the Sides EQ");
+    content.addAndMakeVisible (msEqX2Button);
+    msEqX2Attachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_X2, msEqX2Button);
 
     styleRotary (elevateSlider, false);
     content.addAndMakeVisible (elevateSlider);
@@ -4628,6 +4673,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // gibt. Width und Elevate sind unsichtbar, ihre Zeilen koennen weg.
     setSectionOff (offsetSlider, isDriftOn);
     setSectionOff (distanceSlider, isWidthBoostOn);
+    setSectionOff (msEqButton,   isWidthBoostOn);
+    setSectionOff (msEqX2Button, isWidthBoostOn);
+    {
+        const bool dotsOff = uiBypassed || ! isWidthBoostOn;
+        if (msEqDots.off != dotsOff) { msEqDots.off = dotsOff; msEqDots.repaint(); }
+    }
     setSectionOff (rayStrengthButton, isRayOn);
    #if SPACEX_RAYE_UI == 1
     setSectionOff (rayAmountSlider, isRayOn);
@@ -5073,6 +5124,29 @@ void LCRMSAudioProcessorEditor::timerCallback()
             if (rayModeDots.index != c) { rayModeDots.index = c; rayModeDots.repaint(); }
         }
        #endif
+    {
+        // Runde 105: Seiten-EQ in MID-SIDE.
+        static const char* const eqNames[LCRMSAudioProcessor::kMsEqModes] =
+            { "FLAT", "LOW CUT", "AIR", "TILT", "SOFT", "MID SOFT", "CROSS" };
+        const int e = juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
+                                    (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
+        if (msEqButton.getButtonText() != eqNames[e])
+            msEqButton.setButtonText (eqNames[e]);
+        if ((int) msEqButton.getProperties().getWithDefault ("eqDiagram", -1) != e)
+        {
+            msEqButton.getProperties().set ("eqDiagram", e);
+            msEqButton.repaint();
+        }
+        // Dieselbe Farbe wie die anderen Icon-Felder - alle drei sollen
+        // gleich aussehen (User).
+        const int want = (int) themePalette().frameRaye.getARGB();
+        if ((int) msEqButton.getProperties().getWithDefault ("pillColour", 0) != want)
+        {
+            msEqButton.getProperties().set ("pillColour", want);
+            msEqButton.repaint();
+        }
+        if (msEqDots.index != e) { msEqDots.index = e; msEqDots.repaint(); }
+    }
     }
 
     // Polarity-Positions-Buttons mit dem aktuellen Parameterwert synchron
@@ -6828,10 +6902,22 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Mod-Icon, gleiche Groessenordnung wie das Lock-Icon.
         if (filterBtn != nullptr)
         {
-            const int fs = juce::roundToInt (headerH * 0.80f);
-            auto fArea = header.removeFromRight (fs);
-            header.removeFromRight (5);
-            filterBtn->setBounds (fArea.withSizeKeepingCentre (fs, fs));
+            if ((bool) filterBtn->getProperties().getWithDefault ("headerPill", false))
+            {
+                // Runde 105: Text-Pille im Kopf (x2 in MID-SIDE) - dieselbe
+                // Groesse wie FAST und PAIR beim Phaser.
+                const int pw = 56, ph = juce::jmin (24, headerH);
+                auto fArea = header.removeFromRight (pw);
+                header.removeFromRight (6);
+                filterBtn->setBounds (fArea.withSizeKeepingCentre (pw, ph));
+            }
+            else
+            {
+                const int fs = juce::roundToInt (headerH * 0.80f);
+                auto fArea = header.removeFromRight (fs);
+                header.removeFromRight (5);
+                filterBtn->setBounds (fArea.withSizeKeepingCentre (fs, fs));
+            }
         }
         // Klickflaeche des Sektionsnamens nur knapp ueber den Text hinaus
         // (User: "bei Hyperdrive ist es zu viel leere Klickflaeche - man
@@ -7347,20 +7433,33 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #endif
     }
 
-    auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton);
+    auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton, &msEqX2Button);
     {
-        // Breiterer Rahmen (Runde 34): gleiche Reglergroesse, mehr Luft.
-        const int dimGap = (kVariant == 0) ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 3) / 4) : wbGap;
-        auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 3 + dimGap * 2, wbInner.getHeight());
+        // Runde 105: Width, Sides und das Icon-Feld des Seiten-EQ. Das Feld
+        // ist so breit wie die in Micropitch und Phaser; alle drei stehen
+        // gemeinsam mittig in der Sektion.
+        const int eqFieldW = 118;
+        const int dimGap = (kVariant == 0) ? juce::jlimit (wbGap, 34, (wbInner.getWidth() - row2KnobSize * 2 - eqFieldW) / 4) : wbGap;
+        auto trio = wbInner.withSizeKeepingCentre (row2KnobSize * 2 + eqFieldW + dimGap * 2, wbInner.getHeight());
         auto swSlot = trio.removeFromLeft (row2KnobSize);
         trio.removeFromLeft (dimGap);
         auto sbSlot = trio.removeFromLeft (row2KnobSize);
         trio.removeFromLeft (dimGap);
-        auto dpSlot = trio.removeFromLeft (row2KnobSize);
+        auto eqSlot = trio.removeFromLeft (eqFieldW);
 
         placeKnobWithLabel (swSlot, sideWidthSlider, sideWidthLabel, row2KnobSize);
         placeKnobWithLabel (sbSlot, sideBoostSlider, sideBoostLabel, row2KnobSize);
-        placeKnobWithLabel (dpSlot, distanceSlider,  distanceLabel,  row2KnobSize);
+        distanceSlider.setBounds ({});
+        distanceLabel.setBounds ({});
+        {
+            // Gleiche Hoehe und Lage wie das Feld in Micropitch: mittig auf
+            // Hoehe der Reglermitte, Punkte direkt darunter.
+            const int eqH = juce::jmin (kChoiceH * 2 + 20, wbInner.getHeight() - 14);
+            msEqButton.setBounds (eqSlot.getX(), sideWidthSlider.getBounds().getCentreY() - eqH / 2, eqFieldW, eqH);
+            const auto eb = msEqButton.getBounds();
+            const int dotsW = LCRMSAudioProcessor::kMsEqModes * 10 + 6;
+            msEqDots.setBounds (eb.getCentreX() - dotsW / 2, eb.getBottom() - 1, dotsW, 12);
+        }
 
         dimFilterButton.setBounds ({});   // Focus ist weg (Runde 31)
     }

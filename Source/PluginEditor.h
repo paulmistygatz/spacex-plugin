@@ -1981,14 +1981,17 @@ private:
     };
     ModeDots pxModeDots;
     ModeDots rayModeDots;   // SpaceXraye2: Punkte unter dem Charakter-Knopf
+    ModeDots msEqDots;      // Runde 105: Punkte unter dem Seiten-EQ
     // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;
     juce::TextButton rayCharButton;
+    juce::TextButton msEqButton, msEqX2Button;   // Runde 105: Seiten-EQ + x2 im MID-SIDE-Kopf
     // Runde 49: kleiner FAST-Knopf im RAYE-Kopf (+30 % Tempo) - Ersatz fuer
     // den entfallenen Speed-Regler.
     juce::TextButton rayFastButton { "FAST" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rayFastAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> msEqX2Attachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rayAmountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> parallaxAmountAttachment;
     void applyParallaxMode();

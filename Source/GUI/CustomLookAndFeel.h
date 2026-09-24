@@ -1069,7 +1069,8 @@ public:
             // es keinen Kasten - der Schimmer dahinter wird stattdessen
             // kraeftiger (siehe unten).
             if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) < 0
-             && (int) button.getProperties().getWithDefault ("rayDiagram", -1) < 0)
+             && (int) button.getProperties().getWithDefault ("rayDiagram", -1) < 0
+             && (int) button.getProperties().getWithDefault ("eqDiagram",  -1) < 0)
            #endif
             {
                 // Ohne Flaeche braucht der Aus-Zustand trotzdem Hover-Feedback.
@@ -1098,7 +1099,8 @@ public:
         // also den Rahmen, den er gerade NICHT haben soll, und gar kein Icon.
         // Traegt er ein Icon, ueberspringt er den Comic-Zweig.
         const bool diagPill = (int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
-                           || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0;
+                           || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0
+                           || (int) button.getProperties().getWithDefault ("eqDiagram",  -1) >= 0;
         juce::ignoreUnused (diagPill);
         // Pair bei ausgeschalteter RAYE-Sektion: Zustand trotzdem sichtbar
         // (hellerer Rand, User) - Property "pairedGold" bleibt gesetzt.
@@ -1164,14 +1166,17 @@ public:
             //   3 DOUBLE   am weitesten, die Mitte loest sich auf
             const int diag = (int) button.getProperties().getWithDefault ("pxDiagram", -1);
             const int rdia = (int) button.getProperties().getWithDefault ("rayDiagram", -1);
-            if (diag >= 0 || rdia >= 0)
+            const int edia = (int) button.getProperties().getWithDefault ("eqDiagram",  -1);
+            if (diag >= 0 || rdia >= 0 || edia >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
                 // Runde 91 (User): kein Rahmen mehr - das Icon gross oben, die
                 // Schrift dicht ueber den Punkten. Dahinter ein weicher
                 // Farbschimmer statt einer Box (Nuro-Vorbild).
                 auto db = bounds.withHeight (bounds.getHeight() * 0.66f);
-                const float sc = juce::jmin (3.2f, db.getHeight() / 13.0f);
+                // Runde 105 (User): alle Icons einheitlich etwas groesser
+                // (Obergrenze 3.2 -> 3.8, ~ +20 %), soweit die Feldhoehe es hergibt.
+                const float sc = juce::jmin (3.8f, db.getHeight() / 13.0f);
                #else
                 auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
                 const float sc = 1.0f;
@@ -1200,7 +1205,74 @@ public:
                #endif
                 const float a  = sectionIsOffNow ? 0.34f : 0.85f;
                 g.setColour (pillCol.withAlpha (a));
-                if (rdia >= 0)
+                if (edia >= 0)
+                {
+                    // Runde 105: Seiten-EQ in MID-SIDE als Kurve. ZWEI
+                    // parallele Linien = die Seiten (links + rechts), EINE
+                    // Linie = die Mitte - so sieht man, wen ein Modus trifft.
+                    // CROSS zeigt beide: Seiten steigen, Mitte faellt.
+                    //   0 FLAT  1 LOW CUT  2 AIR  3 TILT  4 SOFT  5 MID SOFT  6 CROSS
+                    auto ss = [] (float t, float lo, float hi)
+                    {
+                        const float x = juce::jlimit (0.0f, 1.0f, (t - lo) / (hi - lo));
+                        return x * x * (3.0f - 2.0f * x);
+                    };
+                    // Jede Form ist um die Mitte des Icons zentriert.
+                    auto shape = [&] (int kind, float t) -> float
+                    {
+                        switch (kind)
+                        {
+                            case 1:  return 0.5f - (1.0f - ss (t, 0.15f, 0.55f));
+                            case 2:  return ss (t, 0.45f, 0.85f) - 0.5f;
+                            case 3:  return (ss (t, 0.45f, 0.85f) - (1.0f - ss (t, 0.15f, 0.55f))) * 0.5f;
+                            case 4:
+                            case 5:  return 0.5f - ss (t, 0.45f, 0.85f);
+                            default: return 0.0f;
+                        }
+                    };
+                    const float w = 18.0f * sc, amp = 6.4f * sc;
+                    auto pathFor = [&] (int kind, float yOff)
+                    {
+                        juce::Path pth;
+                        for (int i = 0; i <= 40; ++i)
+                        {
+                            const float t = (float) i / 40.0f;
+                            const float x = cx - w * 0.5f + w * t;
+                            const float y = cy + yOff - amp * shape (kind, t);
+                            if (i == 0) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
+                        }
+                        return pth;
+                    };
+                    const juce::PathStrokeType pairStroke (0.95f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+                    const juce::PathStrokeType monoStroke (1.35f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+                    const float gapPair = 1.5f * sc;
+                    auto drawSides = [&] (int kind)
+                    {
+                        g.strokePath (pathFor (kind, -gapPair), pairStroke);
+                        g.strokePath (pathFor (kind,  gapPair), pairStroke);
+                    };
+                    auto drawMid = [&] (int kind) { g.strokePath (pathFor (kind, 0.0f), monoStroke); };
+                    switch (edia)
+                    {
+                        case 1: case 2: case 3: case 4:
+                            drawSides (edia);
+                            break;
+                        case 5:
+                            drawMid (5);
+                            break;
+                        case 6:
+                            drawSides (2);
+                            g.setColour (pillCol.withAlpha (a * 0.60f));
+                            drawMid (5);
+                            break;
+                        default:
+                            // FLAT: eine ruhige, schwaechere Linie - nichts passiert.
+                            g.setColour (pillCol.withAlpha (a * 0.55f));
+                            drawMid (0);
+                            break;
+                    }
+                }
+                else if (rdia >= 0)
                 {
                     // RAYE-Charakter als Bewegungsbild:
                     //   0 SWEEP    eine lange, ruhige Welle
@@ -1579,7 +1651,8 @@ public:
             // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
             auto textArea = button.getLocalBounds().translated (0, textShiftY);
             if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
-             || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0)
+             || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0
+             || (int) button.getProperties().getWithDefault ("eqDiagram",  -1) >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
                 // Runde 91 (User): Schrift so weit runter wie moeglich, damit

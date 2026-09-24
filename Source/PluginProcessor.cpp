@@ -123,6 +123,8 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pRayRate     = apvts.getRawParameterValue (ID_RAY_RATE);
     pRayPair     = apvts.getRawParameterValue (ID_RAY_PAIR);
     pRayFast     = apvts.getRawParameterValue (ID_RAY_FAST);
+    pMsEq        = apvts.getRawParameterValue (ID_MS_EQ);
+    pMsEqX2      = apvts.getRawParameterValue (ID_MS_EQ_X2);
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
     pPosWidth    = apvts.getRawParameterValue (ID_POS_WIDTH);
     pPrismOn     = apvts.getRawParameterValue (ID_PRISM_ON);
@@ -342,6 +344,41 @@ void LCRMSAudioProcessor::updateLowpassCoeffs (BiquadCoeffs& c, double sampleRat
     c.b2 = c.b0;
     c.a1 = (float) ((-2.0 * cosW) / a0);
     c.a2 = (float) ((1.0 - alpha) / a0);
+}
+
+// Runde 105: RBJ-Shelf mit Flankensteilheit S (1 = steilste Form ohne
+// Ueberschwingen, kleiner = sanfter). Fuer den Seiten-EQ bewusst flach.
+void LCRMSAudioProcessor::updateShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb,
+                                             float slope, bool highShelf) noexcept
+{
+    const double A     = std::pow (10.0, (double) gainDb / 40.0);
+    const double w0    = 2.0 * juce::MathConstants<double>::pi
+                         * juce::jlimit (20.0, sampleRate * 0.45, (double) freqHz) / sampleRate;
+    const double cosW  = std::cos (w0);
+    const double S     = juce::jlimit (0.1, 1.0, (double) slope);
+    const double alpha = std::sin (w0) * 0.5 * std::sqrt ((A + 1.0 / A) * (1.0 / S - 1.0) + 2.0);
+    const double sA2   = 2.0 * std::sqrt (A) * alpha;
+    double b0, b1, b2, a0, a1, a2;
+    if (highShelf)
+    {
+        b0 =        A * ((A + 1.0) + (A - 1.0) * cosW + sA2);
+        b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cosW);
+        b2 =        A * ((A + 1.0) + (A - 1.0) * cosW - sA2);
+        a0 =             (A + 1.0) - (A - 1.0) * cosW + sA2;
+        a1 =  2.0 *     ((A - 1.0) - (A + 1.0) * cosW);
+        a2 =             (A + 1.0) - (A - 1.0) * cosW - sA2;
+    }
+    else
+    {
+        b0 =        A * ((A + 1.0) - (A - 1.0) * cosW + sA2);
+        b1 =  2.0 * A * ((A - 1.0) - (A + 1.0) * cosW);
+        b2 =        A * ((A + 1.0) - (A - 1.0) * cosW - sA2);
+        a0 =             (A + 1.0) + (A - 1.0) * cosW + sA2;
+        a1 = -2.0 *     ((A - 1.0) + (A + 1.0) * cosW);
+        a2 =             (A + 1.0) + (A - 1.0) * cosW - sA2;
+    }
+    c.b0 = (float) (b0 / a0); c.b1 = (float) (b1 / a0); c.b2 = (float) (b2 / a0);
+    c.a1 = (float) (a1 / a0); c.a2 = (float) (a2 / a0);
 }
 
 void LCRMSAudioProcessor::updatePeakingCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb, float q) noexcept
@@ -694,6 +731,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::ParameterID { ID_RAY_PAIR, 1 }, "Ray Pair", false));
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_RAY_FAST, 1 }, "Ray Fast", false));
+    // Runde 105: Seiten-EQ in MID-SIDE (ersetzt DEPTH).
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ID_MS_EQ, 1 }, "Sides EQ",
+        juce::StringArray { "Flat", "Low Cut", "Air", "Tilt", "Soft", "Mid Soft", "Cross" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_MS_EQ_X2, 1 }, "Sides EQ x2", false));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_SOLO_SECTION, 1 }, "Solo",
@@ -885,6 +928,11 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     elevateStateR.z1 = elevateStateR.z2 = 0.0f;
     updatePeakingCoeffs (elevateCoeffs, sampleRate, 6500.0f, 0.0f, 0.7f);
     distanceLpfL = distanceLpfR = 0.0f;
+    msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
+    msEqCur[0] = 0.0f; msEqCur[2] = 0.0f; msEqCur[4] = 0.0f;
+    updateShelfCoeffs (msEqMidHsC,  sampleRate, 3000.0f, 0.0f, 0.6f, true);
+    updateShelfCoeffs (msEqSideLsC, sampleRate,  450.0f, 0.0f, 0.6f, false);
+    updateShelfCoeffs (msEqSideHsC, sampleRate, 1500.0f, 0.0f, 0.6f, true);
     correlationSmooth = 0.0f;
     sideEmphasisSmooth = 0.0f;
 
@@ -1525,6 +1573,39 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // und kein EQ-Ersatz wird (User).
     updatePeakingCoeffs (elevateCoeffs, currentSampleRate, 6500.0f, elevateTargetForCoeffs * 4.5f, 0.7f);
 
+    // ===== SEITEN-EQ (Runde 105, ersetzt DEPTH) =====
+    // Startwerte - Paul stellt die Kurven mit einem Pro-Q ein, danach werden
+    // sie hier nachgebaut. Sanft und breit, damit sie auf fast allem passen.
+    //                       Mitte HS        Seiten LS       Seiten HS
+    //                       dB     Hz       dB     Hz       dB     Hz
+    {
+        static constexpr float kMsEqTable[kMsEqModes][6] = {
+            {  0.0f, 3000.0f,  0.0f, 450.0f,  0.0f, 1500.0f },   // FLAT
+            {  0.0f, 3000.0f, -3.0f, 450.0f,  0.0f, 1500.0f },   // LOW CUT
+            {  0.0f, 3000.0f,  0.0f, 450.0f,  3.0f, 1200.0f },   // AIR
+            {  0.0f, 3000.0f, -3.0f, 450.0f,  3.0f, 1200.0f },   // TILT
+            {  0.0f, 3000.0f,  0.0f, 450.0f, -3.0f, 2500.0f },   // SOFT
+            { -2.5f, 3000.0f,  0.0f, 450.0f,  0.0f, 1500.0f },   // MID SOFT
+            { -2.5f, 3000.0f,  0.0f, 450.0f,  2.5f, 3000.0f }    // CROSS
+        };
+        const int   mode = juce::jlimit (0, kMsEqModes - 1, (int) std::round (pMsEq->load()));
+        const float mul  = pMsEqX2->load() > 0.5f ? 2.0f : 1.0f;
+        const float* t   = kMsEqTable[mode];
+        // Gleiten pro Block (~40 ms). Frequenz in Oktaven; steht ein Filter
+        // auf 0 dB, bleibt seine Frequenz, wo sie ist - kein unnoetiges Wandern.
+        const float a = std::exp (-(float) numSamples / (0.040f * (float) currentSampleRate));
+        for (int k = 0; k < 3; ++k)
+        {
+            const float tDb = t[k * 2] * mul;
+            const float tHz = (tDb == 0.0f) ? msEqCur[k * 2 + 1] : std::log2 (t[k * 2 + 1]);
+            msEqCur[k * 2]     += (1.0f - a) * (tDb - msEqCur[k * 2]);
+            msEqCur[k * 2 + 1] += (1.0f - a) * (tHz - msEqCur[k * 2 + 1]);
+        }
+        updateShelfCoeffs (msEqMidHsC,  currentSampleRate, std::exp2 (msEqCur[1]), msEqCur[0], 0.6f, true);
+        updateShelfCoeffs (msEqSideLsC, currentSampleRate, std::exp2 (msEqCur[3]), msEqCur[2], 0.6f, false);
+        updateShelfCoeffs (msEqSideHsC, currentSampleRate, std::exp2 (msEqCur[5]), msEqCur[4], 0.6f, true);
+    }
+
     // ===== PRISM: Bandgrenzen einmal pro Block =====
     // Das Band wird bewusst nie enger als Faktor 1,5 zugelassen. Ein sehr
     // schmales verbreitertes Band klingt resonant bis telefonartig - das ist
@@ -2090,24 +2171,16 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 rPos = m - sWet;
             }
 
-            // Distance: One-Pole-Tiefpass (Naehe/Ferne) + leichte Pegelabsenkung.
+            // Runde 105 (User): DEPTH (Distance/Elevate) ist raus. An seiner
+            // Stelle der Seiten-EQ - ein High Shelf auf der Mitte, Low und
+            // High Shelf auf den Seiten, Kurve je nach Stellung.
             {
-                distanceLpfL += (1.0f - distanceLpfCoeff) * (lPos - distanceLpfL);
-                distanceLpfR += (1.0f - distanceLpfCoeff) * (rPos - distanceLpfR);
-                // Absenkung am Anschlag: frueher 0.3 (-3.1 dB), jetzt 1 dB
-                // weniger (-2.1 dB) - der Hoehenabfall traegt den Tiefeneindruck
-                // ohnehin, die Pegelabsenkung soll ihn nur stuetzen (User).
-                const float distGain = 1.0f - juce::jlimit (0.0f, 1.0f, distanceSmoothed.getNextValue()) * 0.215f;
-                lPos = distanceLpfL * distGain;
-                rPos = distanceLpfR * distGain;
-            }
-
-            // Elevate: rein lineares Peaking-EQ (kein Waveshaping), siehe
-            // updatePeakingCoeffs() - positiv = leichte Anhebung ~9kHz
-            // ("erhoeht" wirkend), negativ = Absenkung ("geerdet" wirkend).
-            {
-                lPos = elevateStateL.process (lPos, elevateCoeffs);
-                rPos = elevateStateR.process (rPos, elevateCoeffs);
+                const float m = 0.5f * (lPos + rPos);
+                const float sd = 0.5f * (lPos - rPos);
+                const float mEq = msEqMidHs.process (m, msEqMidHsC);
+                const float sEq = msEqSideHs.process (msEqSideLs.process (sd, msEqSideLsC), msEqSideHsC);
+                lPos = mEq + sEq;
+                rPos = mEq - sEq;
             }
 
             // Der Rest der alten Vision-Stufe ist DEPTH, und das gehoert zu
