@@ -7215,10 +7215,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #if SPACEX_PARALLAX_UI == 2
         const int btnW   = juce::jmin ((kChoiceW - 6) / 2, (driftInner.getWidth() - knobS - gap - 6) / 2);   // Runde 68: ergibt kChoiceW
        #if SPACEX_PX_DIAG_ONLY
-        // Runde 90 (User): im Diagramm-Build traegt die Pille Bild UND Name,
-        // also nimmt sie die Breite, die neben dem Regler noch frei ist.
-        const int blockW = juce::jlimit (btnW * 2 + btnGap, 116,
-                                         driftInner.getWidth() - knobS - gap);
+        // Runde 91 (User: "bei Parallax nach rechts auch [Platz]"): ohne
+        // Rahmen darf das Feld die ganze freie Breite neben dem Regler haben.
+        const int blockW = juce::jmax (btnW * 2 + btnGap, driftInner.getWidth() - knobS - gap);
        #else
         const int blockW = btnW * 2 + btnGap;   // Runde 68: ergibt kChoiceW
        #endif
@@ -7236,9 +7235,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #if SPACEX_PARALLAX_UI == 2
         // Ein Klick-Knopf statt 2x2 (so breit wie zwei der Rasterknoepfe).
        #if SPACEX_PX_DIAG_ONLY
-        // Runde 90 (User): Icon oben, Name darunter - dafuer doppelt so hoch.
-        const int pillH = juce::jmin ((kDotsInside ? btnH + 6 : btnH) * 2 + 4,
-                                      driftInner.getHeight() - 20);
+        // Runde 90/91: Icon oben, Name darunter - ohne Rahmen darf das Feld
+        // die Hoehe nehmen, die die Sektion hergibt.
+        const int pillH = juce::jmin ((kDotsInside ? btnH + 6 : btnH) * 2 + 8,
+                                      driftInner.getHeight() - 22);
        #else
         const int pillH = kDotsInside ? btnH + 6 : btnH;
        #endif
@@ -7256,7 +7256,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
             else
             {
                 parallaxModeButtons[0].getProperties().remove ("textYShift");
+               #if SPACEX_PX_DIAG_ONLY
+                // Runde 91 (User: "Schrift + Punkte dichter zusammen").
+                pxModeDotsArea = { pb.getCentreX() - dotsW / 2, pb.getBottom() - 1, dotsW, 12 };
+               #else
                 pxModeDotsArea = { pb.getCentreX() - dotsW / 2, pb.getBottom() + 5, dotsW, 12 };
+               #endif
             }
             pxModeDots.setBounds (pxModeDotsArea);
         }
@@ -7424,10 +7429,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
             // Runde 90 (User: "auch fuer Sweep - schau dass die Box gross
             // genug ist"): Icon oben, Name darunter, also doppelte Hoehe und
             // so breit, wie die halbe Sektion hergibt.
-            const int pw = juce::jmin (116, halfW);
-            const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 4,
-                                       rayKnobAreaH - (kDotsInside ? 8 : 14));
-            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -5 : -8);
+            // Runde 91 (User: "bei RAYE haben wir nach links hin noch viel
+            // Platz"): ohne Rahmen nimmt das Feld die ganze rechte Haelfte.
+            const int pw = slotC.getWidth();
+            const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 8,
+                                       rayKnobAreaH - (kDotsInside ? 8 : 12));
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -5 : -7);
            #else
             const int pw = juce::jmin (kChoiceW, halfW);
             const int ph = juce::jmin (kDotsInside ? kChoiceH + 6 : kChoiceH, rayKnobAreaH - (kDotsInside ? 8 : 14));
@@ -7443,7 +7450,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
             else
             {
                 rayCharButton.getProperties().remove ("textYShift");
+               #if SPACEX_PX_DIAG_ONLY
+                rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() - 1, dotsW, 12);
+               #else
                 rayModeDots.setBounds (col.getCentreX() - dotsW / 2, col.getBottom() + 5, dotsW, 12);
+               #endif
             }
             // Runde 55 (User: "fast und pair sind mir zu klein").
             rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayPairHeaderArea.getWidth()),

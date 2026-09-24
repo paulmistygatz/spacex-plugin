@@ -1119,10 +1119,19 @@ public:
                 g.setColour (pillCol.withAlpha (0.14f));
                 g.fillRoundedRectangle (bounds, cornerSize);
             }
+            const bool hasDiagram = (int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
+                                 || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0;
             // Runde 69 (User): "miniminimal weniger hell" - 0.62 -> 0.54.
             const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.54f);
-            g.setColour (pillCol.withAlpha (pillAlpha));
-            g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.65f : 1.35f);   // eine Spur kraeftiger (User Runde 61)
+           #if SPACEX_PX_DIAG_ONLY
+            // Runde 91 (User: "kannst du die beiden Boxen entfernen"): traegt
+            // der Knopf ein Icon, ersetzt der Schimmer dahinter den Rahmen.
+            if (! hasDiagram)
+           #endif
+            {
+                g.setColour (pillCol.withAlpha (pillAlpha));
+                g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.65f : 1.35f);   // eine Spur kraeftiger (User Runde 61)
+            }
 
             // Runde 88 (User, nach dem Nuro-Supernova-Vorbild): ein winziges
             // DIAGRAMM links im Knopf, das zeigt, was der Modus tut - nicht
@@ -1139,16 +1148,28 @@ public:
             if (diag >= 0 || rdia >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
-                // Runde 90 (User): Icon oben mittig, Name darunter - die Pille
-                // ist dafuer doppelt so hoch. Das Icon bekommt die obere
-                // Haelfte, die Schrift die untere (siehe drawButtonText).
-                auto db = bounds.withHeight (bounds.getHeight() * 0.52f);
-                const float sc = 1.45f;
+                // Runde 91 (User): kein Rahmen mehr - das Icon gross oben, die
+                // Schrift dicht ueber den Punkten. Dahinter ein weicher
+                // Farbschimmer statt einer Box (Nuro-Vorbild).
+                auto db = bounds.withHeight (bounds.getHeight() * 0.62f);
+                const float sc = juce::jmin (2.4f, db.getHeight() / 16.0f);
                #else
                 auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
                 const float sc = 1.0f;
                #endif
                 const float cx = db.getCentreX(), cy = db.getCentreY();
+               #if SPACEX_PX_DIAG_ONLY
+                {
+                    // Der Schimmer liegt HINTER dem Icon: ein weicher runder
+                    // Verlauf in der Sektionsfarbe, der nach aussen ausgeht.
+                    const float gr = juce::jmin (11.0f * sc, db.getHeight() * 0.62f);
+                    juce::ColourGradient grad (pillCol.withAlpha (sectionIsOffNow ? 0.10f : 0.26f), cx, cy,
+                                               pillCol.withAlpha (0.0f), cx + gr, cy, true);
+                    grad.addColour (0.45, pillCol.withAlpha (sectionIsOffNow ? 0.05f : 0.13f));
+                    g.setGradientFill (grad);
+                    g.fillEllipse (cx - gr, cy - gr, gr * 2.0f, gr * 2.0f);
+                }
+               #endif
                 const float a  = sectionIsOffNow ? 0.34f : 0.85f;
                 g.setColour (pillCol.withAlpha (a));
                 if (rdia >= 0)
@@ -1526,8 +1547,9 @@ public:
              || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
-                // Runde 90: Icon oben, Name in der unteren Haelfte.
-                textArea = textArea.withTrimmedTop (juce::roundToInt (textArea.getHeight() * 0.44f));
+                // Runde 91 (User): Schrift so weit runter wie moeglich, damit
+                // sie mit den Punkten darunter eine Einheit bildet.
+                textArea = textArea.withTrimmedTop (juce::roundToInt (textArea.getHeight() * 0.64f));
                #else
                 textArea = textArea.withTrimmedLeft (21);
                #endif
