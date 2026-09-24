@@ -3411,6 +3411,15 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             // die Modi, die formen und mittig bleiben (Halo, 3D), rechts die,
             // die breit machen (Double, Illusion).
             pxModeDots.groupAfter = 0;   // Runde 89 (User): Luecke wieder weg
+           #if SPACEX_PX_DIAG_ONLY
+            // Runde 94 (User: "beim Laden kommt kurz eine Box um die Icons"):
+            // das Icon-Merkmal wurde erst im Timer gesetzt, der erste Anstrich
+            // sah also einen Knopf OHNE Icon - und der traegt einen Rahmen.
+            // Jetzt steht es schon vor dem ersten Zeichnen.
+            parallaxModeButtons[0].getProperties().set ("pxDiagram",
+                juce::jlimit (0, kPxModes - 1,
+                    (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_PARALLAX_MODE)->load())));
+           #endif
             pxModeDots.setTooltip ("Parallax mode: click a dot to pick it directly");
             pxModeDots.onPick = [this] (int i)
             {
@@ -3701,6 +3710,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayCharButton.getProperties().set ("modePill", true);
     rayCharButton.setTooltip ("Character: Sweep, Shimmer, Spin, Swirl. Click for the next one, Cmd-click to go back");
     content.addAndMakeVisible (rayCharButton);
+   #if SPACEX_PX_DIAG_ONLY
+    rayCharButton.getProperties().set ("rayDiagram",
+        juce::jlimit (0, 3, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_CHAR)->load())));
+   #endif
     rayModeDots.count = 4;
     rayModeDots.setTooltip ("Character: click a dot to pick it directly");
     rayModeDots.onPick = [this] (int i)
