@@ -1251,7 +1251,11 @@ public:
                     if (diag == 0 || diag == 1)
                     {
                         const float r = (diag == 1 ? 5.4f : 3.4f) * sc;
+                        // VELVET ist der leisere der beiden: enger Ring UND
+                        // schwaecher gezeichnet (User).
+                        if (diag == 0) g.setColour (pillCol.withAlpha (a * 0.50f));
                         g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
+                        g.setColour (pillCol.withAlpha (a));
                         g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
                     }
                     else
