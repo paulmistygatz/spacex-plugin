@@ -48,10 +48,18 @@ void LCRMSAudioProcessor::setSectionLocked (int soloSectionId, bool locked)
 // (50% Tiefe-Regler = +-15%, 100% = +-30%). Vorher +-20% - User-Feedback:
 // "Effekt soll groesser sein... wenn jetzt zB 20% moduliert hat, dann
 // sollte es jetzt 30% werden. Betrifft alle Sections."
+// Runde 85 (User): das Maximum halbiert - die Modulation soll subtil bleiben.
+// Dazu faengt der Regler nicht mehr bei null an: ganz unten stehen 6 %, ganz
+// oben 15 %. Grund ist, dass die Modulation RELATIV zum eingestellten Wert
+// arbeitet - bei kleinen Reglerstellungen kam vorher so wenig heraus, dass
+// das untere Drittel praktisch tot war. Ausschalten macht weiterhin das
+// Mod-Symbol, nicht der Regler; dafuer ist jetzt jede Stellung hoerbar.
 float LCRMSAudioProcessor::modDepthCurve (float knob01) noexcept
 {
-    constexpr float kMaxRelativeDepth = 0.30f;
-    return juce::jlimit (0.0f, 1.0f, knob01) * kMaxRelativeDepth;
+    constexpr float kMinRelativeDepth = 0.06f;
+    constexpr float kMaxRelativeDepth = 0.15f;
+    return kMinRelativeDepth
+         + juce::jlimit (0.0f, 1.0f, knob01) * (kMaxRelativeDepth - kMinRelativeDepth);
 }
 
 juce::PropertiesFile::Options LCRMSAudioProcessor::appPropertiesOptions()
@@ -1108,11 +1116,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // alle 4) zugehoerigen Parameter der Sektion gleichzeitig.
     // LIFE skaliert alle Tiefen gemeinsam (Runde 37).
     const float life01 = juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f);
-    const float timewarpDepthFrac   = modDepthCurve (pTimewarpDepth->load()   * 0.01f * life01);
-    const float dimensionDepthFrac  = modDepthCurve (pDimensionDepth->load()  * 0.01f * life01);
-    const float hyperdriveDepthFrac = modDepthCurve (pHyperdriveDepth->load() * 0.01f * life01);
-    const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f * life01);
-    const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f * life01);
+    // Runde 85: Life wird jetzt NACH der Kurve eingerechnet. Vorher lief es
+    // davor - mit dem neuen Mindestwert in der Kurve wuerde Life auf null
+    // sonst trotzdem 6 % Modulation stehen lassen.
+    const float timewarpDepthFrac   = modDepthCurve (pTimewarpDepth->load()   * 0.01f) * life01;
+    const float dimensionDepthFrac  = modDepthCurve (pDimensionDepth->load()  * 0.01f) * life01;
+    const float hyperdriveDepthFrac = modDepthCurve (pHyperdriveDepth->load() * 0.01f) * life01;
+    const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f) * life01;
+    const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f) * life01;
 
     // ===== PARALLAX-MODI (Runde 44) =====
     // In allen Builds ausser SpaceXparaCPU kommen Drift/Shift/Tilt/Mix/Pegel
