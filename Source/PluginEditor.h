@@ -270,13 +270,19 @@ private:
         static constexpr int kLayouts = 3;
         // "Auto Gain" ist raus (User: "alles was man auf der GUI klicken kann,
         // kann weg aus den Settings") - das AG-Feld unten rechts schaltet es.
-        static constexpr int kBehav   = 5;
+        // Runde 102 (User): "Bass Protect auch aus den Settings", "Labels
+        // Option weg" (sie steht jetzt unter den Themes) und "Show Advanced
+        // Modulation raus" - uebrig bleiben zwei echte Schalter.
+        static constexpr int kBehav   = 2;
 
         juce::Label title, themeHead, layoutHead, behavHead;
         // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
         // unabhaengig vom "?"-Schalter im Hauptfenster.
         juce::Label hintLine;
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], behavBtn[kBehav];
+        // Die Space-Namen sind seit Runde 100 die OPTION - sie stehen deshalb
+        // direkt unter den Themes, durch eine feine Linie abgetrennt.
+        juce::TextButton labelBtn { "SpaceX Labels" };
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
                          aboutBtn { "Back Panel" }, tourBtn { "Take the Tour" },
@@ -290,7 +296,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
-        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idTechnicalLabels, idShowAdvancedMod, idShowModulation, idBassGuard }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation }; return a; }
 
         SettingsPanelComponent()
         {
@@ -323,11 +329,8 @@ private:
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
-            static const char* const behavNames[kBehav]   = { "Galaxy On Startup (Latency)",
-                                                              "Technical Labels",
-                                                              "Show Advanced Modulation",
-                                                              "Show Modulation",
-                                                              "Bass Guard 120 Hz" };
+            static const char* const behavNames[kBehav]   = { "LCR On Startup (Latency)",
+                                                              "Show Modulation" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -353,6 +356,7 @@ private:
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
+            setup (labelBtn, "SpaceX Labels", idTechnicalLabels);
             setup (sizeBtn,   "Save Window Size",      idSaveSizeDefault);
             setup (stateBtn,  "Save State as Default", idSaveStateDefault);
             setup (folderBtn, "Preset Folder...",      idOpenPresetFolder);
@@ -366,11 +370,9 @@ private:
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
             saveBtn.setTooltip ("Keep the changes and close");
 
-            behavBtn[4].setTooltip ("Matches the output level to the input, so bypass is an honest comparison");
-            behavBtn[3].setTooltip ("Leaves everything below 120 Hz untouched in Galaxy and Dimension");
-            behavBtn[1].setTooltip ("Shows the modulation switch and depth in every section. Life scales them all");
-            behavBtn[2].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
+            behavBtn[1].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
+            labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
             layoutBtn[1].setTooltip ("Flat panels with a thin outline");
             stateBtn.setTooltip ("Every new instance of SpaceX starts with the settings you have right now");
@@ -378,7 +380,6 @@ private:
             aboutBtn.setTooltip ("Who built this, how to get in touch, and which copy this is");
             manualBtn.setTooltip ("Open the PDF manual");
             resetBtn.setTooltip ("Back to the factory settings - themes, layout and behaviour");
-            layoutBtn[2].setTooltip ("Names the sections and knobs by what they do: LCR, Polarity, MicroPitch, Mid-Side, Autopan, Phaser");
             folderBtn.setTooltip ("Open the folder your presets live in");
             resetBtn.setTooltip ("Back to the factory settings");
         }
@@ -470,8 +471,7 @@ private:
             if (dividerX > 0)
             {
                 g.setColour (juce::Colours::white.withAlpha (0.08f));
-                g.fillRect ((float) dividerX,  b.getY() + 48.0f, 1.0f, b.getHeight() - 140.0f);
-                g.fillRect ((float) dividerX2, b.getY() + 48.0f, 1.0f, b.getHeight() - 140.0f);
+                g.fillRect ((float) dividerX, b.getY() + 48.0f, 1.0f, b.getHeight() - 140.0f);
             }
         }
 
@@ -515,13 +515,15 @@ private:
                 for (int i = 0; i < n; ++i) { row[i]->setBounds (x, row1.getY(), w1, row1.getHeight()); x += w1 + gap; }
             }
 
-            const int colGap = 18;
-            const int colW   = (r.getWidth() - colGap * 2) / 3;
+            // Runde 102 (User): zwei Spalten - links alle Schalter in
+            // gewohnter Groesse, rechts die Vorschau ueber die volle
+            // Restbreite ("deutlich groesser").
+            const int colGap = 22;
+            const int colW   = juce::jlimit (200, 280, r.getWidth() * 2 / 7);
             auto col1 = r.removeFromLeft (colW);          r.removeFromLeft (colGap);
-            auto col2 = r.removeFromLeft (colW);          r.removeFromLeft (colGap);
-            auto col3 = r;
+            auto col2 = r;
             dividerX  = col1.getRight() + colGap / 2;
-            dividerX2 = col2.getRight() + colGap / 2;
+            dividerX2 = 0;
 
             auto stack = [] (juce::Rectangle<int>& area, juce::Label& hd, juce::TextButton* btns, int n, int indent)
             {
@@ -535,24 +537,27 @@ private:
                 }
             };
             stack (col1, themeHead,  themeBtn,  kThemes,  16);
-            stack (col3, behavHead,  behavBtn,  kBehav,   0);
+            // Feine Linie unter dem letzten Theme, darunter die Beschriftung
+            // als eigene Entscheidung (User Runde 100).
+            col1.removeFromTop (5);
+            behavRuleY  = col1.getY();
+            behavRuleX1 = col1.getX() + 16;
+            behavRuleX2 = col1.getRight();
+            col1.removeFromTop (8);
+            labelBtn.setBounds (col1.removeFromTop (36).withTrimmedLeft (16));
+            col1.removeFromTop (18);
+            stack (col1, behavHead,  behavBtn,  kBehav,   0);
             // Runde 71: die Layout-Knoepfe gibt es nicht mehr.
             for (int i = 0; i < kLayouts; ++i) { layoutBtn[i].setVisible (false); layoutBtn[i].setBounds ({}); }
             layoutHead.setVisible (false);
 
-            // Die Vorschau bekommt die mittlere Spalte jetzt ganz.
+            // Die Vorschau bekommt die ganze rechte Spalte.
             {
                 layoutHead.setBounds ({});
-                auto pv = col2;
-                const int pw = pv.getWidth();
-                previewArea = juce::Rectangle<int> (pv.getX(), pv.getY(), pw,
-                                                    juce::jmin (pv.getHeight(), (int) ((float) pw / 1.72f)));
+                const int pw = col2.getWidth();
+                const int ph = juce::jmin (col2.getHeight(), (int) ((float) pw / 1.72f));
+                previewArea = col2.withSizeKeepingCentre (pw, ph);
             }
-            // Feine Linie zwischen den Anzeige- und den Klang-Schaltern
-            // (User): Show Modulation | Bass Guard.
-            behavRuleY = (behavBtn[3].getBottom() + behavBtn[4].getY()) / 2;
-            behavRuleX1 = behavBtn[4].getX();
-            behavRuleX2 = behavBtn[4].getRight();
         }
 
     private:
@@ -2093,6 +2098,10 @@ private:
     juce::TextButton autoGainButton;        // unsichtbare Klickflaeche ueber der AG-Anzeige
     juce::Rectangle<int> hintBarArea;       // Textbereich rechts daneben
     juce::String currentHint;               // was gerade angezeigt wird
+    // Runde 99 (User): woher der aktuelle Hinweis stammt. Waehrend ein Regler
+    // gezogen wird, bleibt die Quelle stehen, ihr Text wird aber neu gelesen -
+    // so laeuft z.B. die Hz-Zahl von Regain in der Zeile mit.
+    juce::Component::SafePointer<juce::Component> hintSource;
     // Klick ins Sternenfeld: Goniometer-Farbe weiterschalten, 5. Klick = aus.
     void cycleGonioColourFromField (int action = 0);
 

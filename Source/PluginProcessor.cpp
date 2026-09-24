@@ -1102,17 +1102,22 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // ausgeschaltet wird.
     const bool globalModBypass = pGlobalModBypass->load() > 0.5f;
 
-    const bool timewarpModOn   = pTimewarpMod->load()  > 0.5f && ! globalModBypass;
-    const bool dimensionModOn  = pDimensionMod->load() > 0.5f && ! globalModBypass;
+    // Runde 101 (User): die Mod-Schalter und Tiefe-Regler in den Sektionen
+    // sind aus der Oberflaeche verschwunden. Modulation ist jetzt EINE
+    // Entscheidung - der globale Mod-Schalter - und LIFE bestimmt, wie weit
+    // sie geht. Die alten Parameter bleiben nur wegen bestehender Presets
+    // erhalten und werden nicht mehr gelesen.
+    const bool timewarpModOn   = ! globalModBypass;
+    const bool dimensionModOn  = ! globalModBypass;
     // Hyperdrive-Mod bleibt jetzt auch bei aktivem Bar-Sync einschaltbar
     // (User-Feedback: "trotzdem an gehen, wirkt sich dann eben nur auf Flow
     // aus") - moduliert dann nur noch Movement/Flow (siehe weiter unten),
     // NICHT mehr Speed, da eine taktsynchrone Rate nicht moduliert werden
     // kann/soll (das bleibt weiterhin hart auf den Nicht-Sync-Zweig
     // beschraenkt, siehe cycleSeconds-Berechnung weiter unten).
-    const bool hyperdriveModOn = pHyperdriveMod->load() > 0.5f && ! globalModBypass;
-    const bool galaxyModOn     = pGalaxyMod->load()     > 0.5f && ! globalModBypass;
-    const bool positionModOn   = pPositionMod->load()   > 0.5f && ! globalModBypass;
+    const bool hyperdriveModOn = ! globalModBypass;
+    const bool galaxyModOn     = ! globalModBypass;
+    const bool positionModOn   = ! globalModBypass;
 
     // Tiefe-Regler (0-100%) je Mod-Sektion -> depthFraction (0..1) ueber die
     // gemeinsame Kurve (50% Reglerstellung = 20% der vollen Parameter-Range,
@@ -1123,11 +1128,19 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Runde 85: Life wird jetzt NACH der Kurve eingerechnet. Vorher lief es
     // davor - mit dem neuen Mindestwert in der Kurve wuerde Life auf null
     // sonst trotzdem 6 % Modulation stehen lassen.
-    const float timewarpDepthFrac   = modDepthCurve (pTimewarpDepth->load()   * 0.01f) * life01;
-    const float dimensionDepthFrac  = modDepthCurve (pDimensionDepth->load()  * 0.01f) * life01;
-    const float hyperdriveDepthFrac = modDepthCurve (pHyperdriveDepth->load() * 0.01f) * life01;
-    const float galaxyDepthFrac     = modDepthCurve (pGalaxyDepth->load()     * 0.01f) * life01;
-    const float positionDepthFrac   = modDepthCurve (pPositionDepth->load()   * 0.01f) * life01;
+    // Runde 101: feste, pro Sektion abgestimmte Tiefen (0..1 = Reglerstellung
+    // der alten Regler). Hier wird nachjustiert, wenn eine Sektion zu viel
+    // oder zu wenig Bewegung bekommt - LIFE skaliert danach alles gemeinsam.
+    constexpr float kDepthTimewarp   = 1.00f;
+    constexpr float kDepthDimension  = 1.00f;
+    constexpr float kDepthHyperdrive = 1.00f;
+    constexpr float kDepthGalaxy     = 1.00f;
+    constexpr float kDepthPosition   = 1.00f;
+    const float timewarpDepthFrac   = modDepthCurve (kDepthTimewarp)   * life01;
+    const float dimensionDepthFrac  = modDepthCurve (kDepthDimension)  * life01;
+    const float hyperdriveDepthFrac = modDepthCurve (kDepthHyperdrive) * life01;
+    const float galaxyDepthFrac     = modDepthCurve (kDepthGalaxy)     * life01;
+    const float positionDepthFrac   = modDepthCurve (kDepthPosition)   * life01;
 
     // ===== PARALLAX-MODI (Runde 44) =====
     // In allen Builds ausser SpaceXparaCPU kommen Drift/Shift/Tilt/Mix/Pegel
@@ -1629,7 +1642,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             autoGainMeasureSamples = (int) (currentSampleRate * 1.5);
         }
     }
-    const bool  bassGuardOn = pBassGuard->load() > 0.5f;
+    // Runde 102 (User): Bass Guard ist aus den Einstellungen verschwunden und
+    // laeuft jetzt fest mit - wie der 120-Hz-Schutz in Micropitch. Der
+    // Parameter bleibt nur wegen bestehender Presets erhalten.
+    const bool  bassGuardOn = true;
     // Setzt nur ein Flag, wenn sich wirklich etwas geaendert hat; die
     // Maske wird im naechsten FFT-Frame neu gerechnet.
     {

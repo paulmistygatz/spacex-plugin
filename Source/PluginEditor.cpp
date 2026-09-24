@@ -1130,7 +1130,7 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
         l.setText (t ? tech : vibe, juce::dontSendNotification);
     };
 
-    put (lcrTitleLabel,        "GALAXY",     "LCR");
+    put (lcrTitleLabel,        "GALAXY",     "LCR MATRIX");
     put (driftTitleLabel,      "PARALLAX",   "MICROPITCH");
     put (polTitleLabel,        "ECLIPSE",    "POLARITY");
     put (widthBoostTitleLabel, "DIMENSION",  "MID-SIDE");
@@ -1143,15 +1143,19 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     put (bendLabel,      "Shift",   "Detune");
     put (offsetLabel,    "Tilt",    "Pan");
     put (sideWidthLabel, "Size",    "Width");
-    put (sideBoostLabel, "Boost",   "Gain");
-    put (movementLabel,  "Flow",    "Width");
+    put (sideBoostLabel, "Boost",   "Sides");
+    put (movementLabel,  "Flow",    "Amount");
+    put (horizonLabel,   "Regain",  "HF Regain");
+    put (distanceLabel,  "Depth",   "Distance");
     // Der globale Knopf schaltet dieselbe Engine (User Runde 56), und der
     // Settings-Eintrag meint denselben Schalter (User Runde 57).
     globalGalaxyActivateButton.setButtonText (t ? "LCR" : "GALAXY");
     settingsPanel.behavBtn[0].setButtonText (t ? "LCR On Startup (Latency)" : "Galaxy On Startup (Latency)");
     globalGalaxyActivateButton.setTooltip (t ? "LCR engine: needed for the L/C/R split. Switching it on adds latency"
                                              : "Galaxy engine: needed for L/C/R extraction. Switching it on adds latency");
-    // Regain, Depth, Amount und Speed heissen in beiden Welten gleich.
+    // Amount und Speed heissen in beiden Welten gleich.
+    // EARLY/LATE heisst technisch PRE/POST (User Runde 100) - der Text steht
+    // live in timerCallback(), deshalb hier nur der Anstoss.
 
     // ===== HINWEISZEILE (Runde 60, User: "komplett ueberpruefen, stimmt
     // alles noch? und auch die technical Terms darin aktualisieren") =====
@@ -1160,7 +1164,7 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     // genau das war bei TIMEWARP passiert (die Sektion heisst seit Langem
     // PARALLAX).
     auto tipFor = [] (juce::SettableTooltipClient& c, const juce::String& text) { c.setTooltip (text); };
-    tipFor (lcrTitleLabel,        t ? "LCR: pulls the centre out of the stereo image and treats L, C and R apart"
+    tipFor (lcrTitleLabel,        t ? "LCR MATRIX: pulls the centre out of the stereo image and treats L, C and R apart"
                                     : "GALAXY: pulls the centre out of the stereo image and treats L, C and R apart");
     tipFor (polTitleLabel,        t ? "POLARITY: flips the phase of one channel at a chosen point in the chain"
                                     : "ECLIPSE: flips the phase of one channel at a chosen point in the chain");
@@ -1177,13 +1181,15 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
                                : "Gravity: how strongly the centre is separated from the sides");
     tipFor (orbitSlider,     t ? "L/R: how much of the sides comes back in. All the way down is centre only"
                                : "Orbit: how much of the sides comes back in. All the way down is centre only");
-    tipFor (horizonSlider,   "Regain: how much of the level the split takes away comes back");
+    tipFor (horizonSlider,   t ? "HF Regain: how much of the level the split takes away comes back"
+                               : "Regain: how much of the level the split takes away comes back");
     tipFor (sideWidthSlider, t ? "Width: how far the image reaches. Below 100 % pulls it in, above pushes it out"
                                : "Size: how far the image reaches. Below 100 % pulls it in, above pushes it out");
-    tipFor (sideBoostSlider, t ? "Gain: gives the sides weight without touching what sits in the centre"
+    tipFor (sideBoostSlider, t ? "Sides: gives the sides weight without touching what sits in the centre"
                                : "Boost: gives the sides weight without touching what sits in the centre");
-    tipFor (distanceSlider,  "Depth: left moves the sound back into the room, right pulls it close");
-    tipFor (movementSlider,  t ? "Width: how far the sound travels left and right"
+    tipFor (distanceSlider,  t ? "Distance: left moves the sound back into the room, right pulls it close"
+                               : "Depth: left moves the sound back into the room, right pulls it close");
+    tipFor (movementSlider,  t ? "Amount: how far the sound travels left and right"
                                : "Flow: how far the sound travels left and right");
     tipFor (rayPairButton,   t ? "Pair: follow Autopan at half its speed"
                                : "Pair: follow Hyperdrive at half its speed");
@@ -1312,12 +1318,16 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
 // Reglern bleiben sichtbar.
 void LCRMSAudioProcessorEditor::applyAdvancedModVisibility()
 {
+    // Runde 101 (User): es gibt sie nicht mehr - weder Icon noch Regler.
     for (auto* c : std::initializer_list<juce::Component*> {
              &galaxyModButton, &galaxyModDepthSlider,
              &driftModButton, &driftModDepthSlider,
              &dimensionModButton, &dimensionModDepthSlider,
              &hyperdriveModButton, &hyperdriveModDepthSlider })
-        c->setVisible (advancedModVisible);
+    {
+        c->setVisible (false);
+        c->setBounds ({});
+    }
 }
 
 void LCRMSAudioProcessorEditor::activateGalaxyIfNeeded()
@@ -1578,7 +1588,8 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (polLButton,     "L: flip the left channel");
     tip (polRButton,     "R: flip the right channel");
     tip (polLinkButton,  "Link: switch L and R together");
-    tip (polPos2Button,  "Early / Late: click to switch. Early flips right after Galaxy, Late at the end after the width");
+    tip (polPos2Button,  technicalLabels ? "Pre / Post: click to switch. Pre flips right after the LCR stage, Post at the end after the width"
+                                        : "Early / Late: click to switch. Early flips right after Galaxy, Late at the end after the width");
 
     // Timewarp
     tip (driftTitleLabel,   "TIMEWARP: opens a mono-ish sound into a wide one by pulling left and right apart in time and in pitch");
@@ -1656,12 +1667,22 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
 void LCRMSAudioProcessorEditor::updateHintBar()
 {
     // Runde 38 (User): solange eine Maustaste gedrueckt ist (Regler ziehen),
-    // bleibt der Hinweis stehen - sonst springt er auf alles, woran die Maus
-    // beim Ziehen vorbeifaehrt.
-    if (juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown())
-        return;
+    // wechselt der Hinweis NICHT - sonst springt er auf alles, woran die Maus
+    // beim Ziehen vorbeifaehrt. Runde 99 (User): sein Text wird trotzdem neu
+    // gelesen, damit Werte wie die Hz-Zahl von Regain live mitlaufen.
+    const bool draggingNow = juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown();
     juce::String want;
-    if (helpButton.getToggleState())
+    if (draggingNow)
+    {
+        if (! helpButton.getToggleState())
+            return;
+        if (auto* src = hintSource.getComponent())
+            if (auto* ttc = dynamic_cast<juce::TooltipClient*> (src))
+                want = ttc->getTooltip();
+        if (want.isEmpty())
+            return;
+    }
+    else if (helpButton.getToggleState())
     {
         // Frueher ueber getComponentUnderMouse() - das haengt an den zuletzt
         // zugestellten Mausereignissen und lieferte erst nach einem Klick
@@ -1671,9 +1692,13 @@ void LCRMSAudioProcessorEditor::updateHintBar()
         const auto screenPos = juce::Desktop::getInstance().getMainMouseSource().getScreenPosition();
         const auto local = getLocalPoint (nullptr, screenPos).roundToInt();
         juce::Component* c = getLocalBounds().contains (local) ? getComponentAt (local) : nullptr;
+        hintSource = nullptr;
         for (int guard = 0; c != nullptr && guard < 6 && want.isEmpty(); ++guard, c = c->getParentComponent())
             if (auto* ttc = dynamic_cast<juce::TooltipClient*> (c))
+            {
                 want = ttc->getTooltip();
+                if (want.isNotEmpty()) hintSource = c;
+            }
     }
     if (want != currentHint)
     {
@@ -1974,11 +1999,9 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
 
     // Runde 71: die Layout-Knoepfe gibt es nicht mehr - jedes Theme hat sein
     // festes Layout. "Technical Labels" steht jetzt bei Behaviour.
-    settingsPanel.behavBtn[4].setToggleState (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
-                                                                                               juce::dontSendNotification);
-    settingsPanel.behavBtn[3].setToggleState (modulationVisualsEnabled,                        juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (advancedModVisible,                              juce::dontSendNotification);
-    settingsPanel.behavBtn[1].setToggleState (technicalLabels,                                 juce::dontSendNotification);
+    settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,  juce::dontSendNotification);
+    // "SpaceX Labels" ist die Umkehrung: angehakt = NICHT technisch.
+    settingsPanel.labelBtn.setToggleState (! technicalLabels, juce::dontSendNotification);
     settingsPanel.behavBtn[0].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
     const bool lic = processor.licensed.load (std::memory_order_relaxed);
     backPanel.activateBtn.setButtonText (lic ? "Activated" : "Enter Serial");
@@ -2111,8 +2134,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     keepSoloWhenSectionOff = true;
                     modulationVisualsEnabled = true;
                     showMutateCategories = true;
-                    writeProps.setValue ("technicalLabels", false);
-                    technicalLabels = false;
+                    writeProps.setValue ("technicalLabels", true);
+                    technicalLabels = true;
                     writeProps.saveIfNeeded();
                     applyLabelStyle();
                     applyLayoutMode();
@@ -3512,7 +3535,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Runde 39 (User): EARLY/LATE ist EIN Knopf - Klick schaltet um, die
     // Beschriftung zeigt die aktuelle Position. polPos2Button traegt ihn,
     // die anderen drei sind aus.
-    polPos2Button.setButtonText ("EARLY");
+    polPos2Button.setButtonText (technicalLabels ? "PRE" : "EARLY");
     // Runde 62 (User): im aktiven Zustand zurueckhaltender als L und R - er
     // sagt nur, WO umgepolt wird, nicht DASS umgepolt wird.
     polPos2Button.getProperties().set ("softOn", true);
@@ -4194,7 +4217,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
         setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
         showMutateCategories = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("showMutateCategories", true);
-        technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", false);
+        // Runde 100 (User, nach Feedback eines Engineer-Kollegen): die
+        // technische Beschriftung ist der Standard, die Space-Namen sind die
+        // Option ("SpaceX Labels" unter den Themes).
+        technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", true);
         applyLabelStyle();
 
         // Runde 58 (User-Korrektur): beim allerersten Oeffnen startet direkt
@@ -5063,7 +5089,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
                           || processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_R)->load() > 0.5f;
         // Ein Knopf (Runde 39): Text = aktuelle Position, leuchtet bei Flip.
         juce::ignoreUnused (polPosButtons);
-        const juce::String posText = (currentPos == 2) ? "LATE" : "EARLY";
+        const juce::String posText = technicalLabels ? ((currentPos == 2) ? "POST" : "PRE")
+                                                    : ((currentPos == 2) ? "LATE" : "EARLY");
         if (polPos2Button.getButtonText() != posText)
             polPos2Button.setButtonText (posText);
         if (polPos2Button.getToggleState() != anyFlip)
@@ -6312,12 +6339,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         //
         // Zeile 1:  BYP M M B ~ GALAXY | Undo Redo | Menu
         // Zeile 2:  < [ Name ] > | Save Delete | A/B Copy Reset
-        constexpr int kLiveW   = kIconBtnW * 4 + kGap * 3;   // Runde 55: ein Wuerfel weniger
+        // Runde 103 (User): Breathe ist weg, die Zeile heisst jetzt
+        // Bypass - Wuerfel - Life - Mod. Der Wuerfel darf etwas groesser sein,
+        // LIFE genauso gross wie die frueheren Mod-Regler in den Sektionen.
+        constexpr int kDiceW   = 42;
+        constexpr int kLifeW   = 36;
+        constexpr int kLiveW   = kIconBtnW + kGap + kDiceW + kGap + kLifeW + kGap + kIconBtnW;
         constexpr int kGalaxyGap = 12;
-        constexpr int kLifeW   = 26;   // LIFE-Regler neben dem Mod-Bypass
-        constexpr int kLifeGap = 4;
         constexpr int kGalaxyW = 62;
-        constexpr int kRow1W   = kLiveW + kLifeGap + kLifeW + kGalaxyGap + kGalaxyW + kSepBlockW + (kUndoBtnW * 2 + kGap) + kSepBlockW + kHamburgerW;
+        constexpr int kRow1W   = kLiveW + kGalaxyGap + kGalaxyW + kSepBlockW + (kUndoBtnW * 2 + kGap) + kSepBlockW + kHamburgerW;
 
         // Zeile 2 gleich breit. Das Namensfeld bekommt den Rest - deutlich
         // kleiner als vorher, und das ist so gewollt (User: "kann theoretisch
@@ -6366,15 +6396,16 @@ void LCRMSAudioProcessorEditor::layoutContent()
         globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
         // Runde 55: nur noch ein Wuerfel.
-        globalChaosButton.setBounds (live.removeFromLeft (kIconBtnW));
+        globalChaosButton.setBounds (live.removeFromLeft (kDiceW));
         globalChaosSectionsButton.setBounds ({});
         live.removeFromLeft (kGap);
-        globalBreatheButton.setBounds (live.removeFromLeft (kIconBtnW));
+        lifeSlider.setBounds (live.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));
         live.removeFromLeft (kGap);
         globalModBypassButton.setBounds (live);
-
-        row1.removeFromLeft (kLifeGap);
-        lifeSlider.setBounds (row1.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));
+        // Runde 103 (User): Breathe ist ersatzlos weg - LIFE und der
+        // Mod-Schalter machen die Bewegung, ohne Wuerfeln.
+        globalBreatheButton.setVisible (false);
+        globalBreatheButton.setBounds ({});
 
         row1.removeFromLeft (kGalaxyGap);
         globalGalaxyActivateButton.setBounds (row1.removeFromLeft (kGalaxyW));
@@ -6777,19 +6808,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // (36px statt 22px), darf dafuer leicht ueber die duenne Header-Zeile
         // hinausragen (vertikal mittig zentriert, ausreichend Puffer im
         // Rahmen darunter vorhanden).
-        if (modDepthSlider != nullptr)
-        {
-            const int knobSize = 36;
-            auto depthArea = header.removeFromRight (knobSize);
-            header.removeFromRight (3);
-            modDepthSlider->setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
-        }
-        if (modBtn != nullptr)
-        {
-            auto modArea = header.removeFromRight (headerH);
-            header.removeFromRight (4);
-            modBtn->setBounds (modArea.reduced (0));
-        }
+        // Runde 101 (User: "Mod Regler und Mod Icons weg"): beide sind aus
+        // den Sektionskoepfen verschwunden. Was sie konnten, macht jetzt der
+        // globale Mod-Schalter zusammen mit LIFE.
+        if (modDepthSlider != nullptr) { modDepthSlider->setVisible (false); modDepthSlider->setBounds ({}); }
+        if (modBtn != nullptr)         { modBtn->setVisible (false);         modBtn->setBounds ({}); }
         // Filter-Symbol (nur Galaxy und Dimension): direkt links neben dem
         // Mod-Icon, gleiche Groessenordnung wie das Lock-Icon.
         if (filterBtn != nullptr)
