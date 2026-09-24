@@ -1245,9 +1245,12 @@ public:
                 {
                     // Parallax als Draufsicht: Mitte = Zentrum, aussen = Seiten.
                     const float spread[4] = { 2.6f, 0.0f, 5.0f, 6.6f };
-                    if (diag == 1)
+                    // Runde 96 (User): VELVET sah aus wie ILLUSION und DOUBLE -
+                    // es ist aber der leiseste der beiden mittigen Modi. Also
+                    // derselbe Ring wie HALO, nur enger.
+                    if (diag == 0 || diag == 1)
                     {
-                        const float r = 5.2f * sc;
+                        const float r = (diag == 1 ? 5.4f : 3.4f) * sc;
                         g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
                         g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
                     }
