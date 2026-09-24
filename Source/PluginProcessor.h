@@ -453,6 +453,17 @@ public:
     // mehr verbreitert. Gedacht zum Vergleichen; wenn klar ist, welcher Modus
     // welche Frequenz will, wandert die Zahl in die Modus-Tabelle und der
     // Knopf verschwindet wieder.
+    // Runde 84 (User-Bug): A/B lag bisher NUR im Editor. Beim Verschieben
+    // oder Kopieren des Plugins auf einen anderen Insert wird der Editor neu
+    // gebaut - und damit waren beide Slots weg. Jetzt gehoert A/B dem
+    // Prozessor und wandert im gespeicherten Zustand mit. Die Preset-Namen
+    // der beiden Slots liegen daneben, damit nach dem Umschalten wieder der
+    // richtige Name in der Leiste steht statt des alten mit Sternchen.
+    juce::ValueTree abSlotA, abSlotB;
+    juce::String    abNameA, abNameB;
+    bool            abCurrentIsA = true;
+    bool            abRestored   = false;   // kam A/B aus dem geladenen Zustand?
+
     static constexpr auto ID_PX_HP           = "parallaxHp";        // Bass Protect fuer Parallax (120 Hz)
     static constexpr auto ID_PARALLAX_MODE   = "parallaxMode";
     static constexpr auto ID_PARALLAX_AMOUNT = "parallaxAmount";

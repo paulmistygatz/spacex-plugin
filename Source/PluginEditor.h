@@ -1818,7 +1818,10 @@ private:
     // A/B haelt zwei komplette Parameter-Snapshots rein GUI-seitig (nicht
     // Teil des gespeicherten Plugin-Zustands) - schneller Vergleich zweier
     // Einstellungen innerhalb einer Session, kein persistentes Preset.
-    juce::ValueTree abSlotA, abSlotB;
+    // Runde 84: liegt jetzt im Prozessor (siehe dort) - der Editor greift nur
+    // noch darauf zu, damit A/B ein Verschieben des Plugins ueberlebt.
+    juce::ValueTree& abSlotA;
+    juce::ValueTree& abSlotB;
     // "Copy" neben A/B (User-Wunsch, nach Pro-Q-Vorbild): kopiert den
     // aktuellen Zustand in den jeweils NICHT aktiven Buchstaben. Leuchtet nur,
     // solange sich beide Slots unterscheiden - ist A = B, gibt es nichts zu
@@ -1827,7 +1830,8 @@ private:
     juce::TextButton abCopyButton;
     bool abCopyLit = false;
     static float signatureOfTree (const juce::ValueTree& tree);
-    bool abCurrentIsA = true;
+    bool& abCurrentIsA;
+    bool  abDirtyA = false, abDirtyB = false;   // Runde 84: Sternchen je Slot
 
     // Globaler "ACTIVATE GALAXY"-Schalter (echter APVTS-Parameter) - schaltet
     // NUR die STFT-Engine/Latenz scharf, siehe ID_GALAXY_ACTIVATE. Bewusst
@@ -2055,8 +2059,8 @@ private:
     juce::Label volLabel;
     // Runde 74 (User): Balance ganz am Ende der Kette, zum Zurueckziehen der
     // Modi, die das Bild hoerbar zur Seite schieben (3D, Drift).
-    juce::Slider panSlider;
-    juce::Label  panLabel;
+    LockableSlider panSlider;   // Runde 84: Rechtsklick sperrt ihn wie Mix und Vol
+    juce::Label     panLabel;
     // Globaler MIX (bearbeitet gegen Original), sitzt zwischen DRY und VOL.
     LockableSlider mixSlider;
     juce::Label mixLabel;

@@ -2685,6 +2685,21 @@ void LCRMSAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    // Runde 84: A/B reist mit. Ohne das waren beide Slots weg, sobald der
+    // Host das Plugin verschoben oder kopiert hat (User-Bug).
+    if (xml != nullptr)
+    {
+        auto* ab = xml->createNewChildElement ("SPACEX_AB");
+        ab->setAttribute ("currentIsA", abCurrentIsA ? 1 : 0);
+        ab->setAttribute ("nameA", abNameA);
+        ab->setAttribute ("nameB", abNameB);
+        if (abSlotA.isValid())
+            if (auto sub = abSlotA.createXml())
+                ab->createNewChildElement ("A")->addChildElement (sub.release());
+        if (abSlotB.isValid())
+            if (auto sub = abSlotB.createXml())
+                ab->createNewChildElement ("B")->addChildElement (sub.release());
+    }
     copyXmlToBinary (*xml, destData);
 }
 
@@ -2695,8 +2710,47 @@ void LCRMSAudioProcessor::setStateInformation (const void* data, int sizeInBytes
     // verzoegerter "Activate Galaxy als Standard"-Callback sich zurueckhaelt.
     hasReceivedExternalState = true;
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    if (xml == nullptr || ! xml->hasTagName (apvts.state.getType()))
+        return;
+
+    // A/B herausloesen, BEVOR der Rest zum Parameterbaum wird - sonst landet
+    // der Anhang als Fremdkoerper in der Zustandskopie.
+    juce::ValueTree newA, newB;
+    juce::String    newNameA, newNameB;
+    bool            newCurrentIsA = true, found = false;
+    if (auto* ab = xml->getChildByName ("SPACEX_AB"))
+    {
+        found         = true;
+        newCurrentIsA = ab->getIntAttribute ("currentIsA", 1) != 0;
+        newNameA      = ab->getStringAttribute ("nameA");
+        newNameB      = ab->getStringAttribute ("nameB");
+        if (auto* a = ab->getChildByName ("A"))
+            if (auto* inner = a->getFirstChildElement())
+                newA = juce::ValueTree::fromXml (*inner);
+        if (auto* b = ab->getChildByName ("B"))
+            if (auto* inner = b->getFirstChildElement())
+                newB = juce::ValueTree::fromXml (*inner);
+        xml->removeChildElement (ab, true);
+    }
+
+    apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+    if (found && newA.isValid() && newB.isValid())
+    {
+        abSlotA      = newA;
+        abSlotB      = newB;
+        abNameA      = newNameA;
+        abNameB      = newNameB;
+        abCurrentIsA = newCurrentIsA;
+        abRestored   = true;
+    }
+    else
+    {
+        // Aelterer Zustand ohne A/B: beide Slots auf das Geladene setzen.
+        abSlotA = abSlotB = apvts.copyState();
+        abCurrentIsA = true;
+        abRestored   = false;
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

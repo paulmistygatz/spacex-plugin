@@ -791,7 +791,10 @@ juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
         case 1: return "Lead vocal - wide, centre stays put.";
         case 2: return "Stacks, busses and mono doubles - wide, but tidy.";
         case 3: return "Ad-libs - space, movement, clear sides.";
-        case 4: return "Send FX - anything goes.";
+        // Runde 84 (User): "anything goes" stimmte nicht - eine Parallel-
+        // kompression ist auch ein Send, und dort will man SpaceX gerade nicht.
+        // Gemeint sind Spuren, die nur aus Effekt bestehen.
+        case 4: return "Reverb and delay returns - pure effect, nothing dry.";
         default: return {};   // kein Profil, keine Zeile (User)
     }
 }
@@ -2884,7 +2887,8 @@ void LCRMSAudioProcessorEditor::setupModButton (juce::TextButton& button, const 
 LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p), goniometer (p),
       volInputMeter (p.currentInputLevel), volOutputMeter (p.currentOutputLevel),
-      undoHistory (p.undoHistory), undoIndex (p.undoIndex)
+      undoHistory (p.undoHistory), undoIndex (p.undoIndex),
+      abSlotA (p.abSlotA), abSlotB (p.abSlotB), abCurrentIsA (p.abCurrentIsA)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -3136,17 +3140,31 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     globalABButton.getProperties().set ("abIcon", true);
     globalABButton.getProperties().set ("abIsA", true);
     content.addAndMakeVisible (globalABButton);
-    abSlotA = processor.apvts.copyState();
-    abSlotB = processor.apvts.copyState();
+    // Runde 84: nur befuellen, wenn noch nichts da ist. Kam A/B aus dem
+    // geladenen Zustand, wuerde ein Ueberschreiben hier genau den Bug
+    // zurueckbringen, den wir gerade beseitigt haben.
+    if (! abSlotA.isValid()) abSlotA = processor.apvts.copyState();
+    if (! abSlotB.isValid()) abSlotB = processor.apvts.copyState();
+    globalABButton.getProperties().set ("abIsA", abCurrentIsA);
     globalABButton.onClick = [this]
     {
+        // Runde 84 (User): jeder Slot merkt sich seinen eigenen Preset-Namen.
+        // Vorher blieb beim Umschalten der Name des zuletzt geladenen Presets
+        // stehen und bekam ein Sternchen - obwohl der andere Slot in Wahrheit
+        // ein anderes Preset ist.
         (abCurrentIsA ? abSlotA : abSlotB) = processor.apvts.copyState();
+        (abCurrentIsA ? processor.abNameA : processor.abNameB) = currentPresetName;
+        const bool dirtyBefore = presetDirty;
+        (abCurrentIsA ? abDirtyA : abDirtyB) = dirtyBefore;
         abCurrentIsA = ! abCurrentIsA;
         auto* mixParam = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX);
         const float mixBefore = mixParam != nullptr ? mixParam->getValue() : 1.0f;
         processor.apvts.replaceState (abCurrentIsA ? abSlotA : abSlotB);
         if (isMixLocked() && mixParam != nullptr)
             mixParam->setValueNotifyingHost (mixBefore);
+        currentPresetName = abCurrentIsA ? processor.abNameA : processor.abNameB;
+        presetDirty       = abCurrentIsA ? abDirtyA : abDirtyB;
+        refreshPresetNameDisplay();
         storeViewSettingsInState();   // View gehoert nicht zu A/B
         globalABButton.getProperties().set ("abIsA", abCurrentIsA);
         globalABButton.repaint();
@@ -3176,6 +3194,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         // bekommt eine Kopie davon - ab jetzt sind beide gleich, das Icon
         // erlischt beim naechsten Tick von selbst.
         (abCurrentIsA ? abSlotB : abSlotA) = processor.apvts.copyState();
+        (abCurrentIsA ? processor.abNameB : processor.abNameA) = currentPresetName;
+        (abCurrentIsA ? abDirtyB : abDirtyA) = presetDirty;
     };
 
     // --- LCR --------------------------------------------------------------
@@ -3757,6 +3777,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     }
     mixSlider.onRightClick = [this] { toggleKnobLock ("lockMix", mixSlider); };
     volSlider.onRightClick = [this] { toggleKnobLock ("lockVol", volSlider); };
+    panSlider.getProperties().set ("knobLocked",
+        juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("lockPan", false));
 
     prismOnButton.setClickingTogglesState (true);
     prismOnButton.setWantsKeyboardFocus (false);
@@ -3828,7 +3850,11 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     styleLabel (panLabel, "Pan");
     content.addAndMakeVisible (panLabel);
     panAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_OUT_PAN, panSlider);
-    panSlider.setDoubleClickReturnValue (true, 0.0);
+    // Runde 84 (User): Cmd-Klick setzt zurueck - dieselbe Geste wie ueberall
+    // sonst. Vorher war nur Doppelklick belegt, und der ist im Plugin
+    // nirgends die Ruecksetz-Geste.
+    panSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
+    panSlider.onRightClick = [this] { toggleKnobLock ("lockPan", panSlider); };
     volSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
     // MIX (User-Frage "Gesamter Mix Regler?"): bearbeitet gegen Original,
     // latenzgleich, Polarity-Flip wird aufs Original uebernommen (siehe
