@@ -1064,9 +1064,18 @@ public:
         }
         else if (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted)
         {
-            // Ohne Flaeche braucht der Aus-Zustand trotzdem Hover-Feedback.
-            g.setColour (juce::Colours::white.withAlpha (shouldDrawButtonAsDown ? 0.08f : 0.045f));
-            g.fillRoundedRectangle (bounds, cornerSize);
+           #if SPACEX_PX_DIAG_ONLY
+            // Runde 92 (User: "Hover-Box weg machen"): wo ein Icon sitzt, gibt
+            // es keinen Kasten - der Schimmer dahinter wird stattdessen
+            // kraeftiger (siehe unten).
+            if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) < 0
+             && (int) button.getProperties().getWithDefault ("rayDiagram", -1) < 0)
+           #endif
+            {
+                // Ohne Flaeche braucht der Aus-Zustand trotzdem Hover-Feedback.
+                g.setColour (juce::Colours::white.withAlpha (shouldDrawButtonAsDown ? 0.08f : 0.045f));
+                g.fillRoundedRectangle (bounds, cornerSize);
+            }
         }
 
         // Parallax-Klick-Knopf, Variante B (Runde 45): Fuellung von links,
@@ -1084,9 +1093,20 @@ public:
             }
         }
 
+        // Runde 93 (User: "Pop Art Grafik kaputt"): in Pop kam der Comic-
+        // Kasten zuerst und sprang aus der Funktion - der Icon-Knopf bekam
+        // also den Rahmen, den er gerade NICHT haben soll, und gar kein Icon.
+        // Traegt er ein Icon, ueberspringt er den Comic-Zweig.
+        const bool diagPill = (int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
+                           || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0;
+        juce::ignoreUnused (diagPill);
         // Pair bei ausgeschalteter RAYE-Sektion: Zustand trotzdem sichtbar
         // (hellerer Rand, User) - Property "pairedGold" bleibt gesetzt.
+       #if SPACEX_PX_DIAG_ONLY
+        if (isComicTheme() && ! diagPill)
+       #else
         if (isComicTheme())
+       #endif
         {
             comicOutline (g, bounds, cornerSize);
             if (offButPaired) { g.setColour (juce::Colour (0xff625d7d)); g.drawRoundedRectangle (bounds.reduced (2.0f), cornerSize, 1.0f); }   // nochmal dezenter (User)
@@ -1119,8 +1139,7 @@ public:
                 g.setColour (pillCol.withAlpha (0.14f));
                 g.fillRoundedRectangle (bounds, cornerSize);
             }
-            const bool hasDiagram = (int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
-                                 || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0;
+            const bool hasDiagram = diagPill;
             // Runde 69 (User): "miniminimal weniger hell" - 0.62 -> 0.54.
             const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.54f);
            #if SPACEX_PX_DIAG_ONLY
@@ -1151,8 +1170,8 @@ public:
                 // Runde 91 (User): kein Rahmen mehr - das Icon gross oben, die
                 // Schrift dicht ueber den Punkten. Dahinter ein weicher
                 // Farbschimmer statt einer Box (Nuro-Vorbild).
-                auto db = bounds.withHeight (bounds.getHeight() * 0.62f);
-                const float sc = juce::jmin (2.4f, db.getHeight() / 16.0f);
+                auto db = bounds.withHeight (bounds.getHeight() * 0.66f);
+                const float sc = juce::jmin (3.2f, db.getHeight() / 13.0f);
                #else
                 auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
                 const float sc = 1.0f;
@@ -1162,10 +1181,14 @@ public:
                 {
                     // Der Schimmer liegt HINTER dem Icon: ein weicher runder
                     // Verlauf in der Sektionsfarbe, der nach aussen ausgeht.
-                    const float gr = juce::jmin (11.0f * sc, db.getHeight() * 0.62f);
-                    juce::ColourGradient grad (pillCol.withAlpha (sectionIsOffNow ? 0.10f : 0.26f), cx, cy,
+                    // Runde 92 (User): der Hover zeigt sich als STAERKERER
+                    // Schimmer statt als Kasten.
+                    const float hot = shouldDrawButtonAsDown ? 1.9f
+                                    : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f;
+                    const float gr = juce::jmin (11.0f * sc, db.getHeight() * 0.70f) * (hot > 1.0f ? 1.10f : 1.0f);
+                    juce::ColourGradient grad (pillCol.withAlpha (juce::jmin (0.65f, (sectionIsOffNow ? 0.10f : 0.26f) * hot)), cx, cy,
                                                pillCol.withAlpha (0.0f), cx + gr, cy, true);
-                    grad.addColour (0.45, pillCol.withAlpha (sectionIsOffNow ? 0.05f : 0.13f));
+                    grad.addColour (0.45, pillCol.withAlpha (juce::jmin (0.40f, (sectionIsOffNow ? 0.05f : 0.13f) * hot)));
                     g.setGradientFill (grad);
                     g.fillEllipse (cx - gr, cy - gr, gr * 2.0f, gr * 2.0f);
                 }

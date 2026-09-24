@@ -5690,7 +5690,9 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Meter (User: "lieber einen Kasten, alle Labels drinnen").
         drawBox (boxOf ({ &volInputMeter, &volOutputMeter, &inputMeterLabel, &outputMeterLabel,
                           &monoCheckButton, &monoCheckLabel, &monoDryButton, &monoDryLabel,
-                          &mixSlider, &mixLabel, &volSlider, &volLabel, &prismOnButton, &prismBand }));
+                          &mixSlider, &mixLabel, &volSlider, &volLabel,
+                          &panSlider, &panLabel,   // Runde 93 (User): Pan stand ausserhalb des Kastens
+                          &prismOnButton, &prismBand }));
         // Das "?" unten links bekommt einen eigenen kleinen Kasten. Er darf
         // den Rahmen darueber ueberlappen - das sieht in Pop absichtlich so
         // aus (User).
@@ -7011,7 +7013,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // zum Link-Symbol darueber, dadurch wirkte der Block unten gedraengt.
         // L/R rueckt ein paar Pixel hoch (groesserer Wert hier), EARLY/LATE
         // ein paar tiefer (Versatz unten) - damit stehen beide Luecken gleich.
-        const int gapToLate = 26;
+        // Runde 92 (User: "mach den riesen Abstand zwischen LR und LATE weg"):
+        // gemessen waren es 32 px gegen 11 px zum Link darueber. Der Wert hier
+        // wirkt +7 px (3 px Versatz von LATE auf die Regain-Linie und je 2 px
+        // Innenabstand der beiden Knoepfe), 5 ergibt also dieselbe Luecke.
+        const int gapToLate = 5;
         const int lrBottom  = lateTop - gapToLate;
         const int lrTop     = lrBottom - lrBtnH;
 
@@ -7172,7 +7178,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
     }
     else
     {
-    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton, &parallaxHpButton);
+    // Runde 92 (User: "bei Parallax den Filter-Icon wieder entfernen, Bass
+    // Guard immer aktiv haben"): der Schalter ist weg, der 120-Hz-Schutz
+    // laeuft fest mit (siehe PluginProcessor).
+    parallaxHpButton.setVisible (false);
+    parallaxHpButton.setBounds ({});
+    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
 
     if (! kNewParallax)
     {
@@ -7429,12 +7440,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
             // Runde 90 (User: "auch fuer Sweep - schau dass die Box gross
             // genug ist"): Icon oben, Name darunter, also doppelte Hoehe und
             // so breit, wie die halbe Sektion hergibt.
-            // Runde 91 (User: "bei RAYE haben wir nach links hin noch viel
-            // Platz"): ohne Rahmen nimmt das Feld die ganze rechte Haelfte.
-            const int pw = slotC.getWidth();
+            // Runde 92 (User): "Sweep groesser und weiter links - soll mittig
+            // sein zwischen der MITTE des Amount-Reglers und dem rechten
+            // Sektionsrand." Die Breite bleibt so, dass das Feld den Regler
+            // nicht ueberdeckt (sonst frisst es dessen Mausflaeche).
             const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 8,
-                                       rayKnobAreaH - (kDotsInside ? 8 : 12));
-            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -5 : -7);
+                                       rayKnobAreaH - (kDotsInside ? 8 : 6));
+            const int wantCx  = (rayAmountSlider.getBounds().getCentreX() + slotC.getRight()) / 2;
+            const int maxHalf = juce::jmax (20, juce::jmin (wantCx - (rayAmountSlider.getRight() + 6),
+                                                            slotC.getRight() - wantCx));
+            auto col = juce::Rectangle<int> (wantCx - maxHalf, slotC.getY() + (slotC.getHeight() - ph) / 2,
+                                             maxHalf * 2, ph).translated (0, kDotsInside ? -5 : -7);
            #else
             const int pw = juce::jmin (kChoiceW, halfW);
             const int ph = juce::jmin (kDotsInside ? kChoiceH + 6 : kChoiceH, rayKnobAreaH - (kDotsInside ? 8 : 14));

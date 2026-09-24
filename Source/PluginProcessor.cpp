@@ -1445,7 +1445,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // Runde 80: die hoehere der beiden Vorgaben gewinnt - ein Filter.
         // Runde 81 (User): der freie Regler ist wieder raus - es bleibt der
         // Schalter mit fest 120 Hz, genau wie Bass Protect.
-        const float wishHz = pPxHp->load() > 0.5f ? 120.0f : 0.0f;
+        // Runde 92 (User: "Bass Guard immer aktiv haben"): der Schalter ist
+        // aus der GUI verschwunden, der 120-Hz-Schutz laeuft jetzt fest mit.
+        // Der Parameter bleibt nur wegen alter Presets bestehen.
+        const float wishHz = 120.0f;
         pxHpActive = wishHz > 25.0f;
         if (pxHpActive && std::abs (wishHz - lastPxHpHz) > 0.5f)
         {
