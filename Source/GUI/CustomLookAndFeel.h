@@ -1119,6 +1119,41 @@ public:
             const float pillAlpha = sectionIsOffNow ? 0.28f : (strong && ! armed ? 0.34f : 0.54f);
             g.setColour (pillCol.withAlpha (pillAlpha));
             g.drawRoundedRectangle (bounds, cornerSize, strong ? 1.65f : 1.35f);   // eine Spur kraeftiger (User Runde 61)
+
+            // Runde 88 (User, nach dem Nuro-Supernova-Vorbild): ein winziges
+            // DIAGRAMM links im Knopf, das zeigt, was der Modus tut - nicht
+            // ein Signet, das nur huebsch ist. Gezeichnet, nicht geladen:
+            // reine Pfade, also scharf in jeder Groesse und automatisch in
+            // der Farbe der Pille.
+            // Gelesen wird es als Draufsicht: Mitte = Zentrum, aussen = Seiten.
+            //   0 VELVET   zwei schmale Striche dicht an der Mitte
+            //   1 HALO     ein Ring um die scharfe Mitte
+            //   2 ILLUSION weiter auseinander, Mitte noch klar
+            //   3 DOUBLE   am weitesten, die Mitte loest sich auf
+            const int diag = (int) button.getProperties().getWithDefault ("pxDiagram", -1);
+            if (diag >= 0)
+            {
+                auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
+                const float cx = db.getCentreX(), cy = db.getCentreY();
+                const float a  = sectionIsOffNow ? 0.34f : 0.85f;
+                g.setColour (pillCol.withAlpha (a));
+                const float spread[4] = { 2.6f, 0.0f, 5.0f, 6.6f };
+                if (diag == 1)
+                {
+                    g.drawEllipse (cx - 5.2f, cy - 5.2f, 10.4f, 10.4f, 1.1f);
+                    g.fillEllipse (cx - 1.3f, cy - 1.3f, 2.6f, 2.6f);
+                }
+                else
+                {
+                    const float sp = spread[juce::jlimit (0, 3, diag)];
+                    const float h  = diag == 3 ? 7.0f : 5.4f;
+                    g.fillRoundedRectangle (cx - sp - 1.1f, cy - h * 0.5f, 2.2f, h, 1.1f);
+                    g.fillRoundedRectangle (cx + sp - 1.1f, cy - h * 0.5f, 2.2f, h, 1.1f);
+                    // Die Mitte: bei DOUBLE nur noch angedeutet.
+                    g.setColour (pillCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
+                    g.fillEllipse (cx - 1.2f, cy - 1.2f, 2.4f, 2.4f);
+                }
+            }
             return;
         }
         if (sectionIsOffNow)
@@ -1423,7 +1458,12 @@ public:
             // "textYShift" (Runde 49): schiebt die Beschriftung nach oben,
             // wenn die Modus-Punkte INNERHALB der Pille sitzen.
             const int textShiftY = (int) (double) button.getProperties().getWithDefault ("textYShift", 0.0);
-            g.drawText (button.getButtonText(), button.getLocalBounds().translated (0, textShiftY), juce::Justification::centred);
+            // Runde 88: liegt links ein Diagramm, bekommt die Schrift den Rest
+            // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
+            auto textArea = button.getLocalBounds().translated (0, textShiftY);
+            if ((int) button.getProperties().getWithDefault ("pxDiagram", -1) >= 0)
+                textArea = textArea.withTrimmedLeft (21);
+            g.drawText (button.getButtonText(), textArea, juce::Justification::centred);
         }
 
         // Einheitlicher, dezenter Mouse-Hover-/Klick-Effekt fuer die gesamte

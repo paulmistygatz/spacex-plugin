@@ -4977,6 +4977,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
             }
         }
         if (pxModeDots.index != mode) { pxModeDots.index = mode; pxModeDots.repaint(); }
+        // Runde 88: Diagramm links im Knopf folgt dem Modus.
+        if ((int) parallaxModeButtons[0].getProperties().getWithDefault ("pxDiagram", -1) != mode)
+        {
+            parallaxModeButtons[0].getProperties().set ("pxDiagram", mode);
+            parallaxModeButtons[0].repaint();
+        }
        #else
         for (int i = 0; i < kPxModes; ++i)
             if (parallaxModeButtons[i].getToggleState() != (i == mode))
