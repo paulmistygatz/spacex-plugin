@@ -28,6 +28,7 @@ sudo rm -rf "$DST/SpaceX-A.vst3" "$DST/SpaceX-B.vst3" "$DST/SpaceX-C.vst3" "$DST
 for V in $VARIANTS; do
     case "$V" in
         box)     PROD="SpaceXbox" ;;
+        tune)    PROD="SpaceXtune" ;;
         paraCPU) PROD="SpaceXparaCPU" ;;
         presets) PROD="SpaceXpresets" ;;
         dotsin)  PROD="SpaceXin" ;;

@@ -1,3 +1,6 @@
+#ifndef SPACEX_TUNE
+ #define SPACEX_TUNE 0
+#endif
 #include "DSP/FastMath.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -1131,11 +1134,23 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Runde 101: feste, pro Sektion abgestimmte Tiefen (0..1 = Reglerstellung
     // der alten Regler). Hier wird nachjustiert, wenn eine Sektion zu viel
     // oder zu wenig Bewegung bekommt - LIFE skaliert danach alles gemeinsam.
-    constexpr float kDepthTimewarp   = 1.00f;
-    constexpr float kDepthDimension  = 1.00f;
-    constexpr float kDepthHyperdrive = 1.00f;
-    constexpr float kDepthGalaxy     = 1.00f;
-    constexpr float kDepthPosition   = 1.00f;
+    // Runde 104 (User): "alle Maximum" war ein Missverstaendnis - bis Paul
+    // die Werte im Tune-Build selbst eingestellt hat, gilt der alte Default
+    // der Regler (50 %).
+   #if SPACEX_TUNE
+    // Tune-Build: die alten Tiefe-Regler sind sichtbar und werden gelesen.
+    const float kDepthTimewarp   = pTimewarpDepth->load()   * 0.01f;
+    const float kDepthDimension  = pDimensionDepth->load()  * 0.01f;
+    const float kDepthHyperdrive = pHyperdriveDepth->load() * 0.01f;
+    const float kDepthGalaxy     = pGalaxyDepth->load()     * 0.01f;
+    const float kDepthPosition   = pPositionDepth->load()   * 0.01f;
+   #else
+    constexpr float kDepthTimewarp   = 0.50f;
+    constexpr float kDepthDimension  = 0.50f;
+    constexpr float kDepthHyperdrive = 0.50f;
+    constexpr float kDepthGalaxy     = 0.50f;
+    constexpr float kDepthPosition   = 0.50f;
+   #endif
     const float timewarpDepthFrac   = modDepthCurve (kDepthTimewarp)   * life01;
     const float dimensionDepthFrac  = modDepthCurve (kDepthDimension)  * life01;
     const float hyperdriveDepthFrac = modDepthCurve (kDepthHyperdrive) * life01;

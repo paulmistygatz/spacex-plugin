@@ -59,6 +59,9 @@ set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)
 # der normale Build. Die alte Fassung mit Pillenrahmen und ohne Icons gibt es
 # noch als Vergleichsbuild "box" (SpaceXbox).
 set(SPX_PXDIAG  1)
+# Runde 104 (User): Tune-Build - die Mod-Tiefe-Regler pro Sektion sind wieder
+# da und werden gelesen, damit Paul die festen Werte einstellen kann.
+set(SPX_TUNE    0)
 set(SPX_EXTRA   BUNDLE_ID "com.mistycat.spacex")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
@@ -83,6 +86,9 @@ elseif (SPACEX_VARIANT STREQUAL "dotsout")
     set(SPX_PXUI 2)
     set(SPX_RAYEUI 1)
     set(SPX_OWN "SpaceXout" "SXdo")
+elseif (SPACEX_VARIANT STREQUAL "tune")
+    set(SPX_TUNE 1)
+    set(SPX_OWN "SpaceXtune" "SXtn")
 elseif (SPACEX_VARIANT STREQUAL "box")
     # Runde 98: die alte Fassung - Modusname in einer gerahmten Pille, keine
     # Icons, kein Schimmer.
@@ -95,7 +101,7 @@ elseif (SPACEX_VARIANT STREQUAL "dotsin")
     set(SPX_DOTSIN 1)
     set(SPX_OWN "SpaceXin" "SXdi")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, box, dotsin, dotsout, paraCPU, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, tune, box, dotsin, dotsout, paraCPU, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)
@@ -157,6 +163,7 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     SPACEX_NO_VISUALS=${SPX_NOVIS}
     SPACEX_DOTS_INSIDE=${SPX_DOTSIN}
     SPACEX_PX_DIAG_ONLY=${SPX_PXDIAG}
+    SPACEX_TUNE=${SPX_TUNE}
 )
 
 target_link_libraries(LCRMSPlugin

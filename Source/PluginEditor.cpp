@@ -1,3 +1,6 @@
+#ifndef SPACEX_TUNE
+ #define SPACEX_TUNE 0
+#endif
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "SpaceXManualData.h"   // eingebettetes Handbuch, siehe openManual()
@@ -1319,11 +1322,13 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
 void LCRMSAudioProcessorEditor::applyAdvancedModVisibility()
 {
     // Runde 101 (User): es gibt sie nicht mehr - weder Icon noch Regler.
+    // Im Tune-Build bleiben die Tiefe-Regler stehen (layoutHeader setzt sie).
     for (auto* c : std::initializer_list<juce::Component*> {
-             &galaxyModButton, &galaxyModDepthSlider,
-             &driftModButton, &driftModDepthSlider,
-             &dimensionModButton, &dimensionModDepthSlider,
-             &hyperdriveModButton, &hyperdriveModDepthSlider })
+             &galaxyModButton, &driftModButton, &dimensionModButton, &hyperdriveModButton
+           #if ! SPACEX_TUNE
+             , &galaxyModDepthSlider, &driftModDepthSlider, &dimensionModDepthSlider, &hyperdriveModDepthSlider
+           #endif
+         })
     {
         c->setVisible (false);
         c->setBounds ({});
@@ -4738,10 +4743,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 87 (User): steht der Tiefenregler ganz unten, moduliert nichts -
     // dann soll er auch aussehen wie ausgeschaltet, nicht wie aktiv auf null.
     auto depthLive = [] (const juce::Slider& sl) { return sl.getValue() > 0.05; };
-    setSectionOff (driftModDepthSlider, isDriftOn && ! globalModBypassForColour && driftModButton.getToggleState() && depthLive (driftModDepthSlider));
-    setSectionOff (dimensionModDepthSlider, isWidthBoostOn && ! globalModBypassForColour && dimensionModButton.getToggleState() && depthLive (dimensionModDepthSlider));
-    setSectionOff (hyperdriveModDepthSlider, isFlowOn && ! globalModBypassForColour && hyperdriveModButton.getToggleState() && depthLive (hyperdriveModDepthSlider));
-    setSectionOff (galaxyModDepthSlider, isLcrOn && ! globalModBypassForColour && galaxyModButton.getToggleState() && depthLive (galaxyModDepthSlider));
+    // Runde 104: die Sektions-Mod-Schalter gibt es nicht mehr - an/aus macht
+    // nur der globale Schalter. Die Tiefe-Regler (nur noch im Tune-Build
+    // sichtbar) haengen deshalb nicht mehr an ihnen.
+    setSectionOff (driftModDepthSlider, isDriftOn && ! globalModBypassForColour && depthLive (driftModDepthSlider));
+    setSectionOff (dimensionModDepthSlider, isWidthBoostOn && ! globalModBypassForColour && depthLive (dimensionModDepthSlider));
+    setSectionOff (hyperdriveModDepthSlider, isFlowOn && ! globalModBypassForColour && depthLive (hyperdriveModDepthSlider));
+    setSectionOff (galaxyModDepthSlider, isLcrOn && ! globalModBypassForColour && depthLive (galaxyModDepthSlider));
     setSectionOff (positionModDepthSlider, isPosOn && ! globalModBypassForColour && positionModButton.getToggleState() && depthLive (positionModDepthSlider));
     // VOL, Mono-Check und Mono-Dry sind keiner "Sektion" zugeordnet, sollen
     // bei Bypass aber genauso ausgegraut werden wie alle anderen Regler (bei
@@ -6122,23 +6130,12 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
 
     // Bezeichnung bis zum Doppelpunkt fett, Rest normal - dasselbe Muster wie
     // frueher im Tooltip-Fenster.
-    const juce::Font boldF  (juce::FontOptions (12.5f, juce::Font::bold));
-    const juce::Font plainF (juce::FontOptions (12.5f));
-    const int colon = currentHint.indexOfChar (':');
-    juce::AttributedString a;
-    a.setJustification (juce::Justification::centredLeft);
-    const juce::Colour head (themePalette().knob);
-    const juce::Colour body (0xffb5b9c2);
-    if (colon > 0 && colon <= 22)
-    {
-        a.append (currentHint.substring (0, colon + 1), boldF,  head);
-        a.append (currentHint.substring (colon + 1),    plainF, body);
-    }
-    else
-    {
-        a.append (currentHint, plainF, body);
-    }
-    a.draw (g, r);
+    // Runde 104 (User): "Infozeile unten von der Schrift genauso wie die
+    // oben fuer die Smart-Profile" - dieselbe Groesse, dieselbe Farbe, kein
+    // fetter Vorspann mehr.
+    g.setFont (juce::Font (juce::FontOptions (14.5f)));
+    g.setColour (juce::Colour (0xff8f96a4));
+    g.drawText (currentHint, r, juce::Justification::centredLeft, true);
 }
 
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
@@ -6811,7 +6808,21 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 101 (User: "Mod Regler und Mod Icons weg"): beide sind aus
         // den Sektionskoepfen verschwunden. Was sie konnten, macht jetzt der
         // globale Mod-Schalter zusammen mit LIFE.
+       #if SPACEX_TUNE
+        // Tune-Build (Runde 104): nur der Tiefe-Regler kommt zurueck, damit
+        // Paul die festen Werte pro Sektion einstellen kann. Das Mod-Icon
+        // bleibt weg - an/aus macht weiter der globale Schalter.
+        if (modDepthSlider != nullptr)
+        {
+            const int knobSize = 36;
+            auto depthArea = header.removeFromRight (knobSize);
+            header.removeFromRight (3);
+            modDepthSlider->setVisible (true);
+            modDepthSlider->setBounds (depthArea.withSizeKeepingCentre (knobSize, knobSize));
+        }
+       #else
         if (modDepthSlider != nullptr) { modDepthSlider->setVisible (false); modDepthSlider->setBounds ({}); }
+       #endif
         if (modBtn != nullptr)         { modBtn->setVisible (false);         modBtn->setBounds ({}); }
         // Filter-Symbol (nur Galaxy und Dimension): direkt links neben dem
         // Mod-Icon, gleiche Groessenordnung wie das Lock-Icon.
