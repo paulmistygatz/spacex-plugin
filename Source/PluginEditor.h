@@ -1930,18 +1930,38 @@ private:
         // Parallax (6) und RAYE (4) unterschiedlich weit auseinander
         // (User Runde 49: "mache sie einheitlich").
         static constexpr float kPitch = 10.0f;
-        float firstCentre() const { return ((float) getWidth() - kPitch * (float) count) * 0.5f + kPitch * 0.5f; }
+        // Runde 82 (User): die Parallax-Modi zerfallen in zwei Familien - erst
+        // die beiden, die formen und in der Mitte bleiben, dann die beiden,
+        // die breit machen. "groupAfter" setzt hinter diesen Index eine kleine
+        // Luecke. Mehr braucht es nicht: wer sie bemerkt, versteht die
+        // Gruppierung sofort; wer nicht, verliert nichts. 0 = keine Luecke,
+        // damit RAYE und das Smart-Profil unveraendert bleiben.
+        int groupAfter = 0;
+        static constexpr float kGroupGap = 6.0f;
+        float totalW() const { return kPitch * (float) count + (groupAfter > 0 ? kGroupGap : 0.0f); }
+        float firstCentre() const { return ((float) getWidth() - totalW()) * 0.5f + kPitch * 0.5f; }
+        float centreOf (int i) const
+        {
+            return firstCentre() + kPitch * (float) i
+                 + (groupAfter > 0 && i >= groupAfter ? kGroupGap : 0.0f);
+        }
         int dotAt (float x) const
         {
-            return juce::jlimit (0, count - 1, (int) std::floor ((x - firstCentre()) / kPitch + 0.5f));
+            int best = 0;
+            float bestD = 1.0e9f;
+            for (int i = 0; i < count; ++i)
+            {
+                const float dx = std::abs (x - centreOf (i));
+                if (dx < bestD) { bestD = dx; best = i; }
+            }
+            return best;
         }
         void paint (juce::Graphics& g) override
         {
             const float d = 4.0f;
-            const float x0 = firstCentre();
             for (int i = 0; i < count; ++i)
             {
-                const float cx = x0 + kPitch * (float) i;
+                const float cx = centreOf (i);
                 const float cy = (float) getHeight() * 0.5f;
                 g.setColour (i == index ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
                                         : juce::Colours::white.withAlpha (0.16f));

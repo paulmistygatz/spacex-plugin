@@ -3387,6 +3387,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             };
             for (int i = 1; i < kPxModes; ++i) { parallaxModeButtons[i].setVisible (false); parallaxModeButtons[i].setEnabled (false); }
             pxModeDots.count = kPxModes;
+            // Runde 82 (User): kleine Luecke nach den ersten beiden - links
+            // die Modi, die formen und mittig bleiben (Halo, 3D), rechts die,
+            // die breit machen (Double, Illusion).
+            pxModeDots.groupAfter = 2;
             pxModeDots.setTooltip ("Parallax mode: click a dot to pick it directly");
             pxModeDots.onPick = [this] (int i)
             {
