@@ -4977,12 +4977,20 @@ void LCRMSAudioProcessorEditor::timerCallback()
             }
         }
         if (pxModeDots.index != mode) { pxModeDots.index = mode; pxModeDots.repaint(); }
-        // Runde 88: Diagramm links im Knopf folgt dem Modus.
+       #if SPACEX_PX_DIAG_ONLY
+        // Runde 88/90: das Modus-Icon folgt dem Modus - nur im Vergleichsbuild.
         if ((int) parallaxModeButtons[0].getProperties().getWithDefault ("pxDiagram", -1) != mode)
         {
             parallaxModeButtons[0].getProperties().set ("pxDiagram", mode);
             parallaxModeButtons[0].repaint();
         }
+       #else
+        if (parallaxModeButtons[0].getProperties().contains ("pxDiagram"))
+        {
+            parallaxModeButtons[0].getProperties().remove ("pxDiagram");
+            parallaxModeButtons[0].repaint();
+        }
+       #endif
        #else
         for (int i = 0; i < kPxModes; ++i)
             if (parallaxModeButtons[i].getToggleState() != (i == mode))
@@ -5002,6 +5010,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
                     rayCharButton.repaint();
                 }
             }
+           #if SPACEX_PX_DIAG_ONLY
+            if ((int) rayCharButton.getProperties().getWithDefault ("rayDiagram", -1) != c)
+            {
+                rayCharButton.getProperties().set ("rayDiagram", c);
+                rayCharButton.repaint();
+            }
+           #endif
             if (rayModeDots.index != c) { rayModeDots.index = c; rayModeDots.repaint(); }
         }
        #endif
@@ -7199,12 +7214,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int btnGap = 6;
        #if SPACEX_PARALLAX_UI == 2
         const int btnW   = juce::jmin ((kChoiceW - 6) / 2, (driftInner.getWidth() - knobS - gap - 6) / 2);   // Runde 68: ergibt kChoiceW
-        // Runde 89 (User: "die Box ist zu klein, aber wir haben ja noch Platz
-        // in der Section"): seit das Diagramm links in der Pille sitzt, bleibt
-        // fuer das Wort zu wenig uebrig. Die Pille nimmt jetzt so viel Breite,
-        // wie neben dem Regler noch frei ist - bis zu 116 px.
+       #if SPACEX_PX_DIAG_ONLY
+        // Runde 90 (User): im Diagramm-Build traegt die Pille Bild UND Name,
+        // also nimmt sie die Breite, die neben dem Regler noch frei ist.
         const int blockW = juce::jlimit (btnW * 2 + btnGap, 116,
                                          driftInner.getWidth() - knobS - gap);
+       #else
+        const int blockW = btnW * 2 + btnGap;   // Runde 68: ergibt kChoiceW
+       #endif
        #else
         // Fuenf Knoepfe: 3 oben, 2 darunter (Runde 45).
         const int btnW   = juce::jmin (70, (driftInner.getWidth() - knobS - gap - btnGap * 2) / 3);
@@ -7218,7 +7235,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
        #if SPACEX_PARALLAX_UI == 2
         // Ein Klick-Knopf statt 2x2 (so breit wie zwei der Rasterknoepfe).
+       #if SPACEX_PX_DIAG_ONLY
+        // Runde 90 (User): Icon oben, Name darunter - dafuer doppelt so hoch.
+        const int pillH = juce::jmin ((kDotsInside ? btnH + 6 : btnH) * 2 + 4,
+                                      driftInner.getHeight() - 20);
+       #else
         const int pillH = kDotsInside ? btnH + 6 : btnH;
+       #endif
         parallaxModeButtons[0].setBounds (block.getX(), parallaxAmountSlider.getBounds().getCentreY() - pillH / 2,
                                           blockW, pillH);
         for (int i = 1; i < kPxModes; ++i) parallaxModeButtons[i].setBounds ({});
@@ -7397,9 +7420,19 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto slotC = rayFrame;
         placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, juce::jmin (halfW, rayKnobAreaH));
         {
+           #if SPACEX_PX_DIAG_ONLY
+            // Runde 90 (User: "auch fuer Sweep - schau dass die Box gross
+            // genug ist"): Icon oben, Name darunter, also doppelte Hoehe und
+            // so breit, wie die halbe Sektion hergibt.
+            const int pw = juce::jmin (116, halfW);
+            const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 4,
+                                       rayKnobAreaH - (kDotsInside ? 8 : 14));
+            auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -5 : -8);
+           #else
             const int pw = juce::jmin (kChoiceW, halfW);
             const int ph = juce::jmin (kDotsInside ? kChoiceH + 6 : kChoiceH, rayKnobAreaH - (kDotsInside ? 8 : 14));
             auto col = slotC.withSizeKeepingCentre (pw, ph).translated (0, kDotsInside ? -7 : -10);
+           #endif
             rayCharButton.setBounds (col);
             const int dotsW = 4 * 10 + 6;
             if (kDotsInside)

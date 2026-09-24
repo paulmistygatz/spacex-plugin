@@ -1135,13 +1135,15 @@ public:
             //   2 ILLUSION weiter auseinander, Mitte noch klar
             //   3 DOUBLE   am weitesten, die Mitte loest sich auf
             const int diag = (int) button.getProperties().getWithDefault ("pxDiagram", -1);
-            if (diag >= 0)
+            const int rdia = (int) button.getProperties().getWithDefault ("rayDiagram", -1);
+            if (diag >= 0 || rdia >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
-                // Runde 89 (Vergleichsbuild): das Diagramm ERSETZT den Namen -
-                // es sitzt mittig in der Pille und ist deutlich groesser.
-                auto db = bounds;
-                const float sc = 1.75f;
+                // Runde 90 (User): Icon oben mittig, Name darunter - die Pille
+                // ist dafuer doppelt so hoch. Das Icon bekommt die obere
+                // Haelfte, die Schrift die untere (siehe drawButtonText).
+                auto db = bounds.withHeight (bounds.getHeight() * 0.52f);
+                const float sc = 1.45f;
                #else
                 auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
                 const float sc = 1.0f;
@@ -1149,23 +1151,68 @@ public:
                 const float cx = db.getCentreX(), cy = db.getCentreY();
                 const float a  = sectionIsOffNow ? 0.34f : 0.85f;
                 g.setColour (pillCol.withAlpha (a));
-                const float spread[4] = { 2.6f, 0.0f, 5.0f, 6.6f };
-                if (diag == 1)
+                if (rdia >= 0)
                 {
-                    const float r = 5.2f * sc;
-                    g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
-                    g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
+                    // RAYE-Charakter als Bewegungsbild:
+                    //   0 SWEEP    eine lange, ruhige Welle
+                    //   1 SHIMMER  viele kleine, schnelle
+                    //   2 SPIN     ein Kreis mit laufendem Punkt
+                    //   3 SWIRL    eine Spirale
+                    juce::Path pth;
+                    if (rdia == 0 || rdia == 1)
+                    {
+                        const float w = 14.0f * sc, h = (rdia == 0 ? 6.4f : 3.4f) * sc;
+                        const float cyc = rdia == 0 ? 1.0f : 3.0f;
+                        for (int i = 0; i <= 40; ++i)
+                        {
+                            const float t = (float) i / 40.0f;
+                            const float x = cx - w * 0.5f + w * t;
+                            const float y = cy - h * 0.5f * std::sin (t * juce::MathConstants<float>::twoPi * cyc);
+                            if (i == 0) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
+                        }
+                    }
+                    else if (rdia == 2)
+                    {
+                        const float r = 5.2f * sc;
+                        pth.addEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f);
+                    }
+                    else
+                    {
+                        for (int i = 0; i <= 64; ++i)
+                        {
+                            const float t   = (float) i / 64.0f;
+                            const float ang = t * juce::MathConstants<float>::twoPi * 1.7f;
+                            const float r   = (1.0f + t * 4.4f) * sc;
+                            const float x = cx + std::cos (ang) * r, y = cy + std::sin (ang) * r;
+                            if (i == 0) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
+                        }
+                    }
+                    g.strokePath (pth, juce::PathStrokeType (1.2f * sc, juce::PathStrokeType::curved,
+                                                             juce::PathStrokeType::rounded));
+                    if (rdia == 2)
+                        g.fillEllipse (cx + 5.2f * sc - 1.4f * sc, cy - 1.4f * sc, 2.8f * sc, 2.8f * sc);
                 }
                 else
                 {
-                    const float sp = spread[juce::jlimit (0, 3, diag)] * sc;
-                    const float h  = (diag == 3 ? 7.0f : 5.4f) * sc;
-                    const float w  = 2.2f * sc;
-                    g.fillRoundedRectangle (cx - sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
-                    g.fillRoundedRectangle (cx + sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
-                    // Die Mitte: bei DOUBLE nur noch angedeutet.
-                    g.setColour (pillCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
-                    g.fillEllipse (cx - 1.2f * sc, cy - 1.2f * sc, 2.4f * sc, 2.4f * sc);
+                    // Parallax als Draufsicht: Mitte = Zentrum, aussen = Seiten.
+                    const float spread[4] = { 2.6f, 0.0f, 5.0f, 6.6f };
+                    if (diag == 1)
+                    {
+                        const float r = 5.2f * sc;
+                        g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
+                        g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
+                    }
+                    else
+                    {
+                        const float sp = spread[juce::jlimit (0, 3, diag)] * sc;
+                        const float h  = (diag == 3 ? 7.0f : 5.4f) * sc;
+                        const float w  = 2.2f * sc;
+                        g.fillRoundedRectangle (cx - sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
+                        g.fillRoundedRectangle (cx + sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
+                        // Die Mitte: bei DOUBLE nur noch angedeutet.
+                        g.setColour (pillCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
+                        g.fillEllipse (cx - 1.2f * sc, cy - 1.2f * sc, 2.4f * sc, 2.4f * sc);
+                    }
                 }
             }
             return;
@@ -1475,10 +1522,12 @@ public:
             // Runde 88: liegt links ein Diagramm, bekommt die Schrift den Rest
             // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
             auto textArea = button.getLocalBounds().translated (0, textShiftY);
-            if ((int) button.getProperties().getWithDefault ("pxDiagram", -1) >= 0)
+            if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
+             || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0)
             {
                #if SPACEX_PX_DIAG_ONLY
-                return;   // Runde 89: nur das Diagramm, kein Name.
+                // Runde 90: Icon oben, Name in der unteren Haelfte.
+                textArea = textArea.withTrimmedTop (juce::roundToInt (textArea.getHeight() * 0.44f));
                #else
                 textArea = textArea.withTrimmedLeft (21);
                #endif
