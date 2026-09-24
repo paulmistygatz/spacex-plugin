@@ -1185,7 +1185,12 @@ public:
                     // Schimmer statt als Kasten.
                     const float hot = shouldDrawButtonAsDown ? 1.9f
                                     : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f;
-                    const float gr = juce::jmin (11.0f * sc, db.getHeight() * 0.70f) * (hot > 1.0f ? 1.10f : 1.0f);
+                    // Runde 95 (User: "Grafikbug: Glow cut off"): der Knopf
+                    // schneidet an seinen eigenen Kanten ab, der Schimmer darf
+                    // also nie ueber sie hinausreichen.
+                    const float room = juce::jmin (juce::jmin (cy - bounds.getY(), bounds.getBottom() - cy),
+                                                   bounds.getWidth() * 0.5f);
+                    const float gr = juce::jmin (11.0f * sc * (hot > 1.0f ? 1.10f : 1.0f), room);
                     juce::ColourGradient grad (pillCol.withAlpha (juce::jmin (0.65f, (sectionIsOffNow ? 0.10f : 0.26f) * hot)), cx, cy,
                                                pillCol.withAlpha (0.0f), cx + gr, cy, true);
                     grad.addColour (0.45, pillCol.withAlpha (juce::jmin (0.40f, (sectionIsOffNow ? 0.05f : 0.13f) * hot)));

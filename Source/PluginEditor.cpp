@@ -7239,9 +7239,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #if SPACEX_PARALLAX_UI == 2
         const int btnW   = juce::jmin ((kChoiceW - 6) / 2, (driftInner.getWidth() - knobS - gap - 6) / 2);   // Runde 68: ergibt kChoiceW
        #if SPACEX_PX_DIAG_ONLY
-        // Runde 91 (User: "bei Parallax nach rechts auch [Platz]"): ohne
-        // Rahmen darf das Feld die ganze freie Breite neben dem Regler haben.
-        const int blockW = juce::jmax (btnW * 2 + btnGap, driftInner.getWidth() - knobS - gap);
+        // Runde 95 (User: "der Abstand beider Einheiten ist zu gross, Amount
+        // ist zu weit links - mach sie gemeinsam mittig"): das Feld bekommt
+        // eine feste, knappe Breite; Regler + Feld stehen als EINE Einheit
+        // mittig in der Sektion (siehe withSizeKeepingCentre unten).
+        const int blockW = juce::jmin (118, driftInner.getWidth() - knobS - gap);
        #else
         const int blockW = btnW * 2 + btnGap;   // Runde 68: ergibt kChoiceW
        #endif
@@ -7261,8 +7263,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
        #if SPACEX_PX_DIAG_ONLY
         // Runde 90/91: Icon oben, Name darunter - ohne Rahmen darf das Feld
         // die Hoehe nehmen, die die Sektion hergibt.
-        const int pillH = juce::jmin ((kDotsInside ? btnH + 6 : btnH) * 2 + 8,
-                                      driftInner.getHeight() - 22);
+        // Runde 95: etwas hoeher, damit ueber dem Icon Platz fuer den
+        // Schimmer bleibt - er wird an den Knopfkanten abgeschnitten.
+        const int pillH = juce::jmin ((kDotsInside ? btnH + 6 : btnH) * 2 + 20,
+                                      driftInner.getHeight() - 14);
        #else
         const int pillH = kDotsInside ? btnH + 6 : btnH;
        #endif
@@ -7443,27 +7447,33 @@ void LCRMSAudioProcessorEditor::layoutContent()
         rayRateSlider.setVisible (false);
         rayRateLabel.setVisible (false);
         juce::ignoreUnused (slotW);
+       #if SPACEX_PX_DIAG_ONLY
+        // Runde 95 (User: "Amount + Sweep sind nicht mittig - schau immer,
+        // dass beide Einheiten GEMEINSAM mittig in der Sektion stehen").
+        const int halfW = juce::jmin ((rayFrame.getWidth() - gap) / 2, rayKnobAreaH);
+        const int rayFieldW = juce::jmin (118, rayFrame.getWidth() - halfW - gap);
+        auto rayGroup = rayFrame.withSizeKeepingCentre (halfW + gap + rayFieldW, rayFrame.getHeight());
+        auto slotA = rayGroup.removeFromLeft (halfW);
+        rayGroup.removeFromLeft (gap);
+        auto slotC = rayGroup;
+        placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, halfW);
+       #else
         const int halfW = (rayFrame.getWidth() - gap) / 2;
         auto slotA = rayFrame.removeFromLeft (halfW);
         rayFrame.removeFromLeft (gap);
         auto slotC = rayFrame;
         placeKnobWithLabel (slotA, rayAmountSlider, rayAmountLabel, juce::jmin (halfW, rayKnobAreaH));
+       #endif
         {
            #if SPACEX_PX_DIAG_ONLY
             // Runde 90 (User: "auch fuer Sweep - schau dass die Box gross
             // genug ist"): Icon oben, Name darunter, also doppelte Hoehe und
             // so breit, wie die halbe Sektion hergibt.
-            // Runde 92 (User): "Sweep groesser und weiter links - soll mittig
-            // sein zwischen der MITTE des Amount-Reglers und dem rechten
-            // Sektionsrand." Die Breite bleibt so, dass das Feld den Regler
-            // nicht ueberdeckt (sonst frisst es dessen Mausflaeche).
-            const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 8,
-                                       rayKnobAreaH - (kDotsInside ? 8 : 6));
-            const int wantCx  = (rayAmountSlider.getBounds().getCentreX() + slotC.getRight()) / 2;
-            const int maxHalf = juce::jmax (20, juce::jmin (wantCx - (rayAmountSlider.getRight() + 6),
-                                                            slotC.getRight() - wantCx));
-            auto col = juce::Rectangle<int> (wantCx - maxHalf, slotC.getY() + (slotC.getHeight() - ph) / 2,
-                                             maxHalf * 2, ph).translated (0, kDotsInside ? -5 : -7);
+            // Runde 95: das Feld fuellt seinen Platz in der Gruppe - die
+            // Gruppe selbst steht mittig (siehe oben).
+            const int ph = juce::jmin ((kDotsInside ? kChoiceH + 6 : kChoiceH) * 2 + 20,
+                                       rayFrame.getHeight() - 14);
+            auto col = slotC.withSizeKeepingCentre (slotC.getWidth(), ph).translated (0, kDotsInside ? -5 : -7);
            #else
             const int pw = juce::jmin (kChoiceW, halfW);
             const int ph = juce::jmin (kDotsInside ? kChoiceH + 6 : kChoiceH, rayKnobAreaH - (kDotsInside ? 8 : 14));
