@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(JUCE)
 # Leer = normales SpaceX (unveraendert). A, B oder C baut ein EIGENES Plugin
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
-set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, dotsin, dotsout, paraCPU (alt: raye1, raye2, A, B, C)")
+set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, box, dotsin, dotsout, paraCPU (alt: raye1, raye2, A, B, C)")
 set(SPX_PRODUCT "SpaceX")
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
@@ -55,9 +55,10 @@ set(SPX_RAYEUI  1)   # RAYE: 1 = Amount + Charakter
 set(SPX_CPUOPT  1)   # optimierte DSP - seit Runde 42 in allen Builds (User: "CPU mode passt")
 set(SPX_NOVIS   0)
 set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)
-# Runde 89 (User: "mach mal einen extra build"): Vergleichsfassung, in der
-# das Modus-Diagramm die Pillen-Beschriftung ERSETZT - kein Name, nur Bild.
-set(SPX_PXDIAG  0)
+# Runde 98 (User: "mach mal diag als das normale"): die Icon-Fassung IST jetzt
+# der normale Build. Die alte Fassung mit Pillenrahmen und ohne Icons gibt es
+# noch als Vergleichsbuild "box" (SpaceXbox).
+set(SPX_PXDIAG  1)
 set(SPX_EXTRA   BUNDLE_ID "com.mistycat.spacex")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
@@ -82,11 +83,11 @@ elseif (SPACEX_VARIANT STREQUAL "dotsout")
     set(SPX_PXUI 2)
     set(SPX_RAYEUI 1)
     set(SPX_OWN "SpaceXout" "SXdo")
-elseif (SPACEX_VARIANT STREQUAL "diag")
-    # Runde 89: wie der normale Build, aber die Parallax-Pille zeigt NUR das
-    # Diagramm - groesser und mittig, ohne Modusnamen.
-    set(SPX_PXDIAG 1)
-    set(SPX_OWN "SpaceXdiag" "SXdg")
+elseif (SPACEX_VARIANT STREQUAL "box")
+    # Runde 98: die alte Fassung - Modusname in einer gerahmten Pille, keine
+    # Icons, kein Schimmer.
+    set(SPX_PXDIAG 0)
+    set(SPX_OWN "SpaceXbox" "SXbx")
 elseif (SPACEX_VARIANT STREQUAL "dotsin")
     # wie dotsout, aber die Punkte sitzen IN der Pille.
     set(SPX_PXUI 2)
@@ -94,7 +95,7 @@ elseif (SPACEX_VARIANT STREQUAL "dotsin")
     set(SPX_DOTSIN 1)
     set(SPX_OWN "SpaceXin" "SXdi")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, diag, dotsin, dotsout, paraCPU, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, box, dotsin, dotsout, paraCPU, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)

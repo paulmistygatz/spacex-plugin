@@ -31,7 +31,8 @@ rm -rf "$HOME/Library/Audio/Plug-Ins/VST3/$NAME" \
 sudo rm -rf "$DST/SpaceXout.vst3" "$DST/SpaceXin.vst3" \
             "$DST/SpaceXraye1.vst3" "$DST/SpaceXraye2.vst3" \
             "$DST/SpaceXparaCPU.vst3" "$DST/SpaceXpresets.vst3" \
-            "$DST/SpaceXclick.vst3" "$DST/SpaceXpara.vst3" 2>/dev/null || true
+            "$DST/SpaceXclick.vst3" "$DST/SpaceXpara.vst3" \
+            "$DST/SpaceXdiag.vst3" 2>/dev/null || true
 
 echo "OK -> $DST/$NAME"
 
