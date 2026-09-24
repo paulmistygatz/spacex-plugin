@@ -55,6 +55,9 @@ set(SPX_RAYEUI  1)   # RAYE: 1 = Amount + Charakter
 set(SPX_CPUOPT  1)   # optimierte DSP - seit Runde 42 in allen Builds (User: "CPU mode passt")
 set(SPX_NOVIS   0)
 set(SPX_DOTSIN  0)   # 1 = Modus-Punkte IN der Pille (Parallax + RAYE)
+# Runde 89 (User: "mach mal einen extra build"): Vergleichsfassung, in der
+# das Modus-Diagramm die Pillen-Beschriftung ERSETZT - kein Name, nur Bild.
+set(SPX_PXDIAG  0)
 set(SPX_EXTRA   BUNDLE_ID "com.mistycat.spacex")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
@@ -79,6 +82,11 @@ elseif (SPACEX_VARIANT STREQUAL "dotsout")
     set(SPX_PXUI 2)
     set(SPX_RAYEUI 1)
     set(SPX_OWN "SpaceXout" "SXdo")
+elseif (SPACEX_VARIANT STREQUAL "diag")
+    # Runde 89: wie der normale Build, aber die Parallax-Pille zeigt NUR das
+    # Diagramm - groesser und mittig, ohne Modusnamen.
+    set(SPX_PXDIAG 1)
+    set(SPX_OWN "SpaceXdiag" "SXdg")
 elseif (SPACEX_VARIANT STREQUAL "dotsin")
     # wie dotsout, aber die Punkte sitzen IN der Pille.
     set(SPX_PXUI 2)
@@ -86,7 +94,7 @@ elseif (SPACEX_VARIANT STREQUAL "dotsin")
     set(SPX_DOTSIN 1)
     set(SPX_OWN "SpaceXin" "SXdi")
 elseif (NOT SPACEX_VARIANT STREQUAL "")
-    message(FATAL_ERROR "SPACEX_VARIANT muss leer, dotsin, dotsout, paraCPU, A, B oder C sein")
+    message(FATAL_ERROR "SPACEX_VARIANT muss leer, diag, dotsin, dotsout, paraCPU, A, B oder C sein")
 endif()
 if (SPX_OWN)
     list(GET SPX_OWN 0 SPX_PRODUCT)
@@ -147,6 +155,7 @@ target_compile_definitions(LCRMSPlugin PUBLIC
     SPACEX_CPU_OPT=${SPX_CPUOPT}
     SPACEX_NO_VISUALS=${SPX_NOVIS}
     SPACEX_DOTS_INSIDE=${SPX_DOTSIN}
+    SPACEX_PX_DIAG_ONLY=${SPX_PXDIAG}
 )
 
 target_link_libraries(LCRMSPlugin

@@ -1,4 +1,8 @@
 #pragma once
+
+#ifndef SPACEX_PX_DIAG_ONLY
+ #define SPACEX_PX_DIAG_ONLY 0
+#endif
 #include <JuceHeader.h>
 
 // Modernes, reduziertes LookAndFeel: dunkler Hintergrund, flache Regler,
@@ -1133,25 +1137,35 @@ public:
             const int diag = (int) button.getProperties().getWithDefault ("pxDiagram", -1);
             if (diag >= 0)
             {
+               #if SPACEX_PX_DIAG_ONLY
+                // Runde 89 (Vergleichsbuild): das Diagramm ERSETZT den Namen -
+                // es sitzt mittig in der Pille und ist deutlich groesser.
+                auto db = bounds;
+                const float sc = 1.75f;
+               #else
                 auto db = bounds.withWidth (16.0f).translated (7.0f, 0.0f);
+                const float sc = 1.0f;
+               #endif
                 const float cx = db.getCentreX(), cy = db.getCentreY();
                 const float a  = sectionIsOffNow ? 0.34f : 0.85f;
                 g.setColour (pillCol.withAlpha (a));
                 const float spread[4] = { 2.6f, 0.0f, 5.0f, 6.6f };
                 if (diag == 1)
                 {
-                    g.drawEllipse (cx - 5.2f, cy - 5.2f, 10.4f, 10.4f, 1.1f);
-                    g.fillEllipse (cx - 1.3f, cy - 1.3f, 2.6f, 2.6f);
+                    const float r = 5.2f * sc;
+                    g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
+                    g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
                 }
                 else
                 {
-                    const float sp = spread[juce::jlimit (0, 3, diag)];
-                    const float h  = diag == 3 ? 7.0f : 5.4f;
-                    g.fillRoundedRectangle (cx - sp - 1.1f, cy - h * 0.5f, 2.2f, h, 1.1f);
-                    g.fillRoundedRectangle (cx + sp - 1.1f, cy - h * 0.5f, 2.2f, h, 1.1f);
+                    const float sp = spread[juce::jlimit (0, 3, diag)] * sc;
+                    const float h  = (diag == 3 ? 7.0f : 5.4f) * sc;
+                    const float w  = 2.2f * sc;
+                    g.fillRoundedRectangle (cx - sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
+                    g.fillRoundedRectangle (cx + sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
                     // Die Mitte: bei DOUBLE nur noch angedeutet.
                     g.setColour (pillCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
-                    g.fillEllipse (cx - 1.2f, cy - 1.2f, 2.4f, 2.4f);
+                    g.fillEllipse (cx - 1.2f * sc, cy - 1.2f * sc, 2.4f * sc, 2.4f * sc);
                 }
             }
             return;
@@ -1462,7 +1476,13 @@ public:
             // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
             auto textArea = button.getLocalBounds().translated (0, textShiftY);
             if ((int) button.getProperties().getWithDefault ("pxDiagram", -1) >= 0)
+            {
+               #if SPACEX_PX_DIAG_ONLY
+                return;   // Runde 89: nur das Diagramm, kein Name.
+               #else
                 textArea = textArea.withTrimmedLeft (21);
+               #endif
+            }
             g.drawText (button.getButtonText(), textArea, juce::Justification::centred);
         }
 
