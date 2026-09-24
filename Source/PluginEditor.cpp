@@ -6983,7 +6983,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Wird es eng, schrumpft die Link-Zeile - nicht die Luft dazwischen.
         const int lateTop  = (horizonLabel.getY() > 0 ? horizonLabel.getY() - posBtnH
                                                       : polInner.getBottom() - posBtnH);
-        const int gapToLate = 22;
+        // Runde 86 (User): der Abstand L/R -> EARLY/LATE war kleiner als der
+        // zum Link-Symbol darueber, dadurch wirkte der Block unten gedraengt.
+        // L/R rueckt ein paar Pixel hoch (groesserer Wert hier), EARLY/LATE
+        // ein paar tiefer (Versatz unten) - damit stehen beide Luecken gleich.
+        const int gapToLate = 26;
         const int lrBottom  = lateTop - gapToLate;
         const int lrTop     = lrBottom - lrBtnH;
 
@@ -7012,7 +7016,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
             // breit - links und rechts stand mehr Luft als Schrift.
             auto posRect = posRow.withSizeKeepingCentre (kChoiceW, posBtnH);
             if (horizonLabel.getY() > 0)
-                posRect.setY (horizonLabel.getY() - posBtnH);
+                posRect.setY (horizonLabel.getY() - posBtnH + 3);
             polPos2Button.setBounds (posRect);
         }
         polPos3Button.setBounds ({});
