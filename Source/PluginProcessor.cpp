@@ -58,8 +58,12 @@ float LCRMSAudioProcessor::modDepthCurve (float knob01) noexcept
 {
     constexpr float kMinRelativeDepth = 0.06f;
     constexpr float kMaxRelativeDepth = 0.15f;
-    return kMinRelativeDepth
-         + juce::jlimit (0.0f, 1.0f, knob01) * (kMaxRelativeDepth - kMinRelativeDepth);
+    // Runde 87 (User): ganz unten wirklich aus. Der Mindestwert greift erst
+    // oberhalb des Anschlags - so bleibt der Regler ein Schalter fuer "nichts"
+    // und ist trotzdem ab dem ersten Millimeter hoerbar.
+    const float k = juce::jlimit (0.0f, 1.0f, knob01);
+    if (k <= 0.0005f) return 0.0f;
+    return kMinRelativeDepth + k * (kMaxRelativeDepth - kMinRelativeDepth);
 }
 
 juce::PropertiesFile::Options LCRMSAudioProcessor::appPropertiesOptions()

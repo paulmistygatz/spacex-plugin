@@ -4690,11 +4690,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Regler daneben grau sein. Nur farbig wenn aktiv. Aber weiterhin
     // einstellbar." - bleibt ueber setSectionOff bedienbar, nur die Farbe
     // aendert sich).
-    setSectionOff (driftModDepthSlider, isDriftOn && ! globalModBypassForColour && driftModButton.getToggleState());
-    setSectionOff (dimensionModDepthSlider, isWidthBoostOn && ! globalModBypassForColour && dimensionModButton.getToggleState());
-    setSectionOff (hyperdriveModDepthSlider, isFlowOn && ! globalModBypassForColour && hyperdriveModButton.getToggleState());
-    setSectionOff (galaxyModDepthSlider, isLcrOn && ! globalModBypassForColour && galaxyModButton.getToggleState());
-    setSectionOff (positionModDepthSlider, isPosOn && ! globalModBypassForColour && positionModButton.getToggleState());
+    // Runde 87 (User): steht der Tiefenregler ganz unten, moduliert nichts -
+    // dann soll er auch aussehen wie ausgeschaltet, nicht wie aktiv auf null.
+    auto depthLive = [] (const juce::Slider& sl) { return sl.getValue() > 0.05; };
+    setSectionOff (driftModDepthSlider, isDriftOn && ! globalModBypassForColour && driftModButton.getToggleState() && depthLive (driftModDepthSlider));
+    setSectionOff (dimensionModDepthSlider, isWidthBoostOn && ! globalModBypassForColour && dimensionModButton.getToggleState() && depthLive (dimensionModDepthSlider));
+    setSectionOff (hyperdriveModDepthSlider, isFlowOn && ! globalModBypassForColour && hyperdriveModButton.getToggleState() && depthLive (hyperdriveModDepthSlider));
+    setSectionOff (galaxyModDepthSlider, isLcrOn && ! globalModBypassForColour && galaxyModButton.getToggleState() && depthLive (galaxyModDepthSlider));
+    setSectionOff (positionModDepthSlider, isPosOn && ! globalModBypassForColour && positionModButton.getToggleState() && depthLive (positionModDepthSlider));
     // VOL, Mono-Check und Mono-Dry sind keiner "Sektion" zugeordnet, sollen
     // bei Bypass aber genauso ausgegraut werden wie alle anderen Regler (bei
     // Bypass hat Mono-Check ohnehin keine Wirkung mehr, siehe DSP).
