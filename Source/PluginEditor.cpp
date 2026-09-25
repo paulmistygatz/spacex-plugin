@@ -6140,7 +6140,9 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             const float my  = cb.getY() + cb.getHeight() * 0.50f;           // Mitte von Icon + Name
             const float rad = cb.getHeight() * 0.62f;
             const float span = 0.62f;                                       // halber Oeffnungswinkel (rad)
-            const float off  = juce::jmax (60.0f, juce::jmin (84.0f, reach));   // Abstand der Boegen zur Mitte
+            // Runde 137 (User): nah am Profil, rechts kommt gleich der Kopf mit
+            // Bypass & Co. - knapp ausserhalb des laengsten Namens.
+            const float off  = juce::jmax (54.0f, juce::jmin (62.0f, reach - 14.0f));
             for (float side : { -1.0f, 1.0f })
             {
                 // Bogen um einen Mittelpunkt, der zur Profilmitte hin versetzt
