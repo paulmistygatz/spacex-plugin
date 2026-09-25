@@ -1198,8 +1198,8 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
                                : "Depth: left moves the sound back into the room, right pulls it close");
     tipFor (movementSlider,  t ? "Amount: how far the sound travels left and right"
                                : "Flow: how far the sound travels left and right");
-    tipFor (rayPairButton,   t ? "Pair: follow Autopan at half its speed"
-                               : "Pair: follow Hyperdrive at half its speed");
+    tipFor (rayPairButton,   t ? "Link: follow Autopan at half its speed"
+                               : "Link: follow Hyperdrive at half its speed");
     tipFor (parallaxAmountSlider, "Amount: the single dial for this style - from off to the full effect");
     tipFor (rayAmountSlider,      "Amount: how strong the movement is");
     tipFor (categoryButton,  "Smart profile: click for the next one, Cmd-click to go back. The dice then stays inside what fits that source");
@@ -1640,7 +1640,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (rayTitleLabel,     "RAYE: a specially tuned phaser that moves the image instead of the tone");
     tip (rayStrengthButton, "Strength: click to step through Light, Medium, Strong and Off");
     tip (rayRateSlider,     "Speed: how fast the movement cycles");
-    tip (rayPairButton,     "Pair: follow Hyperdrive at half its speed");
+    tip (rayPairButton,     "Link: follow Hyperdrive at half its speed");
 
     // Section headers (shared)
     for (auto* b : { &lcrSoloButton, &polSoloButton, &driftSoloButton, &widthBoostSoloButton, &flowSoloButton, &posSoloButton, &raySoloButton })
@@ -6745,14 +6745,17 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Parallax und RAYE. Dafuer sind die vier Chips ueber dem Sternenfeld
         // weg, und das Feld bekommt deren Hoehe zurueck.
         {
-            const int cw = 156, cbH = 30;   // Runde 108: Platz fuer das Icon links vom Namen
+            const int cw = 176, cbH = 30;   // Runde 113: etwas breiter (User: "etwas groesser")
             auto catCol = titleBar.removeFromRight (cw + 22).withTrimmedRight (22);
             // Runde 110 (User): das Profil nimmt die Hoehe beider Kopfzeilen -
             // Icon oben, Name darunter, Punkte ganz unten, wie Velvet.
             juce::ignoreUnused (cbH);
-            categoryButton.setBounds (catCol.getX(), row1.getY(), cw, kRowH * 2 + kRowGap);
+            // Runde 113 (User: "etwas groesser, etwas hoeher, Punkte zu nah
+            // an LCR"): beginnt 10 px ueber der ersten Zeile und ist hoeher -
+            // die Punkte landen dadurch hoeher als vorher.
+            categoryButton.setBounds (catCol.getX(), row1.getY() - 12, cw, kRowH * 2 + kRowGap + 10);
             const int dotsW = (kNumCategories + 1) * 10 + 6;
-            catDots.setBounds (catCol.getX() + (cw - dotsW) / 2, categoryButton.getBottom() - 1, dotsW, 12);
+            catDots.setBounds (catCol.getX() + (cw - dotsW) / 2, categoryButton.getBottom() - 4, dotsW, 12);
             categoryButton.setVisible (showMutateCategories);
             catDots.setVisible (showMutateCategories);
         }
@@ -7440,7 +7443,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // darunter - und der Link sitzt zwischen ihnen statt in einer eigenen
         // Zeile darueber.
         // Runde 112 (User): Ø und Buchstabe nebeneinander, gleich gross.
-        const int lrBtnW = 50, lrBtnH = 28;
+        const int lrBtnW = 56, lrBtnH = 32;   // Runde 113: etwas groesser
         const int lrGap = 28;
         const int posBtnGap = 8;
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -

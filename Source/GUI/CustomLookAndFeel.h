@@ -324,6 +324,21 @@ public:
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f);
         auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         auto centre = bounds.getCentre();
+        // Runde 113 (User): ist Autopan-Speed an den Phaser gekoppelt (LINK),
+        // liegt ein leichter blauer Schein UM den Regler - ein weicher Ring,
+        // hinter allem anderen gezeichnet. Pop behaelt seinen Tinten-Ring.
+        if ((bool) slider.getProperties().getWithDefault ("pairedGold", false) && ! isComicTheme()
+            && ! (bool) slider.getProperties().getWithDefault ("sectionOff", false))
+        {
+            const float halo = juce::jmin ((float) juce::jmin (width, height) * 0.5f, radius * 1.32f);
+            const auto blue = pairAccentColour();
+            juce::ColourGradient ringGlow (blue.withAlpha (0.0f), centre.x, centre.y,
+                                           blue.withAlpha (0.0f), centre.x + halo, centre.y, true);
+            ringGlow.addColour (0.62, blue.withAlpha (0.0f));
+            ringGlow.addColour (0.80, blue.withAlpha (0.20f));
+            g.setGradientFill (ringGlow);
+            g.fillEllipse (centre.x - halo, centre.y - halo, halo * 2.0f, halo * 2.0f);
+        }
         // Ganz subtiles Hover-Feedback auch auf den Reglern (User: "so 3 %,
         // einfach nur ganz subtil") - liegt HINTER dem Regler, hebt ihn also
         // nur leicht vom Hintergrund ab, statt ihn zu ueberdecken.
@@ -1340,11 +1355,19 @@ public:
                     // Runde 62) - sonst sieht es aus, als passiere etwas.
                     // "Kein Profil" leuchtet nie.
                     const bool dim = sectionIsOffNow || (ppdia >= 0 && ! button.getToggleState()) || pdia == 0;
-                    const float a  = dim ? 0.42f : 0.90f;
+                    float a  = dim ? 0.42f : 0.90f;
                     const auto  c  = iconR.getCentre();
                     if (! dim)
                         softIconGlow (g, c, juce::jmin (iconR.getHeight() * 0.5f, (float) button.getHeight() * 0.5f),
                                       pillCol, shouldDrawButtonAsDown ? 1.9f : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f);
+                    // Runde 113 (User): PRE/POST sieht in JEDEM Zustand genauso
+                    // aus wie ØL/ØR - dieselbe Farbregel, gekoppelt.
+                    if (ppdia >= 0)
+                    {
+                        pillCol = iconToggleColour (altAccentColour(), button.getToggleState(), sectionIsOffNow,
+                                                    shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown);
+                        a = 1.0f;
+                    }
                     const float sc = juce::jmin (iconR.getWidth() / 48.0f, iconR.getHeight() / 32.0f);
                     auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 24.0f) * sc, c.y + (y - 16.0f) * sc); };
                     auto dot = [&] (float x, float y, float r, float alpha)
@@ -1441,6 +1464,10 @@ public:
             const int edia = (int) button.getProperties().getWithDefault ("eqDiagram",  -1);
             if (diag >= 0 || rdia >= 0 || edia >= 0)
             {
+                // Runde 113 (User): ist die Sektion aus, traegt das Icon die
+                // Farbe seiner Schrift - eine Spur dunkler als das Gold, und
+                // kein Schimmer.
+                const juce::Colour icoCol = sectionIsOffNow ? labelOffColour() : pillCol;
                #if SPACEX_PX_DIAG_ONLY
                 // Runde 91 (User): kein Rahmen mehr - das Icon gross oben, die
                 // Schrift dicht ueber den Punkten. Dahinter ein weicher
@@ -1468,15 +1495,15 @@ public:
                     const float room = juce::jmin (juce::jmin (cy - bounds.getY(), bounds.getBottom() - cy),
                                                    bounds.getWidth() * 0.5f);
                     const float gr = juce::jmin (11.0f * sc * (hot > 1.0f ? 1.10f : 1.0f), room);
-                    juce::ColourGradient grad (pillCol.withAlpha (juce::jmin (0.65f, (sectionIsOffNow ? 0.10f : 0.26f) * hot)), cx, cy,
-                                               pillCol.withAlpha (0.0f), cx + gr, cy, true);
-                    grad.addColour (0.45, pillCol.withAlpha (juce::jmin (0.40f, (sectionIsOffNow ? 0.05f : 0.13f) * hot)));
+                    juce::ColourGradient grad (icoCol.withAlpha (juce::jmin (0.65f, (sectionIsOffNow ? 0.0f : 0.26f) * hot)), cx, cy,
+                                               icoCol.withAlpha (0.0f), cx + gr, cy, true);
+                    grad.addColour (0.45, icoCol.withAlpha (juce::jmin (0.40f, (sectionIsOffNow ? 0.0f : 0.13f) * hot)));
                     g.setGradientFill (grad);
                     g.fillEllipse (cx - gr, cy - gr, gr * 2.0f, gr * 2.0f);
                 }
                #endif
-                const float a  = sectionIsOffNow ? 0.34f : 0.85f;
-                g.setColour (pillCol.withAlpha (a));
+                const float a  = sectionIsOffNow ? 1.0f : 0.85f;
+                g.setColour (icoCol.withAlpha (a));
                 if (edia >= 0)
                 {
                     // Runde 105: Seiten-EQ in MID-SIDE als Kurve. ZWEI
@@ -1534,12 +1561,12 @@ public:
                             break;
                         case 6:
                             drawSides (2);
-                            g.setColour (pillCol.withAlpha (a * 0.60f));
+                            g.setColour (icoCol.withAlpha (a * 0.60f));
                             drawMid (5);
                             break;
                         default:
                             // FLAT: eine ruhige, schwaechere Linie - nichts passiert.
-                            g.setColour (pillCol.withAlpha (a * 0.55f));
+                            g.setColour (icoCol.withAlpha (a * 0.55f));
                             drawMid (0);
                             break;
                     }
@@ -1597,9 +1624,9 @@ public:
                         const float r = (diag == 1 ? 5.4f : 3.4f) * sc;
                         // VELVET ist der leisere der beiden: enger Ring UND
                         // schwaecher gezeichnet (User).
-                        if (diag == 0) g.setColour (pillCol.withAlpha (a * 0.50f));
+                        if (diag == 0) g.setColour (icoCol.withAlpha (a * 0.50f));
                         g.drawEllipse (cx - r, cy - r, r * 2.0f, r * 2.0f, 1.1f * sc);
-                        g.setColour (pillCol.withAlpha (a));
+                        g.setColour (icoCol.withAlpha (a));
                         g.fillEllipse (cx - 1.3f * sc, cy - 1.3f * sc, 2.6f * sc, 2.6f * sc);
                     }
                     else
@@ -1610,7 +1637,7 @@ public:
                         g.fillRoundedRectangle (cx - sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
                         g.fillRoundedRectangle (cx + sp - w * 0.5f, cy - h * 0.5f, w, h, w * 0.5f);
                         // Die Mitte: bei DOUBLE nur noch angedeutet.
-                        g.setColour (pillCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
+                        g.setColour (icoCol.withAlpha (a * (diag == 3 ? 0.30f : 1.0f)));
                         g.fillEllipse (cx - 1.2f * sc, cy - 1.2f * sc, 2.4f * sc, 2.4f * sc);
                     }
                 }
@@ -1842,12 +1869,17 @@ public:
                       : iconOffColour().withAlpha (hot ? 0.85f : 0.55f);
     }
 
+    static juce::Font phaseFont()
+    {
+        return juce::Font (juce::FontOptions (14.5f, juce::Font::bold)).withExtraKerningFactor (0.08f);
+    }
+
     // Runde 112: Ø und Buchstabe NEBENEINANDER und gleich gross (User: "das
     // Icon soll nicht groesser sein als L - L und R sind nicht unwichtiger").
     static void phaseLayout (juce::Button& b, juce::Rectangle<float> area,
                              juce::Rectangle<float>& iconR, juce::Rectangle<float>& textR)
     {
-        const auto f    = unifiedButtonFont (30);
+        const auto f    = phaseFont();   // Runde 113: etwas groesser
         const float cap = f.getHeight() * 0.74f;
         const float iw  = cap * 1.2f, gap = 3.0f;
         const float tw  = juce::GlyphArrangement::getStringWidth (f, b.getButtonText()) + 1.0f;
@@ -2069,7 +2101,7 @@ public:
                 juce::Rectangle<float> iconR, textR;
                 if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
                 {
-                    g.setFont (unifiedButtonFont (30));
+                    g.setFont (phaseFont());
                     phaseLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
                     g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
                 }
@@ -2091,9 +2123,10 @@ public:
             {
                 // Runde 112 (User): PRE/POST-Schrift dimmt genau wie ihr Icon -
                 // Sektion aus ODER gar nichts umgepolt.
-                if ((int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0
-                    && (! button.getToggleState() || (bool) button.getProperties().getWithDefault ("sectionOff", false)))
-                    g.setColour (labelOffColour());
+                if ((int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0)
+                    g.setColour (iconToggleColour (altAccentColour(), button.getToggleState(),
+                                                   (bool) button.getProperties().getWithDefault ("sectionOff", false),
+                                                   shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown));
                 if ((bool) button.getProperties().getWithDefault ("iconAbove", false))
                 {
                     // Runde 110: Smart-Profil wie die Icon-Felder - Name unter dem Icon.
