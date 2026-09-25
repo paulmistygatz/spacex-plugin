@@ -81,12 +81,23 @@ namespace sideeq
                  lerpLog (a.mHsHz, b.mHsHz, t), lerpLin (a.mHsDb, b.mHsDb, t), lerpLin (a.mHsQ, b.mHsQ, t) };
     }
 
-    // amount01: 0 = nichts, 0.5 = A, 1 = B.
+    // Runde 160 (User: "nicht bei 0 anfangen - click and move on"): der
+    // Fader beginnt links bei 80 % von Pauls Kurve A (= neuer Default) und
+    // endet rechts bei B. Intern auf die alte Skala 0..1 (0 = nichts,
+    // 0.5 = A, 1 = B) umgerechnet: links 0.4, rechts 1.0. A liegt damit bei
+    // ~17 % Faderweg.
+    constexpr float kAmtFloor = 0.4f;
+    inline float internalAmount (float fader01) noexcept
+    {
+        return kAmtFloor + (1.0f - kAmtFloor) * std::clamp (fader01, 0.0f, 1.0f);
+    }
+
+    // amount01 = Faderstellung 0..1 (siehe internalAmount).
     inline Curve evaluate (int mode, float amount01, bool on) noexcept
     {
         mode = std::clamp (mode, 0, kModes - 1);
         if (! on) return curveOff (mode);
-        const float a = std::clamp (amount01, 0.0f, 1.0f);
+        const float a = internalAmount (amount01);
         if (a <= 0.5f) return mix (curveOff (mode), curveA (mode), a * 2.0f);
         return mix (curveA (mode), curveB (mode), (a - 0.5f) * 2.0f);
     }
@@ -167,16 +178,16 @@ namespace sideeq
                  xOf (c.mHsHz), c.mHsDb, 0.045f / std::max (c.mHsQ, 0.2f) };
     }
 
-    // Unter 50 % bleibt die Form des Modus erkennbar (mindestens 35 %
-    // Auspraegung) - das Icon zeigt WAS der Modus macht, der Fader WIE VIEL.
+    // Runde 160: das Icon zeigt jetzt ehrlich, was klingt - links 80 % von A,
+    // rechts B (die 35-%-Untergrenze von frueher braucht es nicht mehr).
     inline Look lookFor (int mode, float amount01) noexcept
     {
         mode = std::clamp (mode, 0, kModes - 1);
         const Look A = lookOf (curveA (mode)), B = lookOf (curveB (mode));
-        const float a = std::clamp (amount01, 0.0f, 1.0f);
+        const float a = internalAmount (amount01);
         if (a <= 0.5f)
         {
-            const float k = 0.35f + 0.65f * (a * 2.0f);
+            const float k = a * 2.0f;
             Look L = A;
             L.hpSlope *= k; L.sG *= k; L.mG *= k;
             return L;

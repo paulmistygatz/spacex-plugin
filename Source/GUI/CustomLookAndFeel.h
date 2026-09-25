@@ -1502,7 +1502,7 @@ public:
                 float eqFlat01 = 0.0f;
                 if (edia >= 0)
                 {
-                    sideeq::Look Lf = sideeq::lookFor (edia, 0.5f);
+                    sideeq::Look Lf = sideeq::lookFor (edia, 0.0f);
                     if (auto* arr = button.getProperties()["eqLook"].getArray())
                         if (arr->size() == sideeq::kLookFields)
                         {
@@ -1544,7 +1544,7 @@ public:
                     // (sideeq::Look), die fliessend morpht; der Hochpass geht
                     // als Gerade nach unten raus und blendet dort aus. Dazu
                     // eine ganz feine 0-dB-Linie.
-                    sideeq::Look L = sideeq::lookFor (edia, 0.5f);
+                    sideeq::Look L = sideeq::lookFor (edia, 0.0f);
                     if (auto* arr = button.getProperties()["eqLook"].getArray())
                         if (arr->size() == sideeq::kLookFields)
                         {

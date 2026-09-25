@@ -345,6 +345,35 @@ public:
             if (modeP.isValid())
                 modeP.setProperty ("value", 3.0, nullptr);   // sideeq::kFlat
         }
+
+        // Runde 160: neue Fader-Skala. Alt: 0 = nichts, 50 = Kurve A, 100 = B.
+        // Neu: 0 = 80 % von A, 100 = B. Alte Werte werden so umgerechnet,
+        // dass es gleich klingt; was schwaecher war als der neue Anfang, landet
+        // links, und (fast) "nichts" wird zu FLAT.
+        if (! state.hasProperty ("eqAmtV2"))
+        {
+            // Fehlte der Wert ganz, galt der alte Default 50 (= Kurve A).
+            bool hasAmt = false;
+            for (auto c : state)
+                hasAmt = hasAmt || (c.hasType ("PARAM") && c.getProperty ("id").toString() == ID_MS_EQ_AMT);
+            if (! hasAmt)
+            {
+                juce::ValueTree amt ("PARAM");
+                amt.setProperty ("id", ID_MS_EQ_AMT, nullptr);
+                amt.setProperty ("value", 50.0, nullptr);
+                state.appendChild (amt, nullptr);
+            }
+            for (auto c : state)
+                if (c.hasType ("PARAM") && c.getProperty ("id").toString() == ID_MS_EQ_AMT)
+                {
+                    const double old01 = juce::jlimit (0.0, 1.0, (double) c.getProperty ("value", 50.0) * 0.01);
+                    if (old01 < 0.2 && modeP.isValid())
+                        modeP.setProperty ("value", 3.0, nullptr);
+                    const double new01 = juce::jlimit (0.0, 1.0, (old01 - 0.4) / 0.6);
+                    c.setProperty ("value", new01 * 100.0, nullptr);
+                }
+            state.setProperty ("eqAmtV2", true, nullptr);
+        }
     }
 
     // --- Position (neue Sektion, ganz am Ende der Kette) --------------------

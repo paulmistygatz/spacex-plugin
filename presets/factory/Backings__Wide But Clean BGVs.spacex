@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<PARAMS mutateCategory="1">
+<PARAMS eqAmtV2="1" mutateCategory="1">
   <PARAM id="bend" value="0.0"/>
   <PARAM id="dimensionDepth" value="50.0"/>
   <PARAM id="dimensionMod" value="0.0"/>
@@ -63,7 +63,7 @@
   <PARAM id="rayAmount" value="0.0"/>
   <PARAM id="rayCharacter" value="0.0"/>
   <PARAM id="msEq"/>
-  <PARAM id="msEqAmt" value="100.0"/>
+  <PARAM id="msEqAmt" value="100"/>
   <PARAM id="msEqLcr" value="0.0"/>
   <PARAM id="msEqOn" value="1.0"/>
   <PARAM id="msEqX2"/>

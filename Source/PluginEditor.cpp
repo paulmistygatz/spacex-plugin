@@ -1679,7 +1679,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (msEqButton,      "Sides EQ: Flat, Tight (cleans the lows), Clear (clean + air), Focus (calmer, brighter centre)" + cycle);
     tip (msEqDots,        "Sides EQ: pick one directly");
     tip (msEqPowerButton, "EQ on/off - compare with and without, the setting stays");
-    tip (msEqAmtSlider,   "EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off");
+    tip (msEqAmtSlider,   "EQ amount: left = gentle (default), right = strongest");
 
     // AUTOPAN
     tip (movementSlider,  "Amount: how far the sound travels left and right" + knob);
@@ -4607,7 +4607,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqAmtSlider.setTooltip ("EQ amount: 50 % is the curve as tuned, 100 % the strongest. Double-click: back to 50 %");
     content.addAndMakeVisible (msEqAmtSlider);
     msEqAmtAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_AMT, msEqAmtSlider);
-    msEqAmtSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+    msEqAmtSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);   // Runde 160
     eqIconTicker.fn = [this] { tickEqIcon(); };
     eqIconTicker.startTimerHz (60);
 

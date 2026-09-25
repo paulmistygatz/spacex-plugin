@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<PARAMS sectionLocked_7="0" mutateCategory="0">
+<PARAMS eqAmtV2="1" sectionLocked_7="0" mutateCategory="0">
   <PARAM id="bend" value="0.0"/>
   <PARAM id="dimensionDepth" value="47.10000228881836"/>
   <PARAM id="dimensionMod" value="1.0"/>
@@ -56,7 +56,7 @@
   <PARAM id="life" value="35.5"/>
   <PARAM id="mix"/>
   <PARAM id="msEq"/>
-  <PARAM id="msEqAmt" value="50.0"/>
+  <PARAM id="msEqAmt" value="16.667"/>
   <PARAM id="msEqLcr"/>
   <PARAM id="msEqOn" value="1.0"/>
   <PARAM id="msEqX2"/>

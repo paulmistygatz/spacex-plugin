@@ -128,6 +128,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pMsEqLcr     = apvts.getRawParameterValue (ID_MS_EQ_LCR);
     pMsEqOn      = apvts.getRawParameterValue (ID_MS_EQ_ON);
     pMsEqAmt     = apvts.getRawParameterValue (ID_MS_EQ_AMT);
+    apvts.state.setProperty ("eqAmtV2", true, nullptr);   // Runde 160: neue Fader-Skala (siehe migrateMsEqOn)
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
     pPosWidth    = apvts.getRawParameterValue (ID_POS_WIDTH);
     pPrismOn     = apvts.getRawParameterValue (ID_PRISM_ON);
@@ -211,6 +212,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
                 auto tree = juce::ValueTree::fromXml (*xml);
                 if (tree.isValid() && tree.hasType (apvts.state.getType()))
                 {
+                    migrateMsEqOn (tree);   // Runde 159/160: gespeicherter Start-Zustand kann alt sein
                     apvts.replaceState (tree);
                     appliedFullDefault = true;
                     reportLatencyForCurrentState();   // Runde 107, siehe Header
@@ -774,7 +776,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::ParameterID { ID_MS_EQ_ON, 1 }, "Sides EQ On", true));   // Runde 133: an, Modus FLAT = neutral
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_MS_EQ_AMT, 1 }, "Sides EQ Amount",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f, "%"));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));   // Runde 160: links = Default (80 % von A)
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_MS_EQ_X2, 1 }, "Sides EQ x2", false));
     params.push_back (std::make_unique<juce::AudioParameterBool> (

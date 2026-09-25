@@ -2276,7 +2276,7 @@ private:
     {
         double snapValue (double v, juce::Slider::DragMode) override
         {
-            return std::abs (v - 50.0) < 3.0 ? 50.0 : v;
+            return v;   // Runde 160: kein Einrasten mehr - Default ist ganz links
         }
     };
     juce::TextButton msEqPowerButton;
