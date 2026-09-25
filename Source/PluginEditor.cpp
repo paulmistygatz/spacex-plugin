@@ -1622,7 +1622,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     // Zeile. Uebrig bleiben nur Befehle, die man nicht erraten kann.
     const juce::String knob;
     const juce::String section = juce::String::fromUTF8 (" · Cmd-click: solo · Cmd+Shift-click: reset section");
-    const juce::String cycle;
+    const juce::String cycle   = juce::String::fromUTF8 (" · Cmd-click: previous");   // User: bleibt, kann man nicht erraten
 
     // Kopf
     tip (logoButton,                 "Bypass: switch the whole plugin off and on");
