@@ -1311,6 +1311,20 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
         return;
     }
 
+    // Runde 118 (User): ist genau diese Sektion solo, beendet ein normaler
+    // Klick auf den Namen das Solo - wie Cmd-Klick, leichter zu merken. Die
+    // Sektion bleibt dabei an (kein An/Aus).
+    {
+        const int current = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX,
+                                          (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
+        if (current != LCRMSAudioProcessor::SOLO_NONE && current == soloValue)
+        {
+            if (auto* sp = processor.apvts.getParameter (LCRMSAudioProcessor::ID_SOLO_SECTION))
+                sp->setValueNotifyingHost (sp->convertTo0to1 ((float) LCRMSAudioProcessor::SOLO_NONE));
+            return;
+        }
+    }
+
     if (auto* param = processor.apvts.getParameter (paramId))
     {
         const bool wasOn = param->getValue() > 0.5f;
