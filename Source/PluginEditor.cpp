@@ -6114,7 +6114,8 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         const float cx   = cb.getCentreX();
         const float iy   = cb.getY() + cb.getHeight() * 0.34f;   // Hoehe der Icon-Mitte
         const bool armed = mutateCategoryValue > 0;
-        const auto col   = themePalette().frameRaye;
+        // Runde 134: dieselbe Farbe wie das Profil-Icon (in Sci-Fi cyan statt pink).
+        const auto col   = themePalette().knob;
         // Platz links bis zum Slogan-Ende, rechts bis zum Preset-Pfeil.
         const float room = juce::jmin (cx - 300.0f, (float) presetPrevButton.getX() - cx - 8.0f);
         const float reach = juce::jlimit (60.0f, 170.0f, room);
@@ -8036,7 +8037,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         auto r2 = row2;
         // Runde 112 (User): Micropitch ein wenig schmaler, Mid-Side breiter -
         // der Rand rechts in Micropitch war groesser als links in Mid-Side.
-        auto a = r2.removeFromLeft (juce::roundToInt ((float) (r2.getWidth() - frameGap) * 0.44f));
+        auto a = r2.removeFromLeft (juce::roundToInt ((float) (r2.getWidth() - frameGap) * 0.432f));   // Runde 134 (User): Mid-Side ein paar px breiter
         r2.removeFromLeft (frameGap);
         driftFrame = a; wbFrame = r2;
     }
