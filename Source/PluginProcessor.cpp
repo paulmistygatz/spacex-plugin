@@ -455,7 +455,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // Builds vorhanden, aber ohne Wirkung.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_RAY_AMOUNT, 1 }, "Ray Amount",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 33.3f, "%"));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));   // Runde 120 (User): Default 0
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_RAY_CHAR, 1 }, "Ray Character",
         juce::StringArray { "Sweep", "Shimmer", "Spin", "Swirl" }, 0));

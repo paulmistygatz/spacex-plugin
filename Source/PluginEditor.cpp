@@ -3976,7 +3976,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     styleLabel (rayAmountLabel, "Amount");
     content.addAndMakeVisible (rayAmountLabel);
     rayAmountAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_AMOUNT, rayAmountSlider);
-    rayAmountSlider.setDoubleClickReturnValue (true, 33.3, juce::ModifierKeys::commandModifier);
+    rayAmountSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
     rayAmountSlider.setTooltip ("Amount: how strong the movement is");
     rayCharButton.setClickingTogglesState (false);
     rayCharButton.setWantsKeyboardFocus (false);
