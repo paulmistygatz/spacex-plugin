@@ -252,6 +252,11 @@ void LCRMSAudioProcessorEditor::setupLockButton (juce::TextButton& button, int s
 //     Wildcard die Regeln nicht aushebeln kann.
 void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
 {
+    // Runde 124 (User): Wuerfeln bei aktivem Solo ergibt keinen Sinn - man
+    // hoert nur eine Sektion, der Wuerfel veraendert aber alle.
+    if ((int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load())
+            != LCRMSAudioProcessor::SOLO_NONE)
+        return;
     juce::Random& rng = juce::Random::getSystemRandom();
     // Sektions-Schalter, die Mutate setzt, duerfen Galaxy nicht scharfschalten.
     suppressGalaxyAutoArm = true;
@@ -4846,6 +4851,18 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // exakt zeigt, was tatsaechlich verarbeitet wird.
     const int currentSolo = juce::jlimit (0, LCRMSAudioProcessor::SOLO_MAX, (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SOLO_SECTION)->load()));
     const bool soloActive = currentSolo != LCRMSAudioProcessor::SOLO_NONE;
+    // Runde 124: Wuerfel bei Solo gedimmt und ohne Wirkung (siehe runMutate).
+    {
+        const float wantA = soloActive ? 0.35f : 1.0f;
+        if (std::abs (globalChaosButton.getAlpha() - wantA) > 0.01f)
+        {
+            globalChaosButton.setAlpha (wantA);
+            globalChaosButton.setTooltip (soloActive ? "Smart is paused while a section is soloed"
+                                                     : (mutateCategoryValue > 0
+                                                          ? "Smart: rolls a new setting inside the selected profile, and decides which sections belong in it"
+                                                          : "Smart: randomize the sound and leave every section switched on"));
+        }
+    }
 
     // Solo + Sektion aus ist ein Zustand, den niemand absichtlich sucht: die
     // solierte Sektion ist stumm, alle anderen auch. Schaltet man die solierte
