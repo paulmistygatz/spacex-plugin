@@ -2794,7 +2794,12 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
         menu.addItem (kRenameId + 1, "Preset Folder...");
     }
 
-    auto menuOptions = juce::PopupMenu::Options().withTargetComponent (presetNameButton);
+    // Runde 157 (User: "klappt nach oben auf, geht an den Bildschirmrand"):
+    // Ursache war withItemThatMustBeVisible - JUCE schob das Menue so weit
+    // hoch, dass das geladene Preset auf Hoehe des Namens lag. Das ist raus;
+    // das Menue oeffnet nach unten.
+    auto menuOptions = juce::PopupMenu::Options().withTargetComponent (presetNameButton)
+                           .withPreferredPopupDirection (juce::PopupMenu::Options::PopupDirection::downwards);
     const bool autoOpen = currentTop.isNotEmpty() && folders.contains (currentTop);
     if (autoOpen)
         menuOptions = menuOptions.withInitiallySelectedItem (kOpenFolderId);
@@ -5134,9 +5139,6 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
     if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
         content.repaint (profileStarsArea);
-    // Runde 152: mit Smart-Profil kreist ein Planet um den Wuerfel.
-    if (mutateCategoryValue > 0 && globalChaosButton.isShowing())
-        globalChaosButton.repaint();
     updateHintBar();
     bool needsRepaint = false;
 
@@ -6369,9 +6371,18 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // Kleine vertikale Trennstriche in der globalen Button-Zeile (User-
     // Wunsch: neue Reihenfolge mit Gruppen-Trennern), Positionen kommen aus
     // layoutContent().
-    g.setColour (juce::Colours::white.withAlpha (0.14f));
+    // Runde 157: die Linien laufen durch beide Kopfzeilen und blenden oben
+    // und unten aus (wie im Footer).
     for (auto x : globalRowSeparatorX)
-        g.drawLine ((float) x, (float) globalRowSeparatorTop, (float) x, (float) globalRowSeparatorBottom, 1.0f);
+    {
+        const float fx = (float) x + 0.5f, y1 = (float) globalRowSeparatorTop, y2 = (float) globalRowSeparatorBottom;
+        juce::ColourGradient grad (juce::Colours::white.withAlpha (0.0f), fx, y1,
+                                   juce::Colours::white.withAlpha (0.0f), fx, y2, false);
+        grad.addColour (0.5, juce::Colours::white.withAlpha (0.16f));
+        g.setGradientFill (grad);
+        g.fillRect (fx - 0.5f, y1, 1.0f, y2 - y1);
+    }
+    g.setColour (juce::Colours::white.withAlpha (0.14f));
 
     // Trennstriche der zweiten Titelzeile (Preset-Zeile) - gleiche Optik
     // wie in der ersten, damit die beiden Zeilen als EIN Block gelesen werden.
@@ -7372,77 +7383,79 @@ void LCRMSAudioProcessorEditor::layoutContent()
             catDots.setVisible (showMutateCategories);
         }
 
-        // --- Zeile 1 ---
+        // ===== Runde 157 (User: Header "H1") =====
+        // Drei Spalten, die Trennlinien laufen durch BEIDE Zeilen:
+        //   Power Wuerfel Life Mod  LCR  |  Undo  Redo  |  Settings
+        //   <  [ Preset-Name ]  >  Save  |  A/B   Copy  |  Reset
+        // Spalte 1 = spielen / Preset (Save direkt am Namen), Spalte 2 =
+        // Verlauf und Vergleich, Spalte 3 = Einstellungen und Zuruecksetzen.
+        // Delete ist ins Preset-Menue gewandert (Runde 156).
+        juce::ignoreUnused (kFileW, kStateW, kGroupGap, kNameW);
+        constexpr int kCol3W = kHamburgerW;
+        constexpr int kCol2W = kABW + kGap + kCopyW;                      // breiter als Undo+Redo
+        constexpr int kCol1W = kBlockW - kCol3W - kCol2W - kSepBlockW * 2;
+        auto colRow1 = row1;
+        auto colRow2 = row2;
+        auto c1r1 = colRow1.removeFromLeft (kCol1W);
+        auto c1r2 = colRow2.removeFromLeft (kCol1W);
+        colRow1.removeFromLeft (kSepGap);  colRow2.removeFromLeft (kSepGap);
+        const int sepXa = colRow1.getX();
+        colRow1.removeFromLeft (kSepW + kSepGap);  colRow2.removeFromLeft (kSepW + kSepGap);
+        auto c2r1 = colRow1.removeFromLeft (kCol2W);
+        auto c2r2 = colRow2.removeFromLeft (kCol2W);
+        colRow1.removeFromLeft (kSepGap);  colRow2.removeFromLeft (kSepGap);
+        const int sepXb = colRow1.getX();
+        colRow1.removeFromLeft (kSepW + kSepGap);  colRow2.removeFromLeft (kSepW + kSepGap);
+        auto c3r1 = colRow1;
+        auto c3r2 = colRow2;
+
         globalRowSeparatorX.clearQuick();
-        globalRowSeparatorTop = row1.getY() - 3;
-        globalRowSeparatorBottom = row1.getBottom() + 3;
-        auto sep1 = [&]
-        {
-            row1.removeFromLeft (kSepGap + 5);
-            globalRowSeparatorX.add (row1.getX());
-            row1.removeFromLeft (kSepW);
-            row1.removeFromLeft (kSepGap + 5);
-        };
-
-        auto live = row1.removeFromLeft (kLiveW);
-        globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
-        live.removeFromLeft (kGap);
-        // Runde 55: nur noch ein Wuerfel.
-        globalChaosButton.setBounds (live.removeFromLeft (kDiceW).withSizeKeepingCentre (kDiceW, kLifeW));   // Runde 153: Hoehe wie LIFE
-        globalChaosSectionsButton.setBounds ({});
-        live.removeFromLeft (kGap);
-        lifeSlider.setBounds (live.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));
-        live.removeFromLeft (kGap);
-        globalModBypassButton.setBounds (live);
-        // Runde 103 (User): Breathe ist ersatzlos weg - LIFE und der
-        // Mod-Schalter machen die Bewegung, ohne Wuerfeln.
-        globalBreatheButton.setVisible (false);
-        globalBreatheButton.setBounds ({});
-
-        row1.removeFromLeft (kGalaxyGap + kNameExtra - 20);
-        globalGalaxyActivateButton.setBounds (row1.removeFromLeft (kGalaxyW));
-
-        sep1();
-
-        undoButton.setBounds (row1.removeFromLeft (kUndoBtnW));
-        row1.removeFromLeft (kGap);
-        redoButton.setBounds (row1.removeFromLeft (kUndoBtnW));
-
-        sep1();
-
-        presetMenuButton.setBounds (row1);
-
-        // --- Zeile 2 ---
+        globalRowSeparatorX.add (sepXa);
+        globalRowSeparatorX.add (sepXb);
+        globalRowSeparatorTop    = row1.getY() - 3;
+        globalRowSeparatorBottom = row2.getBottom() + 3;
         presetRowSeparatorX.clearQuick();
-        presetRowSeparatorTop = row2.getY() - 3;
-        presetRowSeparatorBottom = row2.getBottom() + 3;
-        auto sep2 = [&]
+
+        // Spalte 1, Zeile 1: Live-Gruppe links, LCR rechtsbuendig.
         {
-            row2.removeFromLeft (kSepGap);
-            presetRowSeparatorX.add (row2.getX());
-            row2.removeFromLeft (kSepW);
-            row2.removeFromLeft (kSepGap);
-        };
-
-        presetPrevButton.setBounds (row2.removeFromLeft (kPArrowW));
-        row2.removeFromLeft (kPSmallGap);
-        presetNameButton.setBounds (row2.removeFromLeft (kNameW).reduced (0, 1));
-        row2.removeFromLeft (kPSmallGap);
-        presetNextButton.setBounds (row2.removeFromLeft (kPArrowW));
-
-        sep2();
-
-        globalSaveSizeButton.setBounds (row2.removeFromLeft (kUndoBtnW));
-        row2.removeFromLeft (kGap);
-        presetDeleteButton.setBounds (row2.removeFromLeft (kUndoBtnW));
-
-        row2.removeFromLeft (kGroupGap);
-
-        globalABButton.setBounds (row2.removeFromLeft (kABW));
-        row2.removeFromLeft (kGap);
-        abCopyButton.setBounds (row2.removeFromLeft (kCopyW));
-        row2.removeFromLeft (kGap);
-        globalResetButton.setBounds (row2.removeFromLeft (kUndoBtnW));
+            auto live = c1r1.removeFromLeft (kLiveW);
+            globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
+            live.removeFromLeft (kGap);
+            globalChaosButton.setBounds (live.removeFromLeft (kDiceW).withSizeKeepingCentre (kDiceW, kLifeW));   // Runde 153: Hoehe wie LIFE
+            globalChaosSectionsButton.setBounds ({});
+            live.removeFromLeft (kGap);
+            lifeSlider.setBounds (live.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));
+            live.removeFromLeft (kGap);
+            globalModBypassButton.setBounds (live);
+            globalBreatheButton.setVisible (false);
+            globalBreatheButton.setBounds ({});
+            globalGalaxyActivateButton.setBounds (c1r1.removeFromRight (kGalaxyW));
+        }
+        // Spalte 1, Zeile 2: < Name > Save
+        {
+            globalSaveSizeButton.setBounds (c1r2.removeFromRight (kUndoBtnW));
+            c1r2.removeFromRight (kGap + 2);
+            presetPrevButton.setBounds (c1r2.removeFromLeft (kPArrowW));
+            c1r2.removeFromLeft (kPSmallGap);
+            presetNextButton.setBounds (c1r2.removeFromRight (kPArrowW));
+            c1r2.removeFromRight (kPSmallGap);
+            presetNameButton.setBounds (c1r2.reduced (0, 1));
+        }
+        // Spalte 2: Undo/Redo mittig ueber A/B + Copy.
+        {
+            auto u = c2r1.withSizeKeepingCentre (kUndoBtnW * 2 + kGap, c2r1.getHeight());
+            undoButton.setBounds (u.removeFromLeft (kUndoBtnW));
+            u.removeFromLeft (kGap);
+            redoButton.setBounds (u.removeFromLeft (kUndoBtnW));
+            globalABButton.setBounds (c2r2.removeFromLeft (kABW));
+            c2r2.removeFromLeft (kGap);
+            abCopyButton.setBounds (c2r2.removeFromLeft (kCopyW));
+        }
+        // Spalte 3: Settings ueber Reset, beide mittig.
+        presetMenuButton.setBounds (c3r1);
+        globalResetButton.setBounds (c3r2.withSizeKeepingCentre (kUndoBtnW, c3r2.getHeight()));
+        presetDeleteButton.setVisible (false);
+        presetDeleteButton.setBounds ({});
     }
 
     auto area = juce::Rectangle<int> (0, 0, kDesignW, kDesignH).reduced (kOuterMargin);
@@ -8163,8 +8176,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
             // Die Innenkanten bleiben, wo sie waren (Abstand zum Link gleich),
             // die Knoepfe wachsen nach aussen und gleichmaessig nach oben/unten.
             // Alles andere (Link, PRE/POST) bleibt unveraendert.
-            constexpr float kPolScale = 1.5f;
-            const int bigW = juce::roundToInt ((float) lrBtnW * 1.3f);
+            constexpr float kPolScale = 1.3f;   // Runde 157 (User): 1.5 war "etwas zu gross"
+            const int bigW = juce::roundToInt ((float) lrBtnW * 1.15f);
             const int bigH = juce::roundToInt ((float) lrBtnH * kPolScale);
             const int midY = polLinkButton.getBounds().getCentreY();
             polLButton.setBounds (oldL.getRight() - bigW, midY - bigH / 2, bigW, bigH);

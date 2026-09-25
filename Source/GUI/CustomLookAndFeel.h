@@ -1497,14 +1497,31 @@ public:
                 const float sc = 1.0f;
                #endif
                 const float cx = db.getCentreX(), cy = db.getCentreY();
+                // Runde 157 (User: "Flat minimal duenner und minimal weniger
+                // Glow"): 1 = ganz flach, 0 = deutliche Kurve. Morpht mit.
+                float eqFlat01 = 0.0f;
+                if (edia >= 0)
+                {
+                    sideeq::Look Lf = sideeq::lookFor (edia, 0.5f);
+                    if (auto* arr = button.getProperties()["eqLook"].getArray())
+                        if (arr->size() == sideeq::kLookFields)
+                        {
+                            Lf.hpSlope = (float) (double) (*arr)[1];
+                            Lf.sG      = (float) (double) (*arr)[4];
+                            Lf.mG      = (float) (double) (*arr)[7];
+                        }
+                    eqFlat01 = 1.0f - juce::jlimit (0.0f, 1.0f, juce::jmax (Lf.hpSlope / 4.0f,
+                                                                            std::abs (Lf.sG) / 3.0f,
+                                                                            std::abs (Lf.mG) / 3.0f));
+                }
                #if SPACEX_PX_DIAG_ONLY
                 {
                     // Der Schimmer liegt HINTER dem Icon: ein weicher runder
                     // Verlauf in der Sektionsfarbe, der nach aussen ausgeht.
                     // Runde 92 (User): der Hover zeigt sich als STAERKERER
                     // Schimmer statt als Kasten.
-                    const float hot = shouldDrawButtonAsDown ? 1.9f
-                                    : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f;
+                    const float hot = (shouldDrawButtonAsDown ? 1.9f
+                                    : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f) * (1.0f - 0.22f * eqFlat01);
                     // Runde 95 (User: "Grafikbug: Glow cut off"): der Knopf
                     // schneidet an seinen eigenen Kanten ab, der Schimmer darf
                     // also nie ueber sie hinausreichen.
@@ -1576,7 +1593,7 @@ public:
                         fillFaded (st, a * 0.55f * mAlpha);
                     }
                     juce::Path st;
-                    juce::PathStrokeType (1.45f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
+                    juce::PathStrokeType ((1.45f - 0.22f * eqFlat01) * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
                         .createStrokedPath (st, pathFor (true));
                     fillFaded (st, a);
                 }
@@ -3303,95 +3320,51 @@ public:
 
     void drawMutateContent (juce::Graphics& g, juce::Button& button)
     {
-        // "mutateBig" (Runde 50): der Wuerfel ersetzt bei aktiver Smart-
-        // Kategorie beide Knoepfe und wird entsprechend deutlich groesser.
+        // Runde 157 (User: Wuerfel "D1"): Linienstil wie Power, Life und Mod
+        // daneben. Vier Felder als Umriss; mit Smart-Profil fuellen sich zwei
+        // davon in der Profilfarbe. Welche zwei, wechselt mit jedem Wurf
+        // (mutateColorState) - der Klick bleibt sichtbar. Kein Glow, keine
+        // Umlaufbahn mehr (die gehoert dem Profil-Icon).
         const bool bigCube = button.getProperties().getWithDefault ("mutateBig", false);
         auto bounds = button.getLocalBounds().toFloat().reduced (bigCube ? 16.0f : 10.0f, bigCube ? 2.0f : 6.0f);
         const int colorState = (int) button.getProperties().getWithDefault ("mutateColorState", 0b0101);
+        const bool armed = button.getProperties().getWithDefault ("categoryArmed", false);
+        const bool hot   = button.isOver() || button.isDown();
 
-        // Ist eine Smart-Kategorie gewaehlt, bekommt dieser Wuerfel einen
-        // dezenten Hof - man sieht dann sofort, dass die Kategorie hier oben
-        // wirkt und der andere Wuerfel gesperrt ist (User).
-        // Runde 110 (User): die Ellipsen waren groesser als der Knopf und wurden
-        // an seinen Kanten abgeschnitten - das sah aus wie ein Kasten. Jetzt
-        // ein runder Schimmer, der in den Knopf passt.
         const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * (bigCube ? 0.60f : 0.42f));
-        const float gap = cell * 0.28f;
+        const float gap = cell * 0.30f;
         const float gridW = cell * 2.0f + gap;
         const float gridH = cell * 2.0f + gap;
         const float x0 = bounds.getCentreX() - gridW * 0.5f;
         const float y0 = bounds.getCentreY() - gridH * 0.5f;
+        const float stroke = juce::jmax (1.4f, cell * 0.17f);
+        const float corner = cell * 0.24f;
 
-        // Runde 152 (User: Variante A): mit Smart-Profil bekommt der Wuerfel
-        // dieselbe Umlaufbahn wie das Profil-Icon - man sieht sofort, dass
-        // beide zusammengehoeren. Gleiche Neigung, gleiche 14 s, gleiche Phase
-        // wie der Planet am Profil. Hinterer Teil der Bahn liegt unter den
-        // Feldern, der Planet verschwindet hinten hinter dem Wuerfel.
-        // (Ersetzt den Glow aus Runde 139/150.)
-        const bool armedOrbit = button.getProperties().getWithDefault ("categoryArmed", false);
-        juce::Point<float> planet;
-        float planetFront = 0.0f, orbitRx = 0.0f;
-        juce::AffineTransform orbitRot;
-        const auto orbitCol = themePalette().knob;
-        if (armedOrbit)
-        {
-            const auto lb = button.getLocalBounds().toFloat();
-            const auto c  = juce::Point<float> (x0 + gridW * 0.5f, y0 + gridH * 0.5f);
-            orbitRx = juce::jmin (gridW * 0.95f, lb.getWidth() * 0.5f - 6.0f);
-            const float ry = juce::jmax (3.0f, gridH * 0.30f);
-            orbitRot = juce::AffineTransform::rotation (juce::degreesToRadians (-10.0f), c.x, c.y);
-            juce::Path orbit;
-            orbit.addEllipse (c.x - orbitRx, c.y - ry, orbitRx * 2.0f, ry * 2.0f);
-            orbit.applyTransform (orbitRot);
-            g.setColour (orbitCol.withAlpha (0.42f));
-            g.strokePath (orbit, juce::PathStrokeType (1.0f));
+        // Die sechs Muster mit genau zwei Feldern (Diagonalen zuerst).
+        static constexpr int kPairs[6] = { 0b1001, 0b0110, 0b0011, 0b1100, 0b0101, 0b1010 };
+        const int filled = kPairs[((colorState % 6) + 6) % 6];
 
-            const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
-            const float th = (float) (juce::MathConstants<double>::twoPi * std::fmod (tSec, 14.0) / 14.0);
-            planet = { c.x + orbitRx * std::cos (th), c.y + ry * std::sin (th) };
-            planet.applyTransform (orbitRot);
-            planetFront = 0.5f + 0.5f * std::sin (th);   // unten = vorne
-        }
-        auto drawPlanet = [&]
-        {
-            const float a  = 0.35f + 0.65f * planetFront;
-            const float pr = 1.6f + 0.6f * planetFront;
-            juce::ColourGradient pg (orbitCol.withAlpha (a * 0.45f), planet.x, planet.y,
-                                     orbitCol.withAlpha (0.0f), planet.x + pr * 2.6f, planet.y, true);
-            g.setGradientFill (pg);
-            g.fillEllipse (planet.x - pr * 2.6f, planet.y - pr * 2.6f, pr * 5.2f, pr * 5.2f);
-            g.setColour (orbitCol.withAlpha (a));
-            g.fillEllipse (planet.x - pr, planet.y - pr, pr * 2.0f, pr * 2.0f);
-        };
-        if (armedOrbit && planetFront < 0.5f)
-            drawPlanet();                                // hinten: unter den Feldern
+        const juce::Colour prof = themePalette().knob;
+        const juce::Colour line = armed ? (hot ? prof.brighter (0.15f) : prof)
+                                        : (hot ? juce::Colour (0xffc3c8d2) : juce::Colour (0xff8f96a4));
+        const bool sectionsVariant = button.getProperties().getWithDefault ("mutateSectionsIcon", false);
 
-        for (int row = 0; row < 2; ++row)
+        for (int bit = 0; bit < 4; ++bit)
         {
-            for (int col = 0; col < 2; ++col)
+            const int row = bit / 2, col = bit % 2;
+            juce::Rectangle<float> r (x0 + (float) col * (cell + gap), y0 + (float) row * (cell + gap), cell, cell);
+            const bool greyed = sectionsVariant && (bit == 1 || bit == 2);
+            if (armed && ! greyed && ((filled >> bit) & 1) != 0)
             {
-                const int bitIndex = row * 2 + col;
-
-                // Variante "Mutate inkl. Sektionen" (zweite Taste): zwei der
-                // vier Kaestchen werden grau statt farbig gezeichnet. Das
-                // vermittelt ohne Text, dass dieser Wurf auch Sektionen
-                // AUSSCHALTEN darf, waehrend die normale Taste alle anlaesst.
-                // Bewusst dieselbe Bildsprache (gleiches 2x2-Raster, gleiche
-                // Groesse) und bewusst FESTE Positionen (Diagonale) - haette
-                // man die grauen Felder mitgewuerfelt, waere das Icon nicht
-                // mehr wiedererkennbar.
-                const bool sectionsVariant = button.getProperties().getWithDefault ("mutateSectionsIcon", false);
-                const bool greyed = sectionsVariant && (bitIndex == 1 || bitIndex == 2);
-
-                const bool isPurple = ((colorState >> bitIndex) & 1) != 0;
-                g.setColour (greyed ? juce::Colour (0xff4a4e57)
-                                    : (isPurple ? glowAccent : accent));
-                juce::Rectangle<float> r (x0 + (float) col * (cell + gap), y0 + (float) row * (cell + gap), cell, cell);
-                g.fillRoundedRectangle (r, cell * 0.2f);
+                g.setColour (prof);
+                g.fillRoundedRectangle (r.expanded (stroke * 0.5f), corner + stroke * 0.5f);
+            }
+            else
+            {
+                g.setColour (greyed ? juce::Colour (0xff4a4e57) : line);
+                g.drawRoundedRectangle (r, corner, stroke);
             }
         }
-        if (armedOrbit && planetFront >= 0.5f)
-            drawPlanet();                                // vorne: ueber den Feldern
     }
 
     // Inhalt des Breathe-Buttons (User-Wunsch, 2. Anlauf: "Fuege einen

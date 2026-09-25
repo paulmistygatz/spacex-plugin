@@ -158,7 +158,11 @@ namespace sideeq
     {
         const bool  o24 = c.s2Hz > 20.0f;
         const float q   = o24 ? c.s1Q / kQ24a : c.s1Q;
-        return { xOf (c.s1Hz), o24 ? 7.0f : 4.0f, 0.032f / std::max (q, 0.3f),
+        // Runde 157 (User: "Flat ist nicht ganz flat"): ohne Hochpass (FLAT,
+        // Off) darf das Icon links nicht abknicken - vorher blieb die Steigung
+        // auch bei ausgeschaltetem Filter stehen und zog das linke Ende runter.
+        const bool  hpOn = c.s1Hz > 20.0f;
+        return { xOf (c.s1Hz), ! hpOn ? 0.0f : o24 ? 7.0f : 4.0f, 0.032f / std::max (q, 0.3f),
                  xOf (c.sHsHz), c.sHsDb, 0.045f / std::max (c.sHsQ, 0.2f),
                  xOf (c.mHsHz), c.mHsDb, 0.045f / std::max (c.mHsQ, 0.2f) };
     }
