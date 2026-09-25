@@ -2903,8 +2903,11 @@ void LCRMSAudioProcessor::reportLatencyForCurrentState()
 // kaeme der erste Block und damit die Meldung erst beim naechsten Play).
 void LCRMSAudioProcessor::parameterChanged (const juce::String& parameterID, float)
 {
-    if (parameterID == ID_GALAXY_ACTIVATE)
-        reportLatencyForCurrentState();
+    // Runde 112 (User: "LCR aktivieren dauert jetzt 4x so lange"): beim
+    // Klick meldet wieder der Audio-Thread die neue Latenz, so wie vor Runde
+    // 107. Die sofortige Meldung bleibt nur beim LADEN (setStateInformation
+    // und eigener Default-Zustand) - dort war der phasige Erst-Play der Bug.
+    juce::ignoreUnused (parameterID);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

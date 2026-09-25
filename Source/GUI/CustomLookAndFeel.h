@@ -1042,48 +1042,45 @@ public:
                 const bool lit    = button.getToggleState() || gold;
                 const bool hot    = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
                 juce::Rectangle<float> iconR, textR;
-                if (! phase)
+                // Weicher, kantenloser Schein hinter dem ganzen Schalter, wenn
+                // an (Runde 111) - fuer Text-Schalter und Ø gleich.
+                if (! secOff && (lit || hot))
                 {
-                    // Runde 111 (User: "FAST und PAIR abgeschnitten - evtl.
-                    // nur die Namen"): nur der Name, dahinter ein weicher,
-                    // kantenloser Schein, wenn an. Keine Flaeche, kein Rand.
-                    juce::ignoreUnused (iconR, textR, hdrIcon);
-                    if (! secOff && (lit || hot))
+                    const float a0 = lit ? (shouldDrawButtonAsDown ? 0.075f : hot ? 0.062f : 0.05f) : 0.022f;
+                    for (int k = 0; k < 4; ++k)
                     {
-                        const float a0 = lit ? (shouldDrawButtonAsDown ? 0.075f : hot ? 0.062f : 0.05f) : 0.022f;
-                        for (int k = 0; k < 4; ++k)
-                        {
-                            auto rr = lb.reduced (2.0f + 2.2f * (float) k, 1.0f + 1.2f * (float) k);
-                            g.setColour (btnAccent.withAlpha (a0));
-                            g.fillRoundedRectangle (rr, rr.getHeight() * 0.5f);
-                        }
+                        auto rr = lb.reduced (2.0f + 2.2f * (float) k, 1.0f + 1.2f * (float) k);
+                        if (rr.getHeight() < 2.0f) break;
+                        g.setColour (btnAccent.withAlpha (a0));
+                        g.fillRoundedRectangle (rr, rr.getHeight() * 0.5f);
                     }
-                    return;
                 }
-                iconR = lb.withTrimmedBottom (15.0f);
+                // FAST und PAIR: nur der Name (Runde 111). x2 behaelt seine
+                // Kurve (Runde 112, User: "x2 wirkt verloren - Kurve dazu").
+                if (! phase && hdrIcon != 3)
+                    return;
+                if (phase)
+                    phaseLayout (button, lb, iconR, textR);
+                else
+                    hdrIconLayout (button, lb, iconR, textR);
                 const auto  c = iconR.getCentre();
                 const float s = juce::jmin (iconR.getWidth(), iconR.getHeight());
-                const float glowR = juce::jmin (s * 0.52f, juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f);
-                if (! secOff && (lit || hot))
-                    softIconGlow (g, c, glowR, btnAccent,
-                                  lit ? (shouldDrawButtonAsDown ? 1.9f : hot ? 1.55f : 1.0f) : 0.5f);
-                // Runde 111 (User: "L und R zu dominant"): aus deutlich leiser.
-                const juce::Colour col = secOff ? (lit ? btnAccent.withAlpha (0.45f) : iconOffColour().withAlpha (0.35f))
-                                       : lit    ? btnAccent.interpolatedWith (juce::Colour (0xfff2f4f8), 0.30f)
-                                                : iconOffColour().withAlpha (hot ? 0.85f : 0.55f);
+                juce::ignoreUnused (hot);
+                const juce::Colour col = iconToggleColour (btnAccent, lit, secOff,
+                                                           shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown);
                 g.setColour (col);
-                const juce::PathStrokeType st (juce::jmax (1.3f, s * (phase ? 0.055f : 0.095f)),
+                const juce::PathStrokeType st (juce::jmax (1.3f, s * (phase ? 0.13f : 0.095f)),
                                                juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
                 if (phase)
                 {
-                    // Ø - das Zeichen fuer Phasendrehung (Runde 111: kleiner)
-                    const float r = s * 0.22f;
+                    // Ø - so hoch wie der Buchstabe daneben (Runde 112)
+                    const float r = s * 0.42f;
                     juce::Path ring;
                     ring.addEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
                     g.strokePath (ring, st);
                     juce::Path slash;
-                    slash.startNewSubPath (c.x - r * 1.15f, c.y + r * 1.15f);
-                    slash.lineTo (c.x + r * 1.15f, c.y - r * 1.15f);
+                    slash.startNewSubPath (c.x - r * 1.05f, c.y + r * 1.05f);
+                    slash.lineTo (c.x + r * 1.05f, c.y - r * 1.05f);
                     g.strokePath (slash, st);
                 }
                 else if (hdrIcon == 1)
@@ -1126,6 +1123,10 @@ public:
                 return;
             }
         }
+
+        // Runde 112 (User: "AG ohne Box, dezent"): nur der Wert.
+        if ((bool) button.getProperties().getWithDefault ("plainValue", false))
+            return;
 
         // Runde 108: Soft-Chip statt Umriss-Pille (FAST, PAIR, x2, L/R).
         if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
@@ -1832,6 +1833,29 @@ public:
         textR = { x0 + iw + gap, area.getY(), tw + 6.0f, h };
     }
 
+    // Runde 112 (User: "Ø und L/R sollen dieselbe Farbe haben"): EINE Farbe
+    // fuer Icon und Schrift eines Icon-Schalters.
+    static juce::Colour iconToggleColour (juce::Colour acc, bool lit, bool secOff, bool hot)
+    {
+        return secOff ? (lit ? acc.withAlpha (0.45f) : iconOffColour().withAlpha (0.35f))
+             : lit    ? acc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.30f)
+                      : iconOffColour().withAlpha (hot ? 0.85f : 0.55f);
+    }
+
+    // Runde 112: Ø und Buchstabe NEBENEINANDER und gleich gross (User: "das
+    // Icon soll nicht groesser sein als L - L und R sind nicht unwichtiger").
+    static void phaseLayout (juce::Button& b, juce::Rectangle<float> area,
+                             juce::Rectangle<float>& iconR, juce::Rectangle<float>& textR)
+    {
+        const auto f    = unifiedButtonFont (30);
+        const float cap = f.getHeight() * 0.74f;
+        const float iw  = cap * 1.2f, gap = 3.0f;
+        const float tw  = juce::GlyphArrangement::getStringWidth (f, b.getButtonText()) + 1.0f;
+        const float x0  = area.getCentreX() - (iw + gap + tw) * 0.5f;
+        iconR = { x0, area.getCentreY() - cap * 0.5f, iw, cap };
+        textR = { x0 + iw + gap, area.getY(), tw + 4.0f, area.getHeight() };
+    }
+
     // Runde 110: Icon links + Name rechts fuer die kleinen Schalter in den
     // Sektionskoepfen (FAST, PAIR, x2) - schmaleres Icon als bei den Feldern.
     static void hdrIconLayout (juce::Button& b, juce::Rectangle<float> area,
@@ -2021,6 +2045,17 @@ public:
                                      : litC ? softChipAccent (button).interpolatedWith (juce::Colour (0xfff2f4f8), 0.42f)
                                             : juce::Colour (0xff8f96a4));
             }
+            // Runde 112: AG - nur der Wert, gedaempft; aus = OFF, noch leiser.
+            if ((bool) button.getProperties().getWithDefault ("plainValue", false))
+            {
+                const bool on  = button.getToggleState();
+                const bool hot = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+                g.setColour (on ? themePalette().knob.withAlpha (hot ? 1.0f : 0.85f)
+                                : iconOffColour().withAlpha (hot ? 0.85f : 0.55f));
+                g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.04f));
+                g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
+                return;
+            }
             // Runde 110: Icon-Schalter (ØL/ØR, FAST, PAIR, x2).
             if (! isComicTheme()
                 && ((int) button.getProperties().getWithDefault ("hdrIcon", 0) > 0
@@ -2028,14 +2063,20 @@ public:
             {
                 const bool secOffT = button.getProperties().getWithDefault ("sectionOff", false);
                 const bool litT    = button.getToggleState() || (bool) button.getProperties().getWithDefault ("pairedGold", false);
-                g.setColour (secOffT ? labelOffColour()
-                                     : litT ? softChipAccent (button).interpolatedWith (juce::Colour (0xfff2f4f8), 0.42f)
-                                            : juce::Colour (0xff8f96a4));
+                // Runde 112: Schrift in DERSELBEN Farbe wie das Icon.
+                g.setColour (iconToggleColour (softChipAccent (button), litT, secOffT,
+                                               shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown));
+                juce::Rectangle<float> iconR, textR;
                 if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
                 {
-                    g.setFont (unifiedButtonFont (27));
-                    g.drawText (button.getButtonText(), button.getLocalBounds().removeFromBottom (15),
-                                juce::Justification::centred, false);
+                    g.setFont (unifiedButtonFont (30));
+                    phaseLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                    g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
+                }
+                else if ((int) button.getProperties().getWithDefault ("hdrIcon", 0) == 3)
+                {
+                    hdrIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                    g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
                 }
                 else
                 {
@@ -2048,6 +2089,11 @@ public:
             if ((int) button.getProperties().getWithDefault ("profileDiagram", -1) >= 0
              || (int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0)
             {
+                // Runde 112 (User): PRE/POST-Schrift dimmt genau wie ihr Icon -
+                // Sektion aus ODER gar nichts umgepolt.
+                if ((int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0
+                    && (! button.getToggleState() || (bool) button.getProperties().getWithDefault ("sectionOff", false)))
+                    g.setColour (labelOffColour());
                 if ((bool) button.getProperties().getWithDefault ("iconAbove", false))
                 {
                     // Runde 110: Smart-Profil wie die Icon-Felder - Name unter dem Icon.
@@ -2773,6 +2819,25 @@ public:
             else if (highlighted)  { lineCol = lineCol.brighter (0.28f); iconCol = iconCol.brighter (0.28f); }
         }
 
+        // Runde 112 (User: "Link-Icon ist nicht umgesetzt"): zwischen ØL und
+        // ØR zwei waagerechte Kettenglieder, leise wie die Aus-Schalter.
+        if ((bool) button.getProperties().getWithDefault ("noLinkLines", false))
+        {
+            const float s  = juce::jmin (full.getWidth(), full.getHeight());
+            const auto  c  = full.getCentre();
+            const float w  = s * 0.52f, h = s * 0.34f;
+            const bool  hotL = highlighted || down;
+            g.setColour (sectionIsOff ? iconOffColour().withAlpha (0.30f)
+                                      : iconOffColour().withAlpha (down ? 1.0f : hotL ? 0.85f : 0.55f));
+            juce::Path a, b;
+            a.addRoundedRectangle (c.x - w + w * 0.16f, c.y - h * 0.5f, w, h, h * 0.5f);
+            b.addRoundedRectangle (c.x - w * 0.16f,     c.y - h * 0.5f, w, h, h * 0.5f);
+            const juce::PathStrokeType st (juce::jmax (1.2f, s * 0.09f), juce::PathStrokeType::curved,
+                                           juce::PathStrokeType::rounded);
+            g.strokePath (a, st);
+            g.strokePath (b, st);
+            return;
+        }
         // Icon-Groesse = Button-Hoehe (identisch zur Groesse des On/Off-
         // Icons, das ebenfalls in einer headerH-hohen, quadratischen Box
         // gezeichnet wird) - unabhaengig davon, wie breit dieser Button
@@ -3691,8 +3756,10 @@ public:
         {
             // Runde 108: Soft-Chip wie die Schalter. Blau = gekoppelt (Sync,
             // Takte) - so steht es in der Farbregel, die der User freigegeben hat.
-            drawSoftChip (g, bounds, pairAccentColour(), glow || goldBox, boxSectionOff,
-                          box.isMouseOver (true), false);
+            // Runde 112 (User: "PAIR hat keine Auswirkung mehr auf BARS"):
+            // wieder wie in Runde 64 - normal Gold, bei aktivem PAIR Blau.
+            drawSoftChip (g, bounds, goldBox ? pairAccentColour() : themePalette().frameRaye,
+                          glow || goldBox, boxSectionOff, box.isMouseOver (true), false);
         }
         else
         {

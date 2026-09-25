@@ -2552,8 +2552,19 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     const auto folders = presetFolderOrder();
     if (! folders.isEmpty())
         menu.addSeparator();
+    static const char* const catFolders[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    bool ownSeparatorDone = false;
     for (const auto& folder : folders)
     {
+        // Runde 112 (User): eigene Ordner stehen nach einer dezenten Trennung
+        // unter den Smart-Kategorien.
+        bool isCat = false;
+        for (auto* cf : catFolders) isCat = isCat || folder == cf;
+        if (! isCat && ! ownSeparatorDone)
+        {
+            menu.addSeparator();
+            ownSeparatorDone = true;
+        }
         juce::Array<int> idx;
         for (int i = 1; i < presetNames.size(); ++i)
             if (presetNames[i].containsChar ('/') && presetNames[i].upToFirstOccurrenceOf ("/", false, false) == folder)
@@ -4327,7 +4338,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // steht ohnehin dort, ein zweites Bedienelement waere Verschwendung.
     // Runde 110 (User): AG sitzt jetzt im Footer zwischen Mix und Vol - dort,
     // wo es im Signalweg auch wirkt. Soft-Chip mit dem Wert, "AG" darunter.
-    autoGainButton.getProperties().set ("softChip", true);
+    autoGainButton.getProperties().set ("plainValue", true);   // Runde 112: ohne Box
     autoGainButton.getProperties().set ("altAccent", true);
     autoGainButton.setClickingTogglesState (false);
     styleLabel (autoGainLabel, "AG");
@@ -5688,18 +5699,16 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // dadurch staerker hervorgehoben - jetzt schweben sie im leeren Raum"):
     // eine weiche Kachel in derselben Sprache wie das Preset-Feld - leichte
     // Flaeche, ein Hauch Rand, keine harte Linie. Pop hat seinen Kopf-Kasten.
+    // Runde 112 (User: Kachel "nicht gut"): statt einer Flaeche bekommt das
+    // Profil die Sprache der Kopfzeile - ein feiner senkrechter Trennstrich
+    // wie zwischen den Knopf-Gruppen, ueber beide Zeilen. Damit ist es eine
+    // eigene Gruppe, ohne Kasten.
     if (categoryButton.isVisible() && ! isComicTheme())
     {
-        auto tile = categoryButton.getBounds().getUnion (catDots.getBounds()).toFloat().expanded (10.0f, 6.0f);
-        const auto palT = themePalette();
-        g.setColour (juce::Colours::white.withAlpha (0.035f));
-        g.fillRoundedRectangle (tile, 12.0f);
-        juce::ColourGradient topLight (juce::Colours::white.withAlpha (0.035f), tile.getCentreX(), tile.getY(),
-                                       juce::Colours::white.withAlpha (0.0f),   tile.getCentreX(), tile.getY() + tile.getHeight() * 0.6f, false);
-        g.setGradientFill (topLight);
-        g.fillRoundedRectangle (tile, 12.0f);
-        g.setColour (palT.frameMain.withAlpha (0.20f));
-        g.drawRoundedRectangle (tile.reduced (0.5f), 12.0f, 1.0f);
+        const auto cb = categoryButton.getBounds().toFloat();
+        const float sx = cb.getRight() + 11.0f;
+        g.setColour (juce::Colours::white.withAlpha (0.14f));
+        g.drawLine (sx, cb.getY() + 4.0f, sx, cb.getBottom() - 4.0f, 1.0f);
     }
 
     // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
@@ -7213,7 +7222,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
             {
                 // Runde 105: Text-Pille im Kopf (x2 in MID-SIDE) - dieselbe
                 // Groesse wie FAST und PAIR beim Phaser.
-                const int pw = 46, ph = juce::jmin (24, headerH);
+                const int pw = 62, ph = juce::jmin (24, headerH);   // x2 mit Kurve
                 auto fArea = header.removeFromRight (pw);
                 header.removeFromRight (6);
                 filterBtn->setBounds (fArea.withSizeKeepingCentre (pw, ph));
@@ -7430,8 +7439,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 110 (User): ØL/ØR sind Icon-Schalter - Ø oben, Buchstabe
         // darunter - und der Link sitzt zwischen ihnen statt in einer eigenen
         // Zeile darueber.
-        const int lrBtnW = 56, lrBtnH = 48;   // Runde 111: kleiner (User: "zu dominant")
-        const int lrGap = 30;
+        // Runde 112 (User): Ø und Buchstabe nebeneinander, gleich gross.
+        const int lrBtnW = 50, lrBtnH = 28;
+        const int lrGap = 28;
         const int posBtnGap = 8;
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
         // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
@@ -7466,7 +7476,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // gemessen waren es 32 px gegen 11 px zum Link darueber. Der Wert hier
         // wirkt +7 px (3 px Versatz von LATE auf die Regain-Linie und je 2 px
         // Innenabstand der beiden Knoepfe), 5 ergibt also dieselbe Luecke.
-        const int gapToLate = 5;
+        const int gapToLate = 12;   // Runde 112: ohne Punkte unter PRE/POST etwas mehr Luft
         const int lrBottom  = lateTop - gapToLate;
         const int lrTop     = lrBottom - lrBtnH;
 
@@ -7479,8 +7489,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             // Mittig zwischen den beiden Ø, auf Hoehe der Icons (ohne die
             // Buchstaben darunter).
-            const int linkS = juce::jmin (lrGap - 10, linkAreaH);
-            const int iconMidY = lrTop + (lrBtnH - 15) / 2;
+            const int linkS = juce::jmin (lrGap - 8, linkAreaH);
+            const int iconMidY = lrTop + lrBtnH / 2;
             polLinkButton.setBounds (polLButton.getRight() + (lrGap - linkS) / 2, iconMidY - linkS / 2, linkS, linkS);
             juce::ignoreUnused (linkGapV);
         }
@@ -7499,8 +7509,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
             if (horizonLabel.getY() > 0)
                 posRect.setY (horizonLabel.getY() - posBtnH + 3);
             polPos2Button.setBounds (posRect);
-            const int ppDotsW = 2 * 10 + 6;
-            polPosDots.setBounds (posRect.getCentreX() - ppDotsW / 2, posRect.getBottom() + 2, ppDotsW, 12);
+            // Runde 112 (User): bei zwei Stellungen braucht es keine Punkte.
+            polPosDots.setVisible (false);
+            polPosDots.setBounds ({});
         }
         polPos3Button.setBounds ({});
         polPos1Button.setBounds ({});
@@ -7524,7 +7535,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 49 (User: "dimension ein kleines bisschen weiter nach links
         // vergroessern ... aber nicht viel"): 46 / 54 statt genau haelftig.
         auto r2 = row2;
-        auto a = r2.removeFromLeft (juce::roundToInt ((float) (r2.getWidth() - frameGap) * 0.46f));
+        // Runde 112 (User): Micropitch ein wenig schmaler, Mid-Side breiter -
+        // der Rand rechts in Micropitch war groesser als links in Mid-Side.
+        auto a = r2.removeFromLeft (juce::roundToInt ((float) (r2.getWidth() - frameGap) * 0.44f));
         r2.removeFromLeft (frameGap);
         driftFrame = a; wbFrame = r2;
     }
