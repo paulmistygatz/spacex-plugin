@@ -63,7 +63,7 @@
   <PARAM id="prismLo" value="200.0"/>
   <PARAM id="prismOn" value="1.0"/>
   <PARAM id="prismVisBypass" value="0.0"/>
-  <PARAM id="rayAmount" value="100.0"/>
+  <PARAM id="rayAmount" value="33.8"/>
   <PARAM id="rayCharacter" value="2.0"/>
   <PARAM id="rayFast" value="0.0"/>
   <PARAM id="rayOn" value="1.0"/>

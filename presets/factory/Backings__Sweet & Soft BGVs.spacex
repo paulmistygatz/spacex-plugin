@@ -67,7 +67,7 @@
   <PARAM id="prismDimBypass"/>
   <PARAM id="prismGalaxy"/>
   <PARAM id="prismVisBypass"/>
-  <PARAM id="rayAmount" value="37.40000152587891"/>
+  <PARAM id="rayAmount" value="13.3"/>
   <PARAM id="rayCharacter" value="1.0"/>
   <PARAM id="rayFast" value="0.0"/>
 </PARAMS>

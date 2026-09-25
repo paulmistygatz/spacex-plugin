@@ -68,7 +68,7 @@
   <PARAM id="parallaxAmount" value="79.30000305175781"/>
   <PARAM id="parallaxHp"/>
   <PARAM id="parallaxMode" value="2.0"/>
-  <PARAM id="rayAmount" value="28.70000076293945"/>
+  <PARAM id="rayAmount" value="19.9"/>
   <PARAM id="rayCharacter" value="3.0"/>
   <PARAM id="rayFast" value="0.0"/>
 </PARAMS>
