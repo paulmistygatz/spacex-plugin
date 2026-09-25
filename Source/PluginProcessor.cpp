@@ -954,7 +954,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rayCoefValid = false; rayCoefCountdown = 0;
     offsetPanCachePos = -9.0f;
     rayLifeSmoothed.reset (sampleRate, knobRampSeconds);
-    rayLifeSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
+    rayLifeSmoothed.setCurrentAndTargetValue (1.0f);   // Runde 136: siehe processBlock
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     rayPhase = 0.0;
@@ -1607,10 +1607,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
    #else
     rayDepthSmoothed.setTargetValue (rayStrengthToDepth (pRayStrength->load()));
    #endif
-    // LIFE regelt auch RAYE (User, Runde 39): 0 % = alles steht still.
-    // Runde 133: wieder wie vorher - Pauls Presets sind so abgestimmt
-    // (Runde 131 hatte das entfernt). LIFE moduliert zusaetzlich das Amount.
-    rayLifeSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
+    // Runde 136 (User: "Life 0 = Phaser stumm soll auf keinen Fall so sein"):
+    // LIFE schaltet den Phaser nicht mehr mit, es moduliert nur sein Amount.
+    // Betroffene Werks-Presets wurden angepasst.
+    rayLifeSmoothed.setTargetValue (1.0f);
     // Mono-Check ist ein reines Monitoring-Utility, kein Solo-Ziel.
     monoCheckGain.setTargetValue    (pMonoCheck->load() > 0.5f ? 1.0f : 0.0f);
     // A/B-Dry-Vergleich: nur relevant, waehrend Mono-Check selbst aktiv ist
