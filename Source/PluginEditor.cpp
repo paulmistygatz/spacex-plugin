@@ -2144,7 +2144,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
          "Compare", "Undo, A / B, Settings",
          "Undo covers everything, the Smart dice included. A / B compares two versions. "
-         "Settings has themes, labels and this tour.");
+         "Settings has themes and this tour.");
 
     add (area ({ &helpButton }).getUnion (hintBarArea), "Help", "Need help?",
          "Click the ? and hover anything - a short hint appears down here. Have fun.");

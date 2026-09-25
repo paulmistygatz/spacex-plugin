@@ -224,15 +224,12 @@ PRESET_NOTE = ("Factory presets are copied into Documents / SpaceX / Presets. Sp
 
 SETTINGS = [
     ("Theme", "Day & Night, Fairy Tale, Science Fiction. None of it changes the sound."),
-    ("Layout", "3D - soft shading and depth. Outline - flat panels with a thin frame."),
-    ("SpaceX Labels", "names the sections the story way instead of the technical way."),
     ("LCR On Startup", "the engine is armed when the plugin opens - latency from the start."),
-    ("Show Modulation", "the moving dots on the knobs that show what the modulation is doing right now."),
-    ("Save Window Size", "every new instance opens at this size."),
+    ("Show Modulation", "the moving dots on the knobs that show what the modulation is doing."),
     ("Save State as Default", "every new instance starts with the settings you have right now."),
-    ("Preset Folder · Manual", "open the folder, open this manual."),
     ("Take the Tour", "a short guided walk through the plugin."),
-    ("Back Panel · Activate", "about this copy, and where the serial goes."),
+    ("Manual", "opens this manual."),
+    ("Back Panel", "about this copy - and where your serial goes."),
 ]
 LABELS = [
     ("LCR Matrix", "Galaxy"), ("Polarity", "Eclipse"), ("Micropitch", "Parallax"),
