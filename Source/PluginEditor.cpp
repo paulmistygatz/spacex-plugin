@@ -819,6 +819,9 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     const bool profileArmed = mutateCategoryValue > 0;
     categoryButton.getProperties().set ("pillStrong", true);
     categoryButton.getProperties().set ("pillArmed", profileArmed);
+    // Runde 108 (User): Icon links vom Namen, kein Rahmen - das Icon zeigt,
+    // wo die Quelle im Stereobild sitzt.
+    categoryButton.getProperties().set ("profileDiagram", juce::jlimit (0, kNumCategories, mutateCategoryValue));
     categoryButton.getProperties().set ("pillColour",
         (int) (profileArmed ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
     categoryButton.repaint();
@@ -2983,6 +2986,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // aktiv (User-Wunsch: "Galaxy muss DEUTLICH auffaelliger sein wenn
     // aktiv"), siehe CustomLookAndFeel::drawGalaxyButtonBackground().
     globalGalaxyActivateButton.getProperties().set ("galaxyBtn", true);
+    globalGalaxyActivateButton.getProperties().set ("softChip", true);   // Runde 108
     content.addAndMakeVisible (globalGalaxyActivateButton);
     globalGalaxyActivateAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_GALAXY_ACTIVATE, globalGalaxyActivateButton);
     // Neu (User-Wunsch): globales Galaxy AUSschalten schaltet auch die
@@ -3479,6 +3483,16 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // (Pop behaelt seinen Comic-Rahmen, siehe drawButtonBackground).
     polLButton.getProperties().set ("thinOnFrame", true);
     polRButton.getProperties().set ("thinOnFrame", true);
+    // Runde 108 (User): Soft-Chips in Gold (Gold = an) und das Zeichen fuer
+    // Phasendrehung - ohne Rahmen saehe ein einzelnes "L" sonst wie eine
+    // Beschriftung aus statt wie ein Knopf.
+    for (auto* b : { &polLButton, &polRButton })
+    {
+        b->getProperties().set ("softChip", true);
+        b->getProperties().set ("altAccent", true);
+    }
+    polLButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98" "L")));
+    polRButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98" "R")));
     content.addAndMakeVisible (polLButton);
     content.addAndMakeVisible (polRButton);
     polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
@@ -3544,6 +3558,22 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Runde 62 (User): im aktiven Zustand zurueckhaltender als L und R - er
     // sagt nur, WO umgepolt wird, nicht DASS umgepolt wird.
     polPos2Button.getProperties().set ("softOn", true);
+    // Runde 108 (User): PRE/POST ist ein Icon-Feld - die Kette als Linie, die
+    // Breiten-Stufe als Kaestchen, der Punkt sitzt davor (PRE) oder dahinter
+    // (POST). Icon links vom Namen, weil die Hoehe fuer Icon ueber Name
+    // hier nicht reicht.
+    polPos2Button.getProperties().set ("modePill", true);
+    polPos2Button.getProperties().set ("pillColour", (int) themePalette().frameRaye.getARGB());
+    polPos2Button.getProperties().set ("ppDiagram",
+        (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POL_POS)->load()) == 2 ? 1 : 0);
+    polPosDots.count = 2;
+    polPosDots.setTooltip ("Pre / Post: click a dot to pick it directly");
+    polPosDots.onPick = [this] (int i)
+    {
+        if (auto* param = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_POS))
+            param->setValueNotifyingHost ((float) (i == 1 ? 2 : 1) / 3.0f);
+    };
+    content.addAndMakeVisible (polPosDots);
     polPos2Button.setClickingTogglesState (false);
     polPos2Button.setRadioGroupId (0, juce::dontSendNotification);
     polPos2Button.onClick = [this]
@@ -3631,6 +3661,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Kosmetik - erst dadurch wird HYPERDRIVE schmal genug, dass RAYE neben
     // ihm in dieselbe Reihe passt.
     pulseButton.getProperties().set ("pulseIcon", true);
+    pulseButton.getProperties().set ("glowIcon", true);      // Runde 108: ohne Kaestchen
     content.addAndMakeVisible (pulseButton);
     pulseAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_PULSE, pulseButton);
 
@@ -3643,6 +3674,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
 
     syncButton.setClickingTogglesState (true);
     syncButton.getProperties().set ("syncIcon", true);
+    syncButton.getProperties().set ("glowIcon", true);       // Runde 108: ohne Kaestchen
     content.addAndMakeVisible (syncButton);
     syncAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SPEED_SYNC, syncButton);
 
@@ -3772,6 +3804,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Sync). Gestaltet wie der Sync-Button in Hyperdrive - dieselbe Art von
     // Entscheidung ("wer bestimmt das Tempo?"), also dieselbe Form.
     rayPairButton.setClickingTogglesState (true);
+    rayPairButton.getProperties().set ("softChip", true);    // Runde 108: blau = gekoppelt
     rayPairButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
@@ -3781,6 +3814,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayFastButton.setWantsKeyboardFocus (false);
     rayFastButton.getProperties().set ("thinOnFrame", true);
     rayFastButton.getProperties().set ("altAccent", true);   // Gold, PAIR bekommt den Hauptakzent
+    rayFastButton.getProperties().set ("softChip", true);    // Runde 108: moderne Form
     rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
     content.addAndMakeVisible (rayFastButton);
     rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
@@ -3992,6 +4026,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqX2Button.getProperties().set ("thinOnFrame", true);
     msEqX2Button.getProperties().set ("altAccent", true);   // wie FAST
     msEqX2Button.getProperties().set ("headerPill", true);
+    msEqX2Button.getProperties().set ("softChip", true);
     msEqX2Button.setTooltip ("x2: doubles the curve of the Sides EQ");
     content.addAndMakeVisible (msEqX2Button);
     msEqX2Attachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_X2, msEqX2Button);
@@ -4659,6 +4694,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (polLinkButton, isPolOn);
     setSectionOff (polPos1Button, isPolOn);
     setSectionOff (polPos2Button, isPolOn);
+    {
+        const bool dotsOff = uiBypassed || ! isPolOn;
+        if (polPosDots.off != dotsOff) { polPosDots.off = dotsOff; polPosDots.repaint(); }
+    }
     setSectionOff (polPos3Button, isPolOn);
     setSectionOff (polPos4Button, isPolOn);
     setSectionOff (sideWidthSlider, isWidthBoostOn);
@@ -5175,6 +5214,21 @@ void LCRMSAudioProcessorEditor::timerCallback()
                                                     : ((currentPos == 2) ? "LATE" : "EARLY");
         if (polPos2Button.getButtonText() != posText)
             polPos2Button.setButtonText (posText);
+        {
+            const int pp = (currentPos == 2) ? 1 : 0;
+            if ((int) polPos2Button.getProperties().getWithDefault ("ppDiagram", -1) != pp)
+            {
+                polPos2Button.getProperties().set ("ppDiagram", pp);
+                polPos2Button.repaint();
+            }
+            const int want = (int) themePalette().frameRaye.getARGB();
+            if ((int) polPos2Button.getProperties().getWithDefault ("pillColour", 0) != want)
+            {
+                polPos2Button.getProperties().set ("pillColour", want);
+                polPos2Button.repaint();
+            }
+            if (polPosDots.index != pp) { polPosDots.index = pp; polPosDots.repaint(); }
+        }
         if (polPos2Button.getToggleState() != anyFlip)
             polPos2Button.setToggleState (anyFlip, juce::dontSendNotification);
     }
@@ -6442,7 +6496,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Parallax und RAYE. Dafuer sind die vier Chips ueber dem Sternenfeld
         // weg, und das Feld bekommt deren Hoehe zurueck.
         {
-            const int cw = 132, cbH = 30;
+            const int cw = 156, cbH = 30;   // Runde 108: Platz fuer das Icon links vom Namen
             auto catCol = titleBar.removeFromRight (cw + 22).withTrimmedRight (22);
             categoryButton.setBounds (catCol.getX(), row1.getY(), cw, cbH);
             const int dotsW = (kNumCategories + 1) * 10 + 6;
@@ -6799,7 +6853,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // Runde 55 (User): Reihe 3 (Hyperdrive + RAYE) war im Vergleich zu
     // Reihe 1 gedrueckt. Beide oberen Reihen geben eine Kleinigkeit ab -
     // bewusst nur ein gutes Prozent, sonst kippt das Verhaeltnis.
-    const float row1Frac = (kVariant == 1) ? 0.330f : 0.372f;
+    // Runde 108 (User): Reihe 3 noch "ein kleines bisschen hoeher", damit das
+    // Phaser-Feld so gross wird wie die in Micropitch und Mid-Side. Reihe 1
+    // gibt ein Prozent ab (~9 px) - sie ist die hoechste.
+    const float row1Frac = (kVariant == 1) ? 0.330f : 0.362f;
     const float row2Frac = (kVariant == 1) ? 0.420f : 0.328f;
     const int row1H = juce::roundToInt ((float) totalH * row1Frac);
     const int row2H = juce::roundToInt ((float) totalH * row2Frac);
@@ -7183,10 +7240,13 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             // Runde 68 (User): der Knopf war fuer sein laengstes Wort viel zu
             // breit - links und rechts stand mehr Luft als Schrift.
-            auto posRect = posRow.withSizeKeepingCentre (kChoiceW, posBtnH);
+            // Runde 108: etwas breiter - Icon und Name stehen nebeneinander.
+            auto posRect = posRow.withSizeKeepingCentre (kChoiceW + 22, posBtnH);
             if (horizonLabel.getY() > 0)
                 posRect.setY (horizonLabel.getY() - posBtnH + 3);
             polPos2Button.setBounds (posRect);
+            const int ppDotsW = 2 * 10 + 6;
+            polPosDots.setBounds (posRect.getCentreX() - ppDotsW / 2, posRect.getBottom() + 2, ppDotsW, 12);
         }
         polPos3Button.setBounds ({});
         polPos1Button.setBounds ({});

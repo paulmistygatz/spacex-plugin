@@ -673,12 +673,23 @@ public:
             // Runde 61 (User): Sinus und Puls sind zwei gleichwertige Formen,
             // kein An/Aus. Beide leuchten gleich - welche gewaehlt ist, sagt
             // die Kurve selbst.
-            if (! button.getProperties().getWithDefault ("noPlate", false))
+            // Runde 108: ohne Kaestchen, dafuer der Schimmer der Icon-Felder.
+            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false) && ! isComicTheme();
+            const bool hotP = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+            if (glowStyle)
+            {
+                if (! off)
+                    softIconGlow (g, b.getCentre(), juce::jmin (b.getWidth(), b.getHeight()) * 0.5f,
+                                  themePalette().frameRaye, shouldDrawButtonAsDown ? 1.9f : hotP ? 1.55f : 1.0f);
+            }
+            else if (! button.getProperties().getWithDefault ("noPlate", false))
                 drawSmallIconPlate (g, b, ! off, off);
             b = b.reduced (s2 * 0.24f);
             auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.62f);
-            juce::Colour col = smallIconColour (! off);
-            if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
+            juce::Colour col = glowStyle ? (off ? iconOffColour().withAlpha (0.55f)
+                                                : themePalette().frameRaye.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f))
+                                         : smallIconColour (! off);
+            if (! glowStyle && (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown))
                 col = col.interpolatedWith (juce::Colours::white, 0.30f);
 
             juce::Path w;
@@ -704,10 +715,11 @@ public:
                                x1, yMid);
             }
             g.setColour (col);
-            g.strokePath (w, juce::PathStrokeType (juce::jmax (1.2f, s2 * 0.085f),
+            g.strokePath (w, juce::PathStrokeType (juce::jmax (1.2f, s2 * (glowStyle ? 0.10f : 0.085f)),
                                                    juce::PathStrokeType::curved,
                                                    juce::PathStrokeType::rounded));
-            iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            if (! glowStyle)
+                iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
             return;
         }
         // SYNC: eine Note. An = die Geschwindigkeit haengt am Songtempo,
@@ -718,11 +730,26 @@ public:
             const float s2 = juce::jmin (b.getWidth(), b.getHeight());
             const bool on  = button.getToggleState();
             const bool off = button.getProperties().getWithDefault ("sectionOff", false);
-            if (! button.getProperties().getWithDefault ("noPlate", false))
+            // Runde 108: ohne Kaestchen; an = blauer Schimmer (gekoppelt ans
+            // Songtempo), aus = gedimmt.
+            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false) && ! isComicTheme();
+            const bool hotS = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+            if (glowStyle)
+            {
+                if (on && ! off)
+                    softIconGlow (g, b.getCentre(), juce::jmin (b.getWidth(), b.getHeight()) * 0.5f,
+                                  pairAccentColour(), shouldDrawButtonAsDown ? 1.9f : hotS ? 1.55f : 1.0f);
+                else if (hotS && ! off)
+                    softIconGlow (g, b.getCentre(), juce::jmin (b.getWidth(), b.getHeight()) * 0.5f,
+                                  pairAccentColour(), 0.5f);
+            }
+            else if (! button.getProperties().getWithDefault ("noPlate", false))
                 drawSmallIconPlate (g, b, on && ! off, off);
             b = b.reduced (s2 * 0.26f);
-            juce::Colour col = smallIconColour (on && ! off);
-            if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
+            juce::Colour col = glowStyle ? ((on && ! off) ? pairAccentColour().interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
+                                                          : iconOffColour().withAlpha (0.60f))
+                                         : smallIconColour (on && ! off);
+            if (! glowStyle && (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown))
                 col = col.interpolatedWith (juce::Colours::white, 0.30f);
             g.setColour (col);
 
@@ -740,7 +767,8 @@ public:
                               headX + headW * 0.96f, b.getY() + b.getHeight() * 0.42f);
             g.strokePath (flag, juce::PathStrokeType (stemW, juce::PathStrokeType::curved,
                                                       juce::PathStrokeType::rounded));
-            iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            if (! glowStyle)
+                iconHover (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
             return;
         }
         if (button.getProperties().getWithDefault ("filterIcon", false))
@@ -980,6 +1008,15 @@ public:
         const bool altAcc = button.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
         const juce::Colour btnAccent = gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
 
+        // Runde 108: Soft-Chip statt Umriss-Pille (FAST, PAIR, x2, L/R).
+        if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
+        {
+            drawSoftChip (g, bounds, btnAccent, button.getToggleState() || gold,
+                          (bool) button.getProperties().getWithDefault ("sectionOff", false),
+                          shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            return;
+        }
+
         // View-Panel-Knoepfe ohne den Leucht-Hof (User: "leuchtende Kaesten").
         // "softOn" (Runde 62, User): EARLY/LATE soll im aktiven Zustand
         // nicht so laut sein wie L und R darueber - kein Leucht-Hof, und der
@@ -1070,7 +1107,9 @@ public:
             // kraeftiger (siehe unten).
             if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) < 0
              && (int) button.getProperties().getWithDefault ("rayDiagram", -1) < 0
-             && (int) button.getProperties().getWithDefault ("eqDiagram",  -1) < 0)
+             && (int) button.getProperties().getWithDefault ("eqDiagram",  -1) < 0
+             && (int) button.getProperties().getWithDefault ("profileDiagram", -1) < 0
+             && (int) button.getProperties().getWithDefault ("ppDiagram",  -1) < 0)
            #endif
             {
                 // Ohne Flaeche braucht der Aus-Zustand trotzdem Hover-Feedback.
@@ -1100,7 +1139,9 @@ public:
         // Traegt er ein Icon, ueberspringt er den Comic-Zweig.
         const bool diagPill = (int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
                            || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0
-                           || (int) button.getProperties().getWithDefault ("eqDiagram",  -1) >= 0;
+                           || (int) button.getProperties().getWithDefault ("eqDiagram",  -1) >= 0
+                           || (int) button.getProperties().getWithDefault ("profileDiagram", -1) >= 0
+                           || (int) button.getProperties().getWithDefault ("ppDiagram",  -1) >= 0;
         juce::ignoreUnused (diagPill);
         // Pair bei ausgeschalteter RAYE-Sektion: Zustand trotzdem sichtbar
         // (hellerer Rand, User) - Property "pairedGold" bleibt gesetzt.
@@ -1136,7 +1177,7 @@ public:
             // davon unterscheiden koennen (User).
             const bool strong = button.getProperties().getWithDefault ("pillStrong", false);
             const bool armed  = button.getProperties().getWithDefault ("pillArmed", false);
-            if (strong && armed)
+            if (strong && armed && ! diagPill)
             {
                 g.setColour (pillCol.withAlpha (0.14f));
                 g.fillRoundedRectangle (bounds, cornerSize);
@@ -1164,6 +1205,114 @@ public:
             //   1 HALO     ein Ring um die scharfe Mitte
             //   2 ILLUSION weiter auseinander, Mitte noch klar
             //   3 DOUBLE   am weitesten, die Mitte loest sich auf
+            // Runde 108: Icon LINKS neben dem Namen - Smart-Profil und PRE/POST.
+            {
+                const int pdia  = (int) button.getProperties().getWithDefault ("profileDiagram", -1);
+                const int ppdia = (int) button.getProperties().getWithDefault ("ppDiagram", -1);
+                if (pdia >= 0 || ppdia >= 0)
+                {
+                    juce::Rectangle<float> iconR, textR;
+                    inlineIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                    // PRE/POST leuchtet nur, wenn ueberhaupt umgepolt wird (User,
+                    // Runde 62) - sonst sieht es aus, als passiere etwas.
+                    // "Kein Profil" leuchtet nie.
+                    const bool dim = sectionIsOffNow || (ppdia >= 0 && ! button.getToggleState()) || pdia == 0;
+                    const float a  = dim ? 0.42f : 0.90f;
+                    const auto  c  = iconR.getCentre();
+                    if (! dim)
+                        softIconGlow (g, c, juce::jmin (iconR.getHeight() * 0.5f, (float) button.getHeight() * 0.5f),
+                                      pillCol, shouldDrawButtonAsDown ? 1.9f : shouldDrawButtonAsHighlighted ? 1.55f : 1.0f);
+                    const float sc = juce::jmin (iconR.getWidth() / 48.0f, iconR.getHeight() / 32.0f);
+                    auto P = [&] (float x, float y) { return juce::Point<float> (c.x + (x - 24.0f) * sc, c.y + (y - 16.0f) * sc); };
+                    auto dot = [&] (float x, float y, float r, float alpha)
+                    {
+                        g.setColour (pillCol.withAlpha (a * alpha));
+                        const auto q = P (x, y);
+                        g.fillEllipse (q.x - r * sc, q.y - r * sc, r * 2.0f * sc, r * 2.0f * sc);
+                    };
+                    auto stroke = [&] (const juce::Path& pth, float w, float alpha)
+                    {
+                        g.setColour (pillCol.withAlpha (a * alpha));
+                        g.strokePath (pth, juce::PathStrokeType (w * sc, juce::PathStrokeType::curved,
+                                                                 juce::PathStrokeType::rounded));
+                    };
+                    if (ppdia >= 0)
+                    {
+                        // Kette: Linie, in der Mitte die Breiten-Stufe als Kaestchen,
+                        // der Punkt davor (PRE) oder dahinter (POST).
+                        juce::Path line;
+                        line.startNewSubPath (P (4.0f, 16.0f));
+                        line.lineTo (P (44.0f, 16.0f));
+                        stroke (line, 2.0f, 0.45f);
+                        juce::Path blk;
+                        const auto tl = P (18.0f, 9.0f);
+                        blk.addRoundedRectangle (tl.x, tl.y, 12.0f * sc, 14.0f * sc, 3.0f * sc);
+                        stroke (blk, 2.0f, 0.75f);
+                        dot (ppdia == 1 ? 38.0f : 10.0f, 16.0f, 3.8f, 1.0f);
+                    }
+                    else
+                    {
+                        // Wo sitzt die Quelle im Stereobild? Dieselbe Sprache
+                        // wie die Micropitch-Icons.
+                        switch (pdia)
+                        {
+                            case 1:   // LEAD VOCAL: fest in der Mitte, weit drumherum
+                            {
+                                juce::Path l, r;
+                                l.startNewSubPath (P (10.0f, 6.0f));
+                                l.cubicTo (P (4.0f, 12.0f), P (4.0f, 20.0f), P (10.0f, 26.0f));
+                                r.startNewSubPath (P (38.0f, 6.0f));
+                                r.cubicTo (P (44.0f, 12.0f), P (44.0f, 20.0f), P (38.0f, 26.0f));
+                                stroke (l, 2.0f, 0.45f);
+                                stroke (r, 2.0f, 0.45f);
+                                dot (24.0f, 16.0f, 5.5f, 1.0f);
+                                break;
+                            }
+                            case 2:   // BACKINGS: breit, aber ordentlich
+                                for (float x : { 8.0f, 19.0f, 29.0f, 40.0f })
+                                    dot (x, 16.0f, 3.4f, 1.0f);
+                                break;
+                            case 3:   // AD-LIBS: verstreut, in Bewegung
+                            {
+                                dot (9.0f, 10.0f, 3.0f, 1.0f);
+                                dot (37.0f, 21.0f, 3.0f, 1.0f);
+                                dot (31.0f, 7.0f, 2.2f, 0.6f);
+                                dot (15.0f, 24.0f, 2.2f, 0.6f);
+                                juce::Path m;
+                                m.startNewSubPath (P (14.0f, 10.0f));
+                                m.cubicTo (P (19.0f, 9.0f), P (22.0f, 11.0f), P (24.0f, 14.0f));
+                                stroke (m, 1.6f, 0.5f);
+                                break;
+                            }
+                            case 4:   // SEND FX: nur Raum, keine Mitte
+                            {
+                                const float radii[3] = { 5.0f, 10.0f, 14.5f };
+                                const float widths[3] = { 2.0f, 1.6f, 1.2f };
+                                const float alphas[3] = { 0.75f, 0.45f, 0.22f };
+                                for (int k = 0; k < 3; ++k)
+                                {
+                                    juce::Path ring;
+                                    ring.addEllipse (c.x - radii[k] * sc, c.y - radii[k] * sc,
+                                                     radii[k] * 2.0f * sc, radii[k] * 2.0f * sc);
+                                    stroke (ring, widths[k], alphas[k]);
+                                }
+                                break;
+                            }
+                            default:  // KEIN PROFIL: gestrichelter Kreis
+                            {
+                                juce::Path ring, dashed;
+                                ring.addEllipse (c.x - 9.0f * sc, c.y - 9.0f * sc, 18.0f * sc, 18.0f * sc);
+                                const float dashes[2] = { 3.0f * sc, 4.0f * sc };
+                                juce::PathStrokeType (2.0f * sc).createDashedStroke (dashed, ring, dashes, 2);
+                                g.setColour (pillCol.withAlpha (a * 0.8f));
+                                g.fillPath (dashed);
+                                break;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
             const int diag = (int) button.getProperties().getWithDefault ("pxDiagram", -1);
             const int rdia = (int) button.getProperties().getWithDefault ("rayDiagram", -1);
             const int edia = (int) button.getProperties().getWithDefault ("eqDiagram",  -1);
@@ -1495,6 +1644,81 @@ public:
     // (Solo, Lock, Mod, On/Off, RAYE-Stufe). Die hatten bisher gar keins
     // (User: "faellt mir erst jetzt auf") - gerade in der rahmenlosen
     // Darstellung ist das der einzige Hinweis, dass dort etwas klickbar ist.
+    // ===== Runde 108: MODERNE FORMEN (User: "modern, ohne Boxen") =====
+    // Soft-Chip: die Form fuer An/Aus. Keine Linie mehr - aus ist eine kaum
+    // sichtbare Flaeche, an ist getoent, leuchtet von innen und traegt einen
+    // ganz feinen Rand in derselben Farbe. Pop behaelt seine Comic-Pillen.
+    static void drawSoftChip (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour acc,
+                              bool lit, bool secOff, bool hot, bool down)
+    {
+        const float cr = r.getHeight() * 0.5f;
+        if (lit)
+        {
+            const float k = secOff ? 0.45f : 1.0f;
+            g.setColour (acc.withAlpha ((0.13f + (hot ? 0.04f : 0.0f) + (down ? 0.04f : 0.0f)) * k));
+            g.fillRoundedRectangle (r, cr);
+            if (! secOff)
+            {
+                juce::Path clip;
+                clip.addRoundedRectangle (r, cr);
+                g.saveState();
+                g.reduceClipRegion (clip);
+                const auto c = r.getCentre();
+                const float rx = r.getWidth() * 0.62f;
+                juce::ColourGradient grad (acc.withAlpha (hot ? 0.30f : 0.22f), c.x, c.y,
+                                           acc.withAlpha (0.0f), c.x + rx, c.y, true);
+                g.setGradientFill (grad);
+                g.fillEllipse (c.x - rx, c.y - rx, rx * 2.0f, rx * 2.0f);
+                g.restoreState();
+            }
+            g.setColour (acc.withAlpha (0.24f * k));
+            g.drawRoundedRectangle (r.reduced (0.5f), cr, 1.0f);
+        }
+        else
+        {
+            g.setColour (juce::Colours::white.withAlpha (secOff ? 0.025f : down ? 0.10f : hot ? 0.075f : 0.045f));
+            g.fillRoundedRectangle (r, cr);
+        }
+    }
+
+    // Weicher runder Schimmer hinter einem Icon (dieselbe Sprache wie die
+    // Icon-Felder). strength 1 = normal, groesser = Hover/gedrueckt.
+    static void softIconGlow (juce::Graphics& g, juce::Point<float> c, float r, juce::Colour col, float strength)
+    {
+        if (r <= 1.0f) return;
+        juce::ColourGradient grad (col.withAlpha (juce::jmin (0.60f, 0.26f * strength)), c.x, c.y,
+                                   col.withAlpha (0.0f), c.x + r, c.y, true);
+        grad.addColour (0.45, col.withAlpha (juce::jmin (0.35f, 0.12f * strength)));
+        g.setGradientFill (grad);
+        g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+    }
+
+    // Icon LINKS neben dem Namen - fuer Knoepfe, deren Hoehe fuer Icon ueber
+    // Name nicht reicht (Smart-Profil, PRE/POST). Icon und Schrift stehen als
+    // Gruppe mittig. drawButtonBackground und drawButtonText rechnen beide
+    // hiermit, damit Icon und Schrift nie auseinanderlaufen.
+    static void inlineIconLayout (juce::Button& b, juce::Rectangle<float> area,
+                                  juce::Rectangle<float>& iconR, juce::Rectangle<float>& textR)
+    {
+        const auto f   = unifiedButtonFont (b.getHeight());
+        const float h  = area.getHeight();
+        const float iw = h * 1.45f;             // 48:32 wie die Icon-Zeichnungen
+        const float gap = h * 0.16f;
+        const float tw = juce::GlyphArrangement::getStringWidth (f, b.getButtonText()) + 2.0f;
+        const float x0 = area.getCentreX() - (iw + gap + tw) * 0.5f;
+        iconR = { x0, area.getY(), iw, h };
+        textR = { x0 + iw + gap, area.getY(), tw + 6.0f, h };
+    }
+
+    // Farbe eines Soft-Chips - dieselbe Logik wie btnAccent in
+    // drawButtonBackground: Gold = an (altAccent), Blau = gekoppelt.
+    juce::Colour softChipAccent (juce::Button& b) const
+    {
+        const bool gold   = b.getProperties().getWithDefault ("pairedGold", false);
+        const bool altAcc = b.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
+        return gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
+    }
+
     static void iconHover (juce::Graphics& g, juce::Button& button, bool highlighted, bool down)
     {
         if (! highlighted && ! down) return;
@@ -1649,6 +1873,27 @@ public:
             const int textShiftY = (int) (double) button.getProperties().getWithDefault ("textYShift", 0.0);
             // Runde 88: liegt links ein Diagramm, bekommt die Schrift den Rest
             // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
+            // Runde 108: Soft-Chips tragen die Schrift in ihrer eigenen Farbe -
+            // an hell getoent, aus zurueckgenommen.
+            if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme()
+                && ! (bool) button.getProperties().getWithDefault ("galaxyBtn", false))
+            {
+                const bool secOffC = button.getProperties().getWithDefault ("sectionOff", false);
+                const bool litC = button.getToggleState() || (bool) button.getProperties().getWithDefault ("pairedGold", false);
+                g.setColour (secOffC ? labelOffColour()
+                                     : litC ? softChipAccent (button).interpolatedWith (juce::Colour (0xfff2f4f8), 0.42f)
+                                            : juce::Colour (0xff8f96a4));
+            }
+            // Runde 108: Icon links, Name rechts daneben (Smart-Profil, PRE/POST).
+            if ((int) button.getProperties().getWithDefault ("profileDiagram", -1) >= 0
+             || (int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0)
+            {
+                juce::Rectangle<float> iconR, textR;
+                inlineIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                g.drawText (button.getButtonText(), textR.translated (0.0f, (float) textShiftY),
+                            juce::Justification::centredLeft, false);
+                return;
+            }
             auto textArea = button.getLocalBounds().translated (0, textShiftY);
             if ((int) button.getProperties().getWithDefault ("pxDiagram",  -1) >= 0
              || (int) button.getProperties().getWithDefault ("rayDiagram", -1) >= 0
@@ -2985,6 +3230,16 @@ public:
         static const juce::Colour galaxyBlue (0xff4fa8ff);
         auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
         const float cornerSize = bounds.getHeight() * 0.5f;
+        // Runde 108: auch LCR wird ein Soft-Chip (blau = gekoppelt: die Engine
+        // bringt Latenz mit). Das langsame Atmen bleibt, nur leiser.
+        if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
+        {
+            const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            const float pulse = (float) (0.5 + 0.5 * std::sin (juce::MathConstants<double>::twoPi * t / 1.8));
+            drawSoftChip (g, bounds, galaxyBlue.withMultipliedBrightness (0.85f + 0.25f * pulse),
+                          button.getToggleState(), false, highlighted, down);
+            return;
+        }
         if (button.getToggleState())
         {
             const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -3253,8 +3508,18 @@ public:
                                       // dieselbe Quelle wie die Modus-Pillen.
                                       : glow          ? themePalette().frameRaye.withAlpha (0.54f)
                                                       : themePalette().frameMain.withAlpha (0.55f);
-        g.setColour (boxOutline);
-        g.drawRoundedRectangle (bounds, boxCorner, 1.35f);
+        if (! isComicTheme())
+        {
+            // Runde 108: Soft-Chip wie die Schalter. Blau = gekoppelt (Sync,
+            // Takte) - so steht es in der Farbregel, die der User freigegeben hat.
+            drawSoftChip (g, bounds, pairAccentColour(), glow || goldBox, boxSectionOff,
+                          box.isMouseOver (true), false);
+        }
+        else
+        {
+            g.setColour (boxOutline);
+            g.drawRoundedRectangle (bounds, boxCorner, 1.35f);
+        }
 
         if (box.getProperties().getWithDefault ("noArrow", false))
             return;   // ohne Pfeil (User: jeder erkennt ein Dropdown)

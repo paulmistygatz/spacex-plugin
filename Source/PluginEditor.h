@@ -1982,6 +1982,7 @@ private:
     ModeDots pxModeDots;
     ModeDots rayModeDots;   // SpaceXraye2: Punkte unter dem Charakter-Knopf
     ModeDots msEqDots;      // Runde 105: Punkte unter dem Seiten-EQ
+    ModeDots polPosDots;    // Runde 108: PRE / POST
     // SpaceXraye: RAYE Amount (stufenlos) + Charakter-Klick-Knopf.
     juce::Slider rayAmountSlider;
     juce::Label  rayAmountLabel;
