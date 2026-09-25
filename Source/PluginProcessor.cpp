@@ -693,7 +693,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_LIFE, 1 }, "Life",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));   // Runde 121 (User): Default 0
 
     // Ganz simpler Ausgangs-Trim, allerletzte Stufe der Kette.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (

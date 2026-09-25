@@ -3353,7 +3353,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     styleRotary (lifeSlider, false);
     content.addAndMakeVisible (lifeSlider);
     lifeAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LIFE, lifeSlider);
-    lifeSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
+    lifeSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
 
     // "BYP": neuer globaler Bypass-Button (User-Wunsch: "BYP Button links
     // von Chaos/Mutate") - schaltet denselben rein GUI-seitigen Bypass wie
