@@ -6149,11 +6149,15 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             const float rx = iconW * 0.66f, ry = iconH * 0.24f;
             const float tilt = juce::degreesToRadians (-10.0f);
             const auto  rot  = juce::AffineTransform::rotation (tilt, cx, iy);
+            // Runde 147 (User): ohne Profil leuchtet die Bahn beim Drueberfahren
+            // auf - zeigt, dass man hier klicken kann.
+            const bool  hot  = ! armed && (categoryButton.isMouseOver (true) || catDots.isMouseOver (true));
+            const float lvl  = armed ? 1.0f : hot ? 0.75f : 0.35f;
 
             juce::Path orbit;
             orbit.addEllipse (cx - rx, iy - ry, rx * 2.0f, ry * 2.0f);
             orbit.applyTransform (rot);
-            g.setColour (col.withAlpha (armed ? 0.28f : 0.11f));
+            g.setColour (col.withAlpha (0.28f * lvl + (armed ? 0.0f : 0.01f)));
             g.strokePath (orbit, juce::PathStrokeType (1.1f));
 
             const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -6161,7 +6165,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             juce::Point<float> pl (cx + rx * std::cos (th), iy + ry * std::sin (th));
             pl.applyTransform (rot);
             const float front = 0.5f + 0.5f * std::sin (th);            // unten = vorne
-            const float a  = (armed ? 1.0f : 0.35f) * (0.35f + 0.65f * front);
+            const float a  = lvl * (0.35f + 0.65f * front);
             const float pr = 2.0f + 0.6f * front;
             juce::ColourGradient pg (col.withAlpha (a * 0.45f), pl.x, pl.y, col.withAlpha (0.0f), pl.x + pr * 3.2f, pl.y, true);
             g.setGradientFill (pg);
