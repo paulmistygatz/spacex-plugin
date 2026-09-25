@@ -5684,6 +5684,24 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     auto logoArea = titleBar.removeFromLeft (kTitleBarH).reduced (5).toFloat();
     drawLogo (g, logoArea);
 
+    // Runde 111 (User: "davor standen die Profile in einem Rahmen und waren
+    // dadurch staerker hervorgehoben - jetzt schweben sie im leeren Raum"):
+    // eine weiche Kachel in derselben Sprache wie das Preset-Feld - leichte
+    // Flaeche, ein Hauch Rand, keine harte Linie. Pop hat seinen Kopf-Kasten.
+    if (categoryButton.isVisible() && ! isComicTheme())
+    {
+        auto tile = categoryButton.getBounds().getUnion (catDots.getBounds()).toFloat().expanded (10.0f, 6.0f);
+        const auto palT = themePalette();
+        g.setColour (juce::Colours::white.withAlpha (0.035f));
+        g.fillRoundedRectangle (tile, 12.0f);
+        juce::ColourGradient topLight (juce::Colours::white.withAlpha (0.035f), tile.getCentreX(), tile.getY(),
+                                       juce::Colours::white.withAlpha (0.0f),   tile.getCentreX(), tile.getY() + tile.getHeight() * 0.6f, false);
+        g.setGradientFill (topLight);
+        g.fillRoundedRectangle (tile, 12.0f);
+        g.setColour (palT.frameMain.withAlpha (0.20f));
+        g.drawRoundedRectangle (tile.reduced (0.5f), 12.0f, 1.0f);
+    }
+
     // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
     // Claim-Untertitel wirkte "amateurhaft" (User-Feedback) und wurde
     // entfernt.
@@ -6983,11 +7001,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
 
-        // Runde 110 (User): Reihenfolge nach dem Signalweg - Mix, dann Auto
-        // Gain (gleicht den Pegel an), dann Vol und Pan als letzte Stufe.
-        juce::Component* elems[6]  = { &monoCheckButton, &monoDryButton, &mixSlider, &autoGainButton, &volSlider, &panSlider };
-        juce::Label*     labels[6] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &autoGainLabel,  &volLabel,  &panLabel  };
-        constexpr int kAgW = 48, kAgH = 22;
+        // Runde 111 (User): Mix, Pan, Vol, AG - die Pegel-Elemente stehen
+        // zusammen am Ende, AG als Ausgangsanzeige ganz rechts.
+        juce::Component* elems[6]  = { &monoCheckButton, &monoDryButton, &mixSlider, &panSlider, &volSlider, &autoGainButton };
+        juce::Label*     labels[6] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &panLabel,  &volLabel,  &autoGainLabel  };
+        constexpr int kAgW = 44, kAgH = 22;
         int right = prismLeft - kGap;   // rechte Kante von PAN = PRISM-Kachel minus Luecke
         for (int i = 5; i >= 0; --i)
         {
@@ -7195,7 +7213,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
             {
                 // Runde 105: Text-Pille im Kopf (x2 in MID-SIDE) - dieselbe
                 // Groesse wie FAST und PAIR beim Phaser.
-                const int pw = 64, ph = juce::jmin (24, headerH);
+                const int pw = 46, ph = juce::jmin (24, headerH);
                 auto fArea = header.removeFromRight (pw);
                 header.removeFromRight (6);
                 filterBtn->setBounds (fArea.withSizeKeepingCentre (pw, ph));
@@ -7412,8 +7430,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 110 (User): ØL/ØR sind Icon-Schalter - Ø oben, Buchstabe
         // darunter - und der Link sitzt zwischen ihnen statt in einer eigenen
         // Zeile darueber.
-        const int lrBtnW = 60, lrBtnH = 56;
-        const int lrGap = 34;
+        const int lrBtnW = 56, lrBtnH = 48;   // Runde 111: kleiner (User: "zu dominant")
+        const int lrGap = 30;
         const int posBtnGap = 8;
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
         // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
@@ -7461,8 +7479,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             // Mittig zwischen den beiden Ø, auf Hoehe der Icons (ohne die
             // Buchstaben darunter).
-            const int linkS = juce::jmin (lrGap - 4, linkAreaH);
-            const int iconMidY = lrTop + (lrBtnH - 17) / 2;
+            const int linkS = juce::jmin (lrGap - 10, linkAreaH);
+            const int iconMidY = lrTop + (lrBtnH - 15) / 2;
             polLinkButton.setBounds (polLButton.getRight() + (lrGap - linkS) / 2, iconMidY - linkS / 2, linkS, linkS);
             juce::ignoreUnused (linkGapV);
         }
@@ -7857,8 +7875,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
     const int rayTitleNeed = juce::GlyphArrangement::getStringWidthInt (sectionTitleFont(), rayTitleLabel.getText()) + 14;
     const int rayRightRoom = juce::jmax (0, rayHeader.getWidth() - rayTitleNeed);
     // Runde 110: Icon + Name brauchen etwas mehr Breite als die Chips.
-    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (152, rayRightRoom));
-    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (76, rayHeadRight.getWidth()));
+    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (128, rayRightRoom));
+    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (62, rayHeadRight.getWidth()));
     rayHeadRight.removeFromRight (5);
     const auto rayFastHeaderArea = rayHeadRight;
    #else
@@ -7936,9 +7954,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
                #endif
             }
             // Runde 55 (User: "fast und pair sind mir zu klein").
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (74, rayPairHeaderArea.getWidth()),
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (58, rayPairHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayPairHeaderArea.getHeight())));
-            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (74, rayFastHeaderArea.getWidth()),
+            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (58, rayFastHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayFastHeaderArea.getHeight())));
         }
        #else

@@ -1042,26 +1042,42 @@ public:
                 const bool lit    = button.getToggleState() || gold;
                 const bool hot    = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
                 juce::Rectangle<float> iconR, textR;
-                if (phase)
-                    iconR = lb.withTrimmedBottom (17.0f);
-                else
-                    hdrIconLayout (button, lb, iconR, textR);
+                if (! phase)
+                {
+                    // Runde 111 (User: "FAST und PAIR abgeschnitten - evtl.
+                    // nur die Namen"): nur der Name, dahinter ein weicher,
+                    // kantenloser Schein, wenn an. Keine Flaeche, kein Rand.
+                    juce::ignoreUnused (iconR, textR, hdrIcon);
+                    if (! secOff && (lit || hot))
+                    {
+                        const float a0 = lit ? (shouldDrawButtonAsDown ? 0.075f : hot ? 0.062f : 0.05f) : 0.022f;
+                        for (int k = 0; k < 4; ++k)
+                        {
+                            auto rr = lb.reduced (2.0f + 2.2f * (float) k, 1.0f + 1.2f * (float) k);
+                            g.setColour (btnAccent.withAlpha (a0));
+                            g.fillRoundedRectangle (rr, rr.getHeight() * 0.5f);
+                        }
+                    }
+                    return;
+                }
+                iconR = lb.withTrimmedBottom (15.0f);
                 const auto  c = iconR.getCentre();
                 const float s = juce::jmin (iconR.getWidth(), iconR.getHeight());
-                const float glowR = juce::jmin (s * (phase ? 0.62f : 0.80f), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f);
+                const float glowR = juce::jmin (s * 0.52f, juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f);
                 if (! secOff && (lit || hot))
                     softIconGlow (g, c, glowR, btnAccent,
                                   lit ? (shouldDrawButtonAsDown ? 1.9f : hot ? 1.55f : 1.0f) : 0.5f);
-                const juce::Colour col = secOff ? (lit ? btnAccent.withAlpha (0.45f) : iconOffColour().withAlpha (0.45f))
+                // Runde 111 (User: "L und R zu dominant"): aus deutlich leiser.
+                const juce::Colour col = secOff ? (lit ? btnAccent.withAlpha (0.45f) : iconOffColour().withAlpha (0.35f))
                                        : lit    ? btnAccent.interpolatedWith (juce::Colour (0xfff2f4f8), 0.30f)
-                                                : iconOffColour().withAlpha (hot ? 0.95f : 0.75f);
+                                                : iconOffColour().withAlpha (hot ? 0.85f : 0.55f);
                 g.setColour (col);
-                const juce::PathStrokeType st (juce::jmax (1.5f, s * (phase ? 0.075f : 0.095f)),
+                const juce::PathStrokeType st (juce::jmax (1.3f, s * (phase ? 0.055f : 0.095f)),
                                                juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
                 if (phase)
                 {
-                    // Ø - das Zeichen fuer Phasendrehung
-                    const float r = s * 0.30f;
+                    // Ø - das Zeichen fuer Phasendrehung (Runde 111: kleiner)
+                    const float r = s * 0.22f;
                     juce::Path ring;
                     ring.addEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
                     g.strokePath (ring, st);
@@ -2017,15 +2033,14 @@ public:
                                             : juce::Colour (0xff8f96a4));
                 if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
                 {
-                    g.setFont (unifiedButtonFont (32));
-                    g.drawText (button.getButtonText(), button.getLocalBounds().removeFromBottom (17),
+                    g.setFont (unifiedButtonFont (27));
+                    g.drawText (button.getButtonText(), button.getLocalBounds().removeFromBottom (15),
                                 juce::Justification::centred, false);
                 }
                 else
                 {
-                    juce::Rectangle<float> iconR, textR;
-                    hdrIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
-                    g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
+                    // Runde 111: nur der Name, mittig.
+                    g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
                 }
                 return;
             }
@@ -3048,7 +3063,9 @@ public:
             const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
             constexpr double periodSeconds = 2.4;
             const float pulse = 0.55f + 0.45f * (float) (0.5 + 0.5 * std::sin (juce::MathConstants<double>::twoPi * t / periodSeconds));
-            g.setColour (onGreen.withAlpha (pulse));
+            // Runde 111: Theme-Farbe statt Ampel-Gruen (Kopfzeile ruhiger).
+            juce::ignoreUnused (onGreen, offRed);
+            g.setColour (themePalette().knob.withAlpha (pulse));
             g.strokePath (wave, juce::PathStrokeType (2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
         else
