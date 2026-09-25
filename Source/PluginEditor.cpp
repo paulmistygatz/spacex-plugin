@@ -5210,6 +5210,8 @@ juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
 
 void LCRMSAudioProcessorEditor::timerCallback()
 {
+    if (processor.isBypassedNow() && globalBypassButton.isShowing())
+        globalBypassButton.repaint();   // Runde 168: Bypass-Knopf atmet
     // Runde 164 (User: "6 Sektionen, 6 Augen"): der Wuerfel zeigt, wie viele
     // Sektionen gerade an sind (LCR zaehlt nur mit laufender Engine). Nach
     // einem Klick rollt er ~0,4 s durch zufaellige Augen und landet dann dort.

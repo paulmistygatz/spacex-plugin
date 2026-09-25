@@ -3342,12 +3342,27 @@ public:
 
         // Runde 110 (User: "Kopfzeile ruhiger"): kein Ampel-Gruen/Rot mehr.
         // An = die Theme-Farbe, Bypass = gedimmt - wie jedes andere Icon.
-        auto col = bypassed ? iconOffColour().withAlpha (0.75f)
-                            : themePalette().knob.interpolatedWith (juce::Colour (0xfff2f4f8), 0.15f);
-
-        g.setColour (col);
+        auto col = themePalette().knob.interpolatedWith (juce::Colour (0xfff2f4f8), 0.15f);
         auto centre = bounds.getCentre();
         const float r = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+
+        // Runde 168 (User: "Bypass soll erkennbarer sein, wenn alles gedimmt
+        // ist"): im Bypass ist dieser Knopf das EINZIGE, was noch leuchtet -
+        // ein ruhig atmender Schein in der Theme-Farbe und ein heller Ring
+        // darum. So sieht man sofort, warum alles grau ist und wo man
+        // zurueckschaltet. Der Editor-Timer zeichnet ihn dafuer neu.
+        if (bypassed)
+        {
+            const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            const float breath = 0.5f + 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * t / 2.4);
+            const auto acc = themePalette().knob;
+            const auto lb  = button.getLocalBounds().toFloat();
+            softIconGlow (g, lb.getCentre(), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f, acc, 1.1f + 0.9f * breath);
+            g.setColour (acc.withAlpha (0.30f + 0.25f * breath));
+            g.drawEllipse (centre.x - r * 0.98f, centre.y - r * 0.98f, r * 1.96f, r * 1.96f, 1.2f);
+            col = juce::Colour (0xfff2f4f8).interpolatedWith (acc, 0.25f);
+        }
+        g.setColour (col);
         juce::Path ring;
         ring.addCentredArc (centre.x, centre.y, r * 0.62f, r * 0.62f, 0.0f,
                              juce::MathConstants<float>::pi * 0.28f,
