@@ -5534,7 +5534,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
     correlationMeter.setCorrelation (processor.currentCorrelation.load (std::memory_order_relaxed));
 
     const bool isSyncOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
-    speedRateSlider.setEnabled (! isSyncOn);
+    // Runde 130: nicht mehr abschalten, sondern sperren - Cmd-Klick-Reset
+    // und Doppelklick gehen auch bei Sync + Bars.
+    if ((bool) speedRateSlider.getProperties().getWithDefault ("syncLocked", false) != isSyncOn)
+    {
+        speedRateSlider.getProperties().set ("syncLocked", isSyncOn);
+        speedRateSlider.repaint();
+    }
     // Bar-Auswahl bleibt jetzt auch bei ausgeschaltetem Sync waehlbar (User-
     // Feedback: "Bar Section soll auswaehlbar sein auch wenn Sync off
     // ist.") - nur die "glowActive"-Hervorhebung unten zeigt weiterhin an,

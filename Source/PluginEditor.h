@@ -2069,7 +2069,35 @@ private:
     juce::Slider movementSlider;
     juce::Label movementLabel;
     juce::TextButton pulseButton { "Pulse" };
-    juce::Slider speedRateSlider;
+    // Runde 130 (User): mit Sync + Bars ist Speed gesperrt, Cmd-Klick
+    // (Reset) und Doppelklick sollen aber trotzdem gehen. Statt den Regler
+    // abzuschalten (dann kommt gar kein Klick mehr an) wird nur Ziehen und
+    // Scrollen geschluckt, solange "syncLocked" gesetzt ist.
+    struct SyncLockSlider : public juce::Slider
+    {
+        bool locked() const { return (bool) getProperties().getWithDefault ("syncLocked", false); }
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            if (locked() && ! e.mods.isCommandDown()) return;
+            juce::Slider::mouseDown (e);
+        }
+        void mouseDrag (const juce::MouseEvent& e) override
+        {
+            if (locked()) return;
+            juce::Slider::mouseDrag (e);
+        }
+        void mouseUp (const juce::MouseEvent& e) override
+        {
+            if (locked() && ! e.mods.isCommandDown()) return;
+            juce::Slider::mouseUp (e);
+        }
+        void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override
+        {
+            if (locked()) return;
+            juce::Slider::mouseWheelMove (e, w);
+        }
+    };
+    SyncLockSlider speedRateSlider;
     juce::Label speedLabel;
     juce::TextButton syncButton { "Sync" };
     juce::ComboBox speedBox;

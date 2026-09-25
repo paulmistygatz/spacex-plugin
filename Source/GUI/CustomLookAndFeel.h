@@ -360,7 +360,8 @@ public:
         // farbig/leuchtend wirken - die Component-Property "sectionOff"
         // erzwingt hier die neutrale/graue Darstellung, unabhaengig vom
         // technischen isEnabled()-Status.
-        const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
+        const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled()
+                            || (bool) slider.getProperties().getWithDefault ("syncLocked", false);   // Runde 130
 
         // Runde 110 (User): die Spur eine Spur duenner (Pop behaelt seine).
         float trackThickness = radius * (isComicTheme() ? 0.18f : 0.16f);
@@ -3641,7 +3642,8 @@ public:
             return;
         }
 
-        const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
+        const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled()
+                            || (bool) slider.getProperties().getWithDefault ("syncLocked", false);   // Runde 130
 
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height);
         auto top = bounds.getY() + 6.0f;
