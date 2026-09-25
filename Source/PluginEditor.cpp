@@ -2055,38 +2055,103 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     closeBackPanel();
     closeViewPanel();
 
+    // Runde 172 (User: "Tour komplett neu - alle neuen Labels, Features,
+    // Icons. Nicht jeden Knopf, aber das Wichtigste, damit jeder das Plugin
+    // sofort versteht"). Reihenfolge wie beim ersten Arbeiten: Profil, Wuerfel,
+    // Kopf, dann die Sektionen im Signalweg, dann Kontrolle, Presets, Hilfe.
     const bool t = technicalLabels;
-    tourOverlay.steps.clear();
-    auto add = [this] (juce::Rectangle<int> target, const juce::String& head, const juce::String& text)
+    auto L = [t] (const char* tech, const char* story) { return juce::String (t ? tech : story); };
+    auto area = [this] (std::initializer_list<juce::Component*> comps)
     {
-        if (! target.isEmpty())
-            tourOverlay.steps.push_back ({ target, head, text });
+        juce::Rectangle<int> r;
+        for (auto* c : comps)
+            if (c != nullptr && c->isVisible() && ! c->getBounds().isEmpty())
+            {
+                const auto b = content.getLocalArea (c, c->getLocalBounds());
+                r = r.isEmpty() ? b : r.getUnion (b);
+            }
+        return r;
     };
 
-    add (groupLcrArea, t ? "LCR" : "Galaxy",
-         "Splits the signal into a real centre and real sides. Orbit decides how much of the sides you keep, "
-         "Gravity how strictly the centre is held. This is the only section with latency - it is off until you arm it.");
-    // Reihenfolge wie in der Oberflaeche: Galaxy, Eclipse, dann weiter (User).
-    add (groupPolArea, t ? "Polarity" : "Eclipse",
-         "Flips the polarity of one side. The biggest single change in the plugin - use it deliberately, and check mono.");
-    add (groupDriftArea, t ? "MicroPitch" : "Parallax",
-         "Makes a mono source stereo. Pick a style with the button, then use Amount as the single dial. "
-         "The dots under the button jump straight to a style.");
-    add (groupWidthBoostArea, t ? "Mid-Side" : "Dimension",
-         "Classic mid/side: Size opens or closes the sides, Boost lifts them, Depth pushes the source away or pulls it forward.");
-    add (groupFlowArea, t ? "Autopan" : "Hyperdrive",
-         "Moves the image over time. Flow is how far it travels, Speed how fast - sync it to the host if you want it musical.");
-    add (groupRayArea, t ? "Phaser" : "Raye",
-         "A stereo phaser. Amount is the whole control; the character button picks how it moves. Pair locks it to the autopan.");
-    add (goniometer.getBounds(), "The field",
-         "Your stereo image, live. A tall shape is mono-ish, a wide one is spread out. "
-         "Everything drifting to one side means the balance is off.");
-    add (globalChaosButton.getBounds().getUnion (categoryButton.getBounds()), "Smart",
-         "The dice builds a whole setting for you, and decides which sections belong in it. "
-         "Pick a profile on the pill first - Vocal, Backing, Adlib or FX - and the dice stays "
-         "inside what makes sense for that source.");
-    add (lifeSlider.getBounds(), "Life",
-         "Scales every modulation at once. At zero nothing moves; turn it up and the whole plugin breathes.");
+    tourOverlay.steps.clear();
+    auto add = [this] (juce::Rectangle<int> target, const juce::String& eyebrow,
+                       const juce::String& head, const juce::String& text, bool allowEmpty = false)
+    {
+        if (allowEmpty || ! target.isEmpty())
+            tourOverlay.steps.push_back ({ target, eyebrow, head, text });
+    };
+
+    add ({}, "Welcome", "Depth without reverb.",
+         "SpaceX makes a sound wider, deeper and fuller - without a reverb tail. "
+         "Six sections, top-left to bottom-right, in the order the audio flows. "
+         "This takes about a minute. Arrow keys work too.", true);
+
+    add (area ({ &categoryButton, &catDots }), "Smart", "Pick your source",
+         "Tell SpaceX what you are working on: Lead Vocal, Backings, Adlibs or Send FX. "
+         "Click for the next one, or hit a dot. The line under the logo says what the profile does.");
+
+    add (area ({ &globalChaosButton }), "Smart", "Roll the die",
+         "Builds a complete setting for your profile and switches on only the sections that belong in it. "
+         "The face shows how many are active. Roll until something surprises you - Undo is always there.");
+
+    add (area ({ &globalBypassButton, &lifeSlider, &globalModBypassButton }), "Header", "Power, Life, Mod",
+         "Power bypasses the whole plugin - while it is off, the button glows. "
+         "Life is how much everything moves: one knob for all modulation, at zero nothing moves. "
+         "Mod switches the modulation off without losing it.");
+
+    add (area ({ &globalGalaxyActivateButton }), "Engine", L ("The LCR engine", "The Galaxy engine"),
+         "Arms the real L / C / R split - a true centre instead of plain mid-side. "
+         "It adds latency while it runs. Switched off, SpaceX runs with zero latency.");
+
+    add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and padlock",
+         "Click a section name to switch it on or off - an off section goes dark. "
+         "Cmd-click solos it, Cmd+Shift-click resets it. The padlock keeps the die away from it.");
+
+    add (groupLcrArea, "Section 1", L ("LCR Matrix", "Galaxy"),
+         L ("L/R", "Orbit") + " sets how much of the left and right parts you keep - all the way down leaves the centre only. "
+         + L ("C-Weight", "Gravity") + " decides how strictly the centre is held, " + L ("HF Regain", "Regain")
+         + " brings back the highs. EQ " + juce::String::fromUTF8 ("\xe2\x86\x92") + " LCR puts the Sides EQ on this split.");
+
+    add (groupPolArea, "Section 2", L ("Polarity", "Eclipse"),
+         juce::String::fromUTF8 ("\xc3\x98L and \xc3\x98R flip the phase of one side, the link flips both. ")
+         + "PRE / POST decides whether that happens before or after " + L ("Micropitch", "Parallax") + " and "
+         + L ("Mid-Side", "Dimension") + ". The biggest single change in the plugin - check Mono.");
+
+    add (groupDriftArea, "Section 3", L ("Micropitch", "Parallax"),
+         "Makes a mono sound wide with tiny offsets in time and pitch. "
+         "Pick a style - Velvet, Halo, Illusion or Double - then Amount is your one dial.");
+
+    add (groupWidthBoostArea, "Section 4", L ("Mid-Side", "Dimension"),
+         L ("Width", "Size") + " opens or narrows the image, " + L ("Sides", "Boost")
+         + " lifts the sides without touching the centre. The curve is the Sides EQ: Tight cleans the lows, "
+           "Clear adds air, Focus calms and brightens. The small fader sets how strong it is.");
+
+    add (groupFlowArea.getUnion (groupRayArea), "Sections 5 + 6", L ("Autopan and Phaser", "Hyperdrive and Raye"),
+         L ("Autopan", "Hyperdrive") + " moves the sound between left and right - the note syncs it to the song. "
+         "The phaser moves the image, not the tone: pick a character, set Amount. LINK makes it follow "
+         + L ("Autopan", "Hyperdrive") + ".");
+
+    add (area ({ &goniometer }), "Look", "The starfield",
+         "Your stereo image, live - it reacts to everything SpaceX does. Click it for the goniometer. "
+         "The bar at the bottom is correlation: right of centre is mono-safe.");
+
+    add (area ({ &volInputMeter, &volOutputMeter, &monoCheckButton, &monoDryButton, &mixSlider,
+                 &panSlider, &volSlider, &autoGainButton }), "Listen", "Output",
+         "Mono and Dry to check, Mix to blend, Pan and Vol at the very end. "
+         "AG matches output to input, so bypass is an honest comparison. Right-click Mix or Vol to lock them.");
+
+    add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "35 starting points",
+         "Presets live in folders - Lead Vocal, Backings, Adlibs, Send FX, Vocals, Drums, Bass, Music and your own. "
+         "The arrows step through the current folder, a star means you changed something. Save picks the folder.");
+
+    add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
+         "Compare", "Undo, A / B, Settings",
+         "Undo and Redo cover everything, the die included. A / B holds two versions, the arrow copies across. "
+         "Reset goes back to Default. Settings has themes, labels and this tour.");
+
+    add (area ({ &helpButton }).getUnion (hintBarArea), "Help", "Lost? Hit the ?",
+         "Switch on the info line and hover anything - it tells you what it is and the clicks worth knowing. "
+         "That's it. Have fun.");
 
     tourOverlay.index = 0;
     tourOverlay.dontShowBtn.setVisible (firstRun);
@@ -2095,6 +2160,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     tourOverlay.setVisible (true);
     tourOverlay.toFront (true);
     tourOverlay.refresh();
+    tourOverlay.grabKeyboardFocus();
     content.repaint();
 }
 
@@ -2611,11 +2677,10 @@ juce::String LCRMSAudioProcessorEditor::keyForTypedName (const juce::String& typ
     if (cur.isNotEmpty() && ! isDefaultPresetName (cur) && typed.equalsIgnoreCase (presetDisplayName (cur)))
         return cur;
     static const char* const cats[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
-    juce::String folder;
-    if (mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
+    // Runde 172: wie im Speichern-Dialog - erst der aktuelle Ordner, dann das Profil.
+    juce::String folder = isDefaultPresetName (cur) ? juce::String() : presetFolderOf (cur);
+    if (folder.isEmpty() && mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
         folder = cats[mutateCategoryValue - 1];
-    else
-        folder = presetFolderOf (cur);
     return folder.isEmpty() ? typed : folder + "/" + typed;
 }
 
@@ -3036,12 +3101,13 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
     }
     const auto cur = resolvePresetKey (currentPresetName);
     juce::String def;
-    if (prefillCurrent && ! isDefaultPresetName (cur))
+    // Runde 172 (User: "beim Speichern soll nicht immer Lead Vocal an sein,
+    // sondern der aktuelle Ordner"): zuerst der Ordner des geladenen Presets,
+    // erst wenn es keinen gibt (Default) das Smart-Profil.
+    if (! isDefaultPresetName (cur))
         def = presetFolderOf (cur);
     if (def.isEmpty() && mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
         def = cats[mutateCategoryValue - 1];
-    if (def.isEmpty() && ! isDefaultPresetName (cur))
-        def = presetFolderOf (cur);
     // Runde 149 (User: "sieht schlecht aus ... hier auch noch open preset
     // folder"): statt AlertWindow die Karte im Plugin (SavePresetPanel).
     juce::StringArray ownFolders;

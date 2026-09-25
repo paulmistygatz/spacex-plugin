@@ -1064,21 +1064,22 @@ private:
 
 
     // ===== TAKE THE TOUR =====
-    // Einmal durch die wichtigsten Punkte (User-Wunsch). Bewusst ein Overlay
-    // ueber der echten Oberflaeche statt einer Bilderstrecke: man sieht die
-    // Sektion, um die es geht, an ihrem echten Platz. Der Schleier hat ein
-    // Loch - das ist der ganze Trick, mehr braucht es nicht.
+    // Runde 172 (User: "Tour komplett loeschen, neu machen anhand aller
+    // neuen Labels, Features und Icons"): neu geschrieben. Weiterhin ein
+    // Overlay ueber der echten Oberflaeche - der Schleier hat ein Loch, dort
+    // steht das Element, um das es geht. Neu: Theme-Farbe statt Tuerkis,
+    // Karte waechst mit dem Text, Fortschritts-Punkte, Pfeiltasten/Esc, und
+    // ein Schritt ohne Ziel (Begruessung) sitzt mittig.
     class TourOverlay : public juce::Component
     {
     public:
-        struct Step { juce::Rectangle<int> target; juce::String head, text; };
+        struct Step { juce::Rectangle<int> target; juce::String eyebrow, head, text; };
         std::vector<Step> steps;
         int index = 0;
         std::function<void()> onFinish;
         juce::TextButton backBtn { "Back" }, nextBtn { "Next" }, skipBtn { "Skip" };
         // Runde 58 (User): die Tour zeigt sich beim ersten Start von selbst -
-        // also gehoert das "nicht mehr zeigen" hierher, nicht auf die
-        // Rueckseite.
+        // also gehoert das "nicht mehr zeigen" hierher.
         juce::TextButton dontShowBtn { "Don't show again" };
         std::function<void (bool)> onDontShow;
 
@@ -1091,98 +1092,184 @@ private:
                 b->getProperties().set ("noGlow", true);
                 addAndMakeVisible (*b);
             }
-            backBtn.onClick = [this] { if (index > 0) { --index; refresh(); } };
-            nextBtn.onClick = [this]
-            {
-                if (index + 1 < (int) steps.size()) { ++index; refresh(); }
-                else if (onFinish) onFinish();
-            };
+            backBtn.onClick = [this] { go (-1); };
+            nextBtn.onClick = [this] { go (+1); };
             skipBtn.onClick = [this] { if (onFinish) onFinish(); };
             dontShowBtn.setClickingTogglesState (true);
             dontShowBtn.onClick = [this] { if (onDontShow) onDontShow (dontShowBtn.getToggleState()); };
             setInterceptsMouseClicks (true, true);
+            setWantsKeyboardFocus (true);
+        }
+
+        void go (int dir)
+        {
+            const int n = (int) steps.size();
+            if (dir > 0 && index + 1 >= n) { if (onFinish) onFinish(); return; }
+            index = juce::jlimit (0, juce::jmax (0, n - 1), index + dir);
+            refresh();
+        }
+
+        bool keyPressed (const juce::KeyPress& k) override
+        {
+            if (k == juce::KeyPress::rightKey || k == juce::KeyPress::returnKey || k == juce::KeyPress::spaceKey) { go (+1); return true; }
+            if (k == juce::KeyPress::leftKey)   { go (-1); return true; }
+            if (k == juce::KeyPress::escapeKey) { if (onFinish) onFinish(); return true; }
+            return false;
         }
 
         void refresh()
         {
             backBtn.setEnabled (index > 0);
-            nextBtn.setButtonText (index + 1 < (int) steps.size() ? "Next" : "Done");
+            nextBtn.setButtonText (index + 1 < (int) steps.size() ? "Next" : "Let's go");
             resized();
             repaint();
         }
 
         void paint (juce::Graphics& g) override
         {
-            if (steps.empty())
+            const auto* st = current();
+            if (st == nullptr)
                 return;
-            auto hole = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)].target
-                            .expanded (6).getIntersection (getLocalBounds());
+            const auto accent = themePalette().knob;
+            auto hole = st->target.isEmpty() ? juce::Rectangle<int>()
+                                             : st->target.expanded (6).getIntersection (getLocalBounds());
 
+            // Schleier mit Loch
             g.saveState();
             if (! hole.isEmpty())
                 g.excludeClipRegion (hole);
-            g.setColour (juce::Colour (0xff0a0b0e).withAlpha (0.78f));
+            g.setColour (juce::Colour (0xff07080b).withAlpha (hole.isEmpty() ? 0.84f : 0.76f));
             g.fillRect (getLocalBounds());
             g.restoreState();
 
+            // Rahmen ums Loch: feine Linie in der Theme-Farbe, weicher Schein
             if (! hole.isEmpty())
             {
-                g.setColour (juce::Colour (0xff5be3c7).withAlpha (0.85f));
-                g.drawRoundedRectangle (hole.toFloat().reduced (0.5f), 8.0f, 1.6f);
+                auto hr = hole.toFloat().reduced (0.5f);
+                for (int i = 3; i >= 1; --i)
+                {
+                    g.setColour (accent.withAlpha (0.06f * (float) (4 - i)));
+                    g.drawRoundedRectangle (hr.expanded ((float) i * 2.0f), 9.0f + (float) i * 2.0f, 2.0f);
+                }
+                g.setColour (accent.withAlpha (0.9f));
+                g.drawRoundedRectangle (hr, 9.0f, 1.5f);
             }
 
+            // Karte
             auto box = cardArea.toFloat();
-            g.setColour (juce::Colour (0xff1e2128));
-            g.fillRoundedRectangle (box, 10.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.16f));
-            g.drawRoundedRectangle (box.reduced (0.5f), 10.0f, 1.0f);
+            juce::ColourGradient bg (juce::Colour (0xff1c1f27), box.getX(), box.getY(),
+                                     juce::Colour (0xff121419), box.getX(), box.getBottom(), false);
+            g.setGradientFill (bg);
+            g.fillRoundedRectangle (box, 12.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.10f));
+            g.drawRoundedRectangle (box.reduced (0.5f), 12.0f, 1.0f);
 
-            const auto& st = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)];
-            auto inner = cardArea.reduced (18, 14);
-            g.setColour (juce::Colour (0xff8f96a4));
-            g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.14f));
-            g.drawText (juce::String (index + 1) + " / " + juce::String ((int) steps.size()),
-                        inner.removeFromTop (14), juce::Justification::topRight);
-            g.setColour (juce::Colour (0xffe4e7ec));
-            g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)).withExtraKerningFactor (0.05f));
-            g.drawText (st.head, inner.removeFromTop (22), juce::Justification::topLeft);
-            inner.removeFromTop (4);
-            inner.removeFromBottom (dontShowBtn.isVisible() ? 62 : 36);
-            g.setColour (juce::Colour (0xffb5b9c2));
-            g.setFont (juce::Font (juce::FontOptions (13.0f)));
-            g.drawFittedText (st.text, inner, juce::Justification::topLeft, 5);
+            auto inner = cardArea.reduced (kPadX, kPadY);
+            // Kopfzeile: kleiner Leuchtstrich + Eyebrow links, Fortschritt rechts
+            auto top = inner.removeFromTop (kEyebrowH);
+            {
+                const int n = (int) steps.size();
+                const float d = 4.0f, gap = 7.0f;
+                float x = (float) top.getRight() - (float) n * gap + (gap - d);
+                const float y = (float) top.getCentreY() - d * 0.5f;
+                for (int i = 0; i < n; ++i, x += gap)
+                {
+                    g.setColour (i == index ? accent : juce::Colours::white.withAlpha (i < index ? 0.34f : 0.14f));
+                    g.fillEllipse (x, y, d, d);
+                }
+                top.removeFromRight (n * (int) gap + 8);
+            }
+            g.setColour (accent);
+            g.fillRoundedRectangle ((float) top.getX(), (float) top.getCentreY() - 1.0f, 16.0f, 2.0f, 1.0f);
+            top.removeFromLeft (24);
+            g.setFont (eyebrowFont());
+            g.setColour (accent.withAlpha (0.95f));
+            g.drawText (st->eyebrow.toUpperCase(), top, juce::Justification::centredLeft, true);
+
+            inner.removeFromTop (kGap1);
+            g.setFont (headFont());
+            g.setColour (juce::Colour (0xffeceef2));
+            g.drawText (st->head, inner.removeFromTop (kHeadH), juce::Justification::centredLeft, true);
+            inner.removeFromTop (kGap2);
+
+            auto tl = layoutFor (st->text, inner.getWidth());
+            tl.draw (g, inner.removeFromTop ((int) std::ceil (tl.getHeight())).toFloat());
         }
 
         void resized() override
         {
-            if (steps.empty())
+            const auto* st = current();
+            if (st == nullptr)
                 return;
-            auto target = steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)].target;
-            const int cw = 330, ch = dontShowBtn.isVisible() ? 178 : 150, pad = 14;
-            // Die Karte sitzt neben dem markierten Bereich - rechts, wenn dort
-            // Platz ist, sonst links, sonst darunter.
-            int cx = target.getRight() + pad;
-            if (cx + cw > getWidth())  cx = target.getX() - pad - cw;
-            if (cx < 0)                cx = juce::jlimit (8, juce::jmax (8, getWidth() - cw - 8), target.getCentreX() - cw / 2);
-            int cy = juce::jlimit (8, juce::jmax (8, getHeight() - ch - 8), target.getCentreY() - ch / 2);
+            const int cw = 372, pad = 16;
+            const int textH = (int) std::ceil (layoutFor (st->text, cw - 2 * kPadX).getHeight());
+            const bool dont = dontShowBtn.isVisible();
+            const int ch = kPadY + kEyebrowH + kGap1 + kHeadH + kGap2 + textH + 16
+                         + (dont ? 30 : 0) + kBtnH + kPadY;
+
+            const auto target = st->target;
+            int cx, cy;
+            if (target.isEmpty())
+            {
+                cx = (getWidth() - cw) / 2;
+                cy = (getHeight() - ch) / 2;
+            }
+            else if (target.getRight() + pad + cw <= getWidth() - 8)
+            {
+                cx = target.getRight() + pad;
+                cy = target.getCentreY() - ch / 2;
+            }
+            else if (target.getX() - pad - cw >= 8)
+            {
+                cx = target.getX() - pad - cw;
+                cy = target.getCentreY() - ch / 2;
+            }
+            else
+            {
+                cx = target.getCentreX() - cw / 2;
+                cy = (target.getBottom() + pad + ch <= getHeight() - 8) ? target.getBottom() + pad
+                                                                         : target.getY() - pad - ch;
+            }
+            cx = juce::jlimit (8, juce::jmax (8, getWidth() - cw - 8), cx);
+            cy = juce::jlimit (8, juce::jmax (8, getHeight() - ch - 8), cy);
             cardArea = { cx, cy, cw, ch };
 
-            auto inner = cardArea.reduced (18, 14);
-            auto row = inner.removeFromBottom (26);
-            const int bw = 72, gap = 8;
-            skipBtn.setBounds (row.removeFromLeft (bw));
+            auto inner = cardArea.reduced (kPadX, kPadY);
+            auto row = inner.removeFromBottom (kBtnH);
+            const int bw = 76, gap = 8;
+            skipBtn.setBounds (row.removeFromLeft (60));
             nextBtn.setBounds (row.removeFromRight (bw));
             row.removeFromRight (gap);
             backBtn.setBounds (row.removeFromRight (bw));
-            if (dontShowBtn.isVisible())
-                dontShowBtn.setBounds (inner.removeFromBottom (24).withTrimmedTop (4)
+            if (dont)
+                dontShowBtn.setBounds (inner.removeFromBottom (30).withTrimmedBottom (6)
                                              .withWidth (juce::jmin (150, inner.getWidth())));
             else
                 dontShowBtn.setBounds ({});
         }
 
     private:
+        static constexpr int kPadX = 22, kPadY = 18, kEyebrowH = 14, kGap1 = 10, kHeadH = 24, kGap2 = 6, kBtnH = 26;
         juce::Rectangle<int> cardArea;
+
+        const Step* current() const
+        {
+            if (steps.empty()) return nullptr;
+            return &steps[(size_t) juce::jlimit (0, (int) steps.size() - 1, index)];
+        }
+        static juce::Font eyebrowFont() { return juce::Font (juce::FontOptions (10.5f, juce::Font::bold)).withExtraKerningFactor (0.22f); }
+        static juce::Font headFont()    { return juce::Font (juce::FontOptions (18.0f, juce::Font::bold)).withExtraKerningFactor (0.04f); }
+        static juce::Font bodyFont()    { return juce::Font (juce::FontOptions (13.5f)); }
+        static juce::TextLayout layoutFor (const juce::String& text, int width)
+        {
+            juce::AttributedString a;
+            a.append (text, bodyFont(), juce::Colour (0xffb7bcc6));
+            a.setLineSpacing (3.0f);
+            a.setWordWrap (juce::AttributedString::byWord);
+            juce::TextLayout tl;
+            tl.createLayout (a, (float) juce::jmax (40, width));
+            return tl;
+        }
     };
 
     // Regler mit Rechtsklick-Aktion. Ein blosser MouseListener reicht nicht:
