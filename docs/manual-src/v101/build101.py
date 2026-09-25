@@ -161,7 +161,7 @@ page('''
 <div class="logo"><img src="%s"></div>
 <div class="claim"><div class="eyebrow">Stereo imaging, tuned by ear</div>
 <h1>Depth<br>without <em>reverb.</em></h1>
-<p>Six stages, one die, a real L / C / R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
+<p>Six stages, the Smart dice, a real L / C / R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
 <div class="meta"><span class="pill">Version %s</span><span class="pill b">VST3</span><span class="pill x">Low CPU</span><span class="pill x">Zero latency without LCR</span></div>
 ''' % (img('starfield'), VERSION, img('logo_a'), VERSION), cls='cover', foot=False)
 
@@ -200,14 +200,14 @@ page('''%s<h1>The one-minute <em>tour.</em></h1>
 # 5 smart ----------------------------------------------------------------------------
 prof = ''.join('<div style="display:flex;gap:3mm;padding:1.5mm 0;border-bottom:1px solid #ffffff0d"><span style="font-family:Sora;font-weight:600;font-size:7.4pt;letter-spacing:.14em;text-transform:uppercase;color:var(--gold2);width:27mm;flex:none">%s</span><span class="mut">%s</span></div>' % (e(a), e(b)) for a, b in PROFILES)
 page('''%s<h1>The Smart <em>engine.</em></h1>
-<p class="lead">Tell it what you are working on. Roll the die. Everything else is taste.</p>
+<p class="lead">Tell it what you are working on. Roll the Smart dice. Everything else is taste.</p>
 <div class="grid2" style="grid-template-columns:62mm 1fr;align-items:center">
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm"><img class="shot" src="%s"><img class="shot" src="%s"></div>
  <div><h3>Smart profile</h3>%s<p class="mut" style="margin-top:2mm;font-size:8.4pt">Click for the next one, Cmd-click for the previous one, or hit a dot to jump straight there. The line above the starfield says what the profile does.</p></div>
 </div><div class="sp"></div>
 <img class="shot" src="%s" style="width:72mm;margin-bottom:4mm">
 %s<div class="sp"></div>
-<div class="card"><h3>The die knows what is on</h3><p style="margin:0">Each face is the number of active sections - Polarity, Micropitch, Mid-Side, Autopan, Phaser, and the LCR Matrix while its engine is armed. Click it and it rolls for a moment before it lands.</p></div>
+<div class="card"><h3>The dice knows what is on</h3><p style="margin:0">Each face is the number of active sections - Polarity, Micropitch, Mid-Side, Autopan, Phaser, and the LCR Matrix while its engine is armed. Click it and it rolls for a moment before it lands.</p></div>
 <div class="sp"></div><div class="tip"><b>NOT A RANDOMISER</b>%s</div>''' % (
     eyebrow('04', 'Header'), img('profile_lead'), img('profile_backings'), prof, img('liverow'), kv(HEADER), e(SMART_NOTE)))
 
@@ -223,7 +223,7 @@ page('''%s<h1>The signal <em>path.</em></h1>
 <div class="grid2"><div><h2>On every section</h2><p class="mut">Six sections, one set of rules.</p>%s</div>
 <div><h2>Mid-side vs. L / C / R</h2><p>%s</p></div></div>
 <div class="sp2"></div><img class="shot" src="%s" style="width:148mm;margin:0 auto">
-<p class="mut" style="margin-top:3mm;font-size:8.4pt;text-align:center">Backings profile: sections the die left out go dark - you always see what the roll actually did.</p>''' % (
+<p class="mut" style="margin-top:3mm;font-size:8.4pt;text-align:center">Backings profile: sections the dice left out go dark - you always see what the roll actually did.</p>''' % (
     eyebrow('05', 'Architecture'), ''.join(ch), e(CHAIN_NOTE), kv(COMMON, True), e(MS_VS_LCR), img('full_backings')))
 
 # 7 LCR + Polarity ------------------------------------------------------------------

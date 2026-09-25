@@ -9,7 +9,7 @@ INTRO_LEAD = ("Depth, fullness and dimension - without a single millisecond of r
 INTRO = [
     "SpaceX gives a sound its own place in a mix that is already full. Wider, deeper, more "
     "three-dimensional - and still standing exactly where the song needs it.",
-    "On the surface it is six sections, one die and a handful of knobs. Underneath it listens to the "
+    "On the surface it is six sections, the Smart dice and a handful of knobs. Underneath it listens to the "
     "centre, the sides and everything in between, and keeps every move inside the range where it "
     "still sounds like a record. You get to the result fast. You do not get lost on the way.",
     "Most stereo tools are built to be safe. This one is built to be interesting - and then made "
@@ -60,15 +60,15 @@ WHERE_RULE = ("Rule of thumb: the more room already sits in front of SpaceX, the
 QUICK = [
     "Put it on a backing bus, an adlib or an effect return.",
     "Click the profile until it names your source - Lead Vocal, Backings, Adlibs or Send FX.",
-    "Hit the die. Listen. Hit it again, until something surprises you.",
+    "Hit the Smart dice. Listen. Hit it again, until something surprises you.",
     "Too much? Pull Mix down. Still too much? Click a section name to switch it off.",
     "Check Mono in the output. If it falls apart, bring Width down a little.",
 ]
 
 TOUR = [
     ("Logo", "Click it for the back panel - who built this, which copy it is."),
-    ("Smart profile", "What you are working on. Guides the die."),
-    ("Power · Die · Life · Mod", "Bypass, roll, how much it moves, modulation on / off."),
+    ("Smart profile", "What you are working on. Guides the dice."),
+    ("Power · Smart dice · Life · Mod", "Bypass, roll, how much it moves, modulation on / off."),
     ("LCR", "Arms the L / C / R engine."),
     ("Presets", "Arrows, list, save."),
     ("Undo · A / B", "Undo / Redo, compare two settings, copy across."),
@@ -80,7 +80,7 @@ TOUR = [
 ]
 
 PROFILES = [
-    ("No Profile", "The die may reach for anything."),
+    ("No Profile", "The dice may reach for anything."),
     ("Lead Vocal", "Wide, centre stays put."),
     ("Backings", "Stacks, busses and mono doubles - wide, but tidy."),
     ("Adlibs", "Space, movement, clear sides."),
@@ -89,15 +89,15 @@ PROFILES = [
 
 HEADER = [
     ("Power", "Bypass for the whole plugin. While bypassed it is the only thing that glows - and it breathes, so you never forget."),
-    ("Die", "Rolls a complete setting and decides which sections belong in it. The face shows how many sections are active."),
+    ("Smart dice", "Rolls a complete setting and decides which sections belong in it. The face shows how many sections are active."),
     ("Life", "How much everything moves. One knob for every modulation depth. At zero, nothing moves."),
     ("Mod", "All modulation off - without losing the depths. Switch it back on and it is all still there."),
     ("LCR", "Arms the L / C / R engine. Needs an analysis window, so it adds latency while it runs."),
 ]
 
-SMART_NOTE = ("This is not the randomise button other plugins have. Everything the die can reach was tuned "
+SMART_NOTE = ("This is not the randomise button other plugins have. Everything the dice can reach was tuned "
               "by ear, and whatever did not work never made it in. Sections you lock with the padlock are "
-              "left alone. While a section is soloed the die waits.")
+              "left alone. While a section is soloed the dice waits.")
 
 CHAIN = ["IN", "LCR MATRIX", "POLARITY · PRE", "MICROPITCH", "MID-SIDE + SIDES EQ",
          "POLARITY · POST", "AUTOPAN", "PHASER", "MIX · PAN · VOL", "OUT"]
@@ -109,7 +109,7 @@ COMMON = [
     ("Click the name", "section on / off. An off section goes dark."),
     ("Cmd-click the name", "solo - hear this section on its own."),
     ("Cmd + Shift-click", "reset this section to its defaults."),
-    ("Padlock", "the die leaves this section alone."),
+    ("Padlock", "the dice leaves this section alone."),
     ("Double-click a knob", "back to its default."),
 ]
 
@@ -176,7 +176,7 @@ OUT = [
     ("In / Out", "input and output level."),
     ("Mono", "listen to the result in mono."),
     ("Dry", "while in mono, compare with the unprocessed input."),
-    ("Mix", "blend original and processed. Right-click locks it against presets, A / B, Reset and the die."),
+    ("Mix", "blend original and processed. Right-click locks it against presets, A / B, Reset and the dice."),
     ("Pan", "balance at the very end."),
     ("Vol", "output, plus or minus 6 dB. Right-click locks it against presets and Reset."),
     ("AG", "auto gain - matches output to input, so bypass is an honest comparison."),
@@ -216,7 +216,7 @@ PRESETS = [
     ("Save", "name it, pick a folder - or New Folder right in the list. Open Preset Folder takes you there in Finder."),
     ("In the list", "Rename, Delete, Preset Folder - and Default, the clean start."),
     ("A / B", "two settings side by side. The arrow copies the active side to the other one."),
-    ("Undo / Redo", "works on everything, the die included."),
+    ("Undo / Redo", "works on everything, the dice included."),
     ("Reset", "back to the Default preset."),
 ]
 PRESET_NOTE = ("Factory presets are copied into Documents / SpaceX / Presets. SpaceX never overwrites a file that is "
