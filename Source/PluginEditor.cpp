@@ -4389,7 +4389,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayPairButton.getProperties().set ("softChip", true);    // Runde 108: blau = gekoppelt
     rayPairButton.getProperties().set ("hdrIcon", 2);        // Runde 110: Kettenglieder
     rayPairButton.getProperties().set ("hdrTextSize", 11.0); // Runde 161
-    rayPairButton.getProperties().set ("ctlStyle", 2);       // Runde 166: Mini-Schalter
+    rayPairButton.getProperties().set ("ctlStyle", 1);       // Runde 169 (User): LED-Punkt wie EQ -> LCR, keine Schalter
     rayPairButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
@@ -4402,7 +4402,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayFastButton.getProperties().set ("softChip", true);    // Runde 108: moderne Form
     rayFastButton.getProperties().set ("hdrIcon", 1);        // Runde 110: Doppelpfeil
     rayFastButton.getProperties().set ("hdrTextSize", 11.0); // Runde 161
-    rayFastButton.getProperties().set ("ctlStyle", 2);       // Runde 166: Mini-Schalter
+    rayFastButton.getProperties().set ("ctlStyle", 1);       // Runde 169 (User): LED-Punkt wie EQ -> LCR, keine Schalter
     rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
     content.addAndMakeVisible (rayFastButton);
     rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
