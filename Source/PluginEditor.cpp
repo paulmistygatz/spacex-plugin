@@ -1616,12 +1616,16 @@ void LCRMSAudioProcessorEditor::applyLayoutMode()
 void LCRMSAudioProcessorEditor::applyHintTexts()
 {
     auto tip = [] (juce::SettableTooltipClient& c, const juce::String& text) { c.setTooltip (text); };
-    const juce::String knob    = juce::String::fromUTF8 (" · Cmd-click or double-click: default");
-    const juce::String section = juce::String::fromUTF8 (" · Click: on/off · Cmd-click: solo · Cmd+Shift-click: reset section");
-    const juce::String cycle   = juce::String::fromUTF8 (" · Click: next · Cmd-click: previous");
+    // Runde 153 (User: "nicht mehr jeden Command, das stoert - Doppelklick =
+    // Default soll ueberall weg, das ist Basics"): Grundbedienung (Default per
+    // Doppelklick, Klick = an/aus, Klick = weiter) steht nicht mehr in der
+    // Zeile. Uebrig bleiben nur Befehle, die man nicht erraten kann.
+    const juce::String knob;
+    const juce::String section = juce::String::fromUTF8 (" · Cmd-click: solo · Cmd+Shift-click: reset section");
+    const juce::String cycle;
 
     // Kopf
-    tip (logoButton,                 "Bypass: click the logo to switch the whole plugin off and on");
+    tip (logoButton,                 "Bypass: switch the whole plugin off and on");
     tip (globalBypassButton,         "Bypass: switch the whole plugin off and on");
     tip (globalChaosButton,          "Smart: rolls a new setting. With a Smart profile it stays inside what suits that source. Paused during solo");
     tip (lifeSlider,                 "Life: how much everything moves - modulation depth for all sections. 0 = still" + knob);
@@ -1632,14 +1636,14 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (presetMenuButton,           "Settings: themes, behaviour, preset folder");
     tip (presetPrevButton,           "Previous preset");
     tip (presetNextButton,           "Next preset");
-    tip (presetNameButton,           "Presets: click to open the list");
+    tip (presetNameButton,           "Presets: open the list");
     tip (globalSaveSizeButton,       "Save: store the current setting as a preset - pick the folder in the dialog");
     tip (presetDeleteButton,         "Delete the current preset");
     tip (globalABButton,             "A/B: switch between two settings to compare");
     tip (abCopyButton,               "Copy: copy the active side to the other one");
     tip (globalResetButton,          "Reset: back to the default setting");
     tip (categoryButton,             "Smart profile: Lead Vocal, Backings, Ad-Libs, Send FX - guides the Smart dice" + cycle);
-    tip (catDots,                    "Smart profile: click a dot to pick it");
+    tip (catDots,                    "Smart profile: pick one directly");
 
     // Sektionen
     tip (lcrTitleLabel,        "LCR MATRIX: splits the image into left, centre and right" + section);
@@ -1666,15 +1670,15 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     // MICROPITCH
     tip (parallaxAmountSlider,     "Amount: how much of the style - from off to full" + knob);
     tip (parallaxModeButtons[0],   "Style: Velvet, Halo, Illusion, Double" + cycle);
-    tip (pxModeDots,               "Style: click a dot to pick it");
+    tip (pxModeDots,               "Style: pick one directly");
 
     // MID-SIDE
     tip (sideWidthSlider, "Width: how far the image reaches. Below 100 % narrower, above wider" + knob);
     tip (sideBoostSlider, "Sides: level of the sides, the centre stays as it is" + knob);
     tip (msEqButton,      "Sides EQ: Flat, Tight (cleans the lows), Clear (clean + air), Focus (calmer, brighter centre)" + cycle);
-    tip (msEqDots,        "Sides EQ: click a dot to pick it");
+    tip (msEqDots,        "Sides EQ: pick one directly");
     tip (msEqPowerButton, "EQ on/off - compare with and without, the setting stays");
-    tip (msEqAmtSlider,   juce::String::fromUTF8 ("EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off · Double-click: 50 %"));
+    tip (msEqAmtSlider,   "EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off");
 
     // AUTOPAN
     tip (movementSlider,  "Amount: how far the sound travels left and right" + knob);
@@ -1686,7 +1690,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     // PHASER
     tip (rayAmountSlider, "Amount: how strong the phaser is" + knob);
     tip (rayCharButton,   "Character: Sweep, Shimmer, Spin, Swirl" + cycle);
-    tip (rayModeDots,     "Character: click a dot to pick it");
+    tip (rayModeDots,     "Character: pick one directly");
     tip (rayFastButton,   "Fast: runs the character a bit quicker");
     tip (rayPairButton,   "Link: follow Autopan at half its speed");
 
@@ -1696,7 +1700,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (mixSlider,       juce::String::fromUTF8 ("Mix: blend between original and processed · Right-click: lock against presets, A/B, Reset and Smart") + knob);
     tip (panSlider,       "Pan: balance at the very end" + knob);
     tip (volSlider,       juce::String::fromUTF8 ("Vol: output level, plus or minus 6 dB · Right-click: lock against presets and Reset") + knob);
-    tip (autoGainButton,  "AG: auto gain - matches output to input level for a fair bypass comparison. Click: on/off");
+    tip (autoGainButton,  "AG: auto gain - matches output to input level for a fair bypass comparison");
     tip (goniometer,      juce::String::fromUTF8 ("Starfield: click to switch the scope on or off · Cmd-click centre: trace colour · Shift-click: look"));
     tip (viewGearButton,  "View: display settings for the starfield");
     tip (correlationMeter, "Correlation: right of centre is mono-safe, left of it cancels in mono");
@@ -7037,9 +7041,27 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
     // Runde 104 (User): "Infozeile unten von der Schrift genauso wie die
     // oben fuer die Smart-Profile" - dieselbe Groesse, dieselbe Farbe, kein
     // fetter Vorspann mehr.
-    g.setFont (juce::Font (juce::FontOptions (14.5f)));
-    g.setColour (juce::Colour (0xff8f96a4));
-    g.drawText (currentHint, r, juce::Justification::centredLeft, true);
+    // Runde 153 (User): steht vorne der Name des Reglers / Modus / Schalters
+    // ("Width:", "Style:", "EQ -> LCR:"), leuchtet er in der Theme-Farbe -
+    // dieselbe, in der aktive Bezeichnungen oben stehen. Der Rest bleibt grau.
+    const auto hintFont = juce::Font (juce::FontOptions (14.5f));
+    g.setFont (hintFont);
+    const int colon = currentHint.indexOf (": ");
+    if (colon > 0 && colon <= 28)
+    {
+        const auto head = currentHint.substring (0, colon);
+        const auto rest = currentHint.substring (colon);   // ab ":" im Grau
+        const float headW = juce::GlyphArrangement::getStringWidth (hintFont, head);
+        g.setColour (themePalette().knob);
+        g.drawText (head, r, juce::Justification::centredLeft, false);
+        g.setColour (juce::Colour (0xff8f96a4));
+        g.drawText (rest, r.withTrimmedLeft (headW), juce::Justification::centredLeft, true);
+    }
+    else
+    {
+        g.setColour (juce::Colour (0xff8f96a4));
+        g.drawText (currentHint, r, juce::Justification::centredLeft, true);
+    }
 }
 
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
@@ -7258,7 +7280,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 103 (User): Breathe ist weg, die Zeile heisst jetzt
         // Bypass - Wuerfel - Life - Mod. Der Wuerfel darf etwas groesser sein,
         // LIFE genauso gross wie die frueheren Mod-Regler in den Sektionen.
-        constexpr int kDiceW   = 42;
+        constexpr int kDiceW   = 48;   // Runde 153: Wuerfel so gross wie LIFE (+ Platz fuer die Umlaufbahn)
         constexpr int kLifeW   = 36;
         constexpr int kLiveW   = kIconBtnW + kGap + kDiceW + kGap + kLifeW + kGap + kIconBtnW;
         constexpr int kGalaxyGap = 12;
@@ -7332,7 +7354,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         globalBypassButton.setBounds (live.removeFromLeft (kIconBtnW));
         live.removeFromLeft (kGap);
         // Runde 55: nur noch ein Wuerfel.
-        globalChaosButton.setBounds (live.removeFromLeft (kDiceW));
+        globalChaosButton.setBounds (live.removeFromLeft (kDiceW).withSizeKeepingCentre (kDiceW, kLifeW));   // Runde 153: Hoehe wie LIFE
         globalChaosSectionsButton.setBounds ({});
         live.removeFromLeft (kGap);
         lifeSlider.setBounds (live.removeFromLeft (kLifeW).withSizeKeepingCentre (kLifeW, kLifeW));

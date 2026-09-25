@@ -68,16 +68,12 @@ public:
             // Skala in dB (Nullpunkt -48, siehe timerCallback): -24, -12, -6, 0.
             static constexpr float marks[] = { -24.0f, -12.0f, -6.0f, 0.0f };
             const float ty = zone.getBottom() - 2.0f;
-            g.setFont (juce::Font (juce::FontOptions (8.5f, juce::Font::bold)));
             for (float db : marks)
             {
                 const float x = track.getX() + track.getWidth() * (db + 48.0f) / 48.0f;
                 g.setColour (juce::Colours::white.withAlpha (0.16f));
                 g.fillRect (x - 0.5f, ty, 1.0f, 3.0f);
-                if (db == -6.0f) continue;   // zu eng neben der 0 - nur Strich
-                g.setColour (juce::Colour (0xff6d7280));
-                g.drawText (juce::String ((int) db), juce::Rectangle<float> (x - 12.0f, ty + 3.0f, 24.0f, 9.0f),
-                            juce::Justification::centred, false);
+                // Runde 153 (User): keine Zahlen - nur die feinen Striche.
             }
         }
     }
