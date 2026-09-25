@@ -1615,9 +1615,9 @@ void LCRMSAudioProcessorEditor::applyLayoutMode()
 void LCRMSAudioProcessorEditor::applyHintTexts()
 {
     auto tip = [] (juce::SettableTooltipClient& c, const juce::String& text) { c.setTooltip (text); };
-    const juce::String knob    = " · Cmd-click or double-click: default";
-    const juce::String section = " · Click: on/off · Cmd-click: solo · Cmd+Shift-click: reset section";
-    const juce::String cycle   = " · Click: next · Cmd-click: previous";
+    const juce::String knob    = juce::String::fromUTF8 (" · Cmd-click or double-click: default");
+    const juce::String section = juce::String::fromUTF8 (" · Click: on/off · Cmd-click: solo · Cmd+Shift-click: reset section");
+    const juce::String cycle   = juce::String::fromUTF8 (" · Click: next · Cmd-click: previous");
 
     // Kopf
     tip (logoButton,                 "Bypass: click the logo to switch the whole plugin off and on");
@@ -1657,8 +1657,8 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (lcrEqButton,   juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR: the Sides EQ works on centre and sides of the LCR Matrix instead of mid and side"));
 
     // POLARITY
-    tip (polLButton,     "L: flip the phase of the left channel · Cmd-click: only left");
-    tip (polRButton,     "R: flip the phase of the right channel · Cmd-click: only right");
+    tip (polLButton,     juce::String::fromUTF8 ("L: flip the phase of the left channel · Cmd-click: only left"));
+    tip (polRButton,     juce::String::fromUTF8 ("R: flip the phase of the right channel · Cmd-click: only right"));
     tip (polLinkButton,  "Link: switch L and R together");
     tip (polPos2Button,  "PRE/POST: flip before or after Micropitch and Mid-Side");
 
@@ -1673,7 +1673,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (msEqButton,      "Sides EQ: Flat, Tight (cleans the lows), Clear (clean + air), Focus (calmer, brighter centre)" + cycle);
     tip (msEqDots,        "Sides EQ: click a dot to pick it");
     tip (msEqPowerButton, "EQ on/off - compare with and without, the setting stays");
-    tip (msEqAmtSlider,   "EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off · Double-click: 50 %");
+    tip (msEqAmtSlider,   juce::String::fromUTF8 ("EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off · Double-click: 50 %"));
 
     // AUTOPAN
     tip (movementSlider,  "Amount: how far the sound travels left and right" + knob);
@@ -1692,11 +1692,11 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     // Fuss
     tip (monoCheckButton, "Mono: listen to the result in mono");
     tip (monoDryButton,   "Dry: while in mono, compare with the unprocessed input");
-    tip (mixSlider,       "Mix: blend between original and processed · Right-click: lock against presets, A/B, Reset and Smart" + knob);
+    tip (mixSlider,       juce::String::fromUTF8 ("Mix: blend between original and processed · Right-click: lock against presets, A/B, Reset and Smart") + knob);
     tip (panSlider,       "Pan: balance at the very end" + knob);
-    tip (volSlider,       "Vol: output level, plus or minus 6 dB · Right-click: lock against presets and Reset" + knob);
+    tip (volSlider,       juce::String::fromUTF8 ("Vol: output level, plus or minus 6 dB · Right-click: lock against presets and Reset") + knob);
     tip (autoGainButton,  "AG: auto gain - matches output to input level for a fair bypass comparison. Click: on/off");
-    tip (goniometer,      "Starfield: click to switch the scope on or off · Cmd-click centre: trace colour · Shift-click: look");
+    tip (goniometer,      juce::String::fromUTF8 ("Starfield: click to switch the scope on or off · Cmd-click centre: trace colour · Shift-click: look"));
     tip (viewGearButton,  "View: display settings for the starfield");
     tip (correlationMeter, "Correlation: right of centre is mono-safe, left of it cancels in mono");
     tip (helpButton,      "Help: show a short explanation for whatever the mouse is over");
