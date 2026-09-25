@@ -164,7 +164,7 @@ page('''
 <h1>Depth<br>without <em>reverb.</em></h1>
 <p>Six stages, the Smart dice, a real L / C / R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
 <div class="cpil">%s</div>
-<div class="meta"><span class="pill">Version %s</span><span class="pill b">VST3</span></div>
+<div class="meta"><span class="pill">Version %s</span></div>
 ''' % (jpg('cover_bg'), VERSION, img('logo_a'),
        ''.join('<div><i></i><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in COVER_PILLARS), VERSION), cls='cover', foot=False)
 
