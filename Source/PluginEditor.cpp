@@ -263,6 +263,9 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
     suppressGalaxyAutoArm = true;
     struct Unsuppress { bool& f; ~Unsuppress() { f = false; } } unsuppress { suppressGalaxyAutoArm };
     globalChaosButton.getProperties().set ("mutateColorState", rng.nextInt (16));
+    // Runde 164 (User): der Wuerfel "rollt" kurz sichtbar (auch wenn am Ende
+    // dieselbe Zahl steht) und landet auf der Zahl der aktiven Sektionen.
+    dieRollUntilMs = juce::Time::getMillisecondCounterHiRes() + 420.0;
     globalChaosSectionsButton.getProperties().set ("mutateColorState", rng.nextInt (16));
 
     processor.chaosTriggerRequested.store (true);
@@ -5204,6 +5207,27 @@ juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
 
 void LCRMSAudioProcessorEditor::timerCallback()
 {
+    // Runde 164 (User: "6 Sektionen, 6 Augen"): der Wuerfel zeigt, wie viele
+    // Sektionen gerade an sind (LCR zaehlt nur mit laufender Engine). Nach
+    // einem Klick rollt er ~0,4 s durch zufaellige Augen und landet dann dort.
+    {
+        auto on = [this] (const char* id) { return processor.apvts.getRawParameterValue (id)->load() > 0.5f; };
+        int face = (on (LCRMSAudioProcessor::ID_LCR_ENABLED) && on (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE) ? 1 : 0)
+                 + (on (LCRMSAudioProcessor::ID_POL_ON) ? 1 : 0) + (on (LCRMSAudioProcessor::ID_DRIFT_ON) ? 1 : 0)
+                 + (on (LCRMSAudioProcessor::ID_WIDTHBOOST_ON) ? 1 : 0) + (on (LCRMSAudioProcessor::ID_FLOW_ON) ? 1 : 0)
+                 + (on (LCRMSAudioProcessor::ID_RAY_ON) ? 1 : 0);
+        if (juce::Time::getMillisecondCounterHiRes() < dieRollUntilMs)
+        {
+            face = 1 + juce::Random::getSystemRandom().nextInt (6);
+            if (face == dieShownFace) face = face % 6 + 1;
+        }
+        if (face != dieShownFace)
+        {
+            dieShownFace = face;
+            globalChaosButton.getProperties().set ("dieFace", face);
+            globalChaosButton.repaint();
+        }
+    }
     // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
     if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
         content.repaint (profileStarsArea);

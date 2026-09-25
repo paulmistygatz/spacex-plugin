@@ -3364,8 +3364,10 @@ public:
         g.setColour (col);
         g.drawRoundedRectangle (die.reduced (stroke * 0.5f), corner, stroke);
 
-        // Augen: 3x3-Raster, Augenzahl 1..6 wechselt mit jedem Wurf.
-        const int face = ((colorState % 6) + 6) % 6 + 1;
+        // Augen: 3x3-Raster. Runde 164: die Augenzahl = aktive Sektionen
+        // (0..6), gesetzt vom Editor ("dieFace"), beim Wurf kurz rollend.
+        juce::ignoreUnused (colorState);
+        const int face = juce::jlimit (0, 6, (int) button.getProperties().getWithDefault ("dieFace", 6));
         static constexpr int kFaces[7][9] = {
             {0,0,0, 0,0,0, 0,0,0},
             {0,0,0, 0,1,0, 0,0,0},   // 1

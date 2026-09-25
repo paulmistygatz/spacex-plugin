@@ -2438,6 +2438,8 @@ private:
     juce::TextButton autoGainButton;        // Runde 110: Soft-Chip im Footer (Wert / OFF)
     juce::Label      autoGainLabel;
     // Runde 150: Footer-Gruppen - x der beiden Trennlinien und ihre Hoehe.
+    double dieRollUntilMs = 0.0;   // Runde 164: Wuerfel rollt bis hierhin
+    int    dieShownFace   = -1;
     int footerSepX[2] { 0, 0 };
     int footerSepTop = 0, footerSepBottom = 0;
     juce::Rectangle<int> hintBarArea;       // Textbereich rechts daneben
