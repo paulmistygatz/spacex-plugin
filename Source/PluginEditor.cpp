@@ -6728,6 +6728,12 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
         lookAndFeel.glowAccent = pal.mod;    // Mod-Punkte / aktive Knoepfe
     }
     goniometer.setUiTheme (uiThemeIndex);
+    // Runde 138 (User-Bug): das Smart-Profil behielt nach dem Theme-Wechsel
+    // die alte Farbe, bis man es umschaltete - Farbe hier gleich mitziehen.
+    categoryButton.getProperties().set ("pillColour",
+        (int) (mutateCategoryValue > 0 ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
+    categoryButton.repaint();
+    catDots.repaint();
     prismOnButton.getProperties().set ("powerColour", (int) (isComicTheme() ? 0xff8a6ab8u : themePalette().prism.getARGB()));
     mixSlider.getProperties().set ("footerKnob", true);
     volSlider.getProperties().set ("footerKnob", true);
