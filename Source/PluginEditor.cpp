@@ -3948,24 +3948,29 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
     polRAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_R, polRButton);
     // Runde 126 (User): Cmd-Klick auf L oder R schaltet exklusiv - nur diese
-    // Seite an, die andere aus (wie Solo). Der normale Klick hat schon
-    // umgeschaltet; danach wird der Endzustand gesetzt.
-    auto exclusivePol = [this] (bool leftSide)
+    // Seite an, die andere aus (wie Solo).
+    // Runde 142 (User-Bug: "wechselt hin und her"): vorher schaltete der Klick
+    // erst um und danach wurde korrigiert - sicht- und hoerbar ein kurzes Hin
+    // und Her. Jetzt schaltet der Knopf nicht mehr selbst um; onClick setzt
+    // den Endzustand direkt, die Attachments ziehen die Anzeige nach.
+    polLButton.setClickingTogglesState (false);
+    polRButton.setClickingTogglesState (false);
+    auto clickPol = [this] (bool leftSide)
     {
-        if (! juce::ModifierKeys::currentModifiers.isCommandDown()) return;
-        juce::Component::SafePointer<LCRMSAudioProcessorEditor> safe (this);
-        juce::MessageManager::callAsync ([safe, leftSide]
+        auto* pl = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
+        auto* pr = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
+        if (pl == nullptr || pr == nullptr) return;
+        if (juce::ModifierKeys::currentModifiers.isCommandDown())
         {
-            if (safe == nullptr) return;
-            auto* pl = safe->processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
-            auto* pr = safe->processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
-            if (pl == nullptr || pr == nullptr) return;
             pl->setValueNotifyingHost (leftSide ? 1.0f : 0.0f);
             pr->setValueNotifyingHost (leftSide ? 0.0f : 1.0f);
-        });
+            return;
+        }
+        auto* p = leftSide ? pl : pr;
+        p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f);
     };
-    polLButton.onClick = [exclusivePol] { exclusivePol (true); };
-    polRButton.onClick = [exclusivePol] { exclusivePol (false); };
+    polLButton.onClick = [clickPol] { clickPol (true); };
+    polRButton.onClick = [clickPol] { clickPol (false); };
 
     // Link-Button: keine eigene Parameter-Bindung (reine Aktion) - schaltet
     // L UND R gemeinsam um. Logik (User-Feedback): ist aktuell KEINER von
