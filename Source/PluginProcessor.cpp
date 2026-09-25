@@ -954,7 +954,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rayCoefValid = false; rayCoefCountdown = 0;
     offsetPanCachePos = -9.0f;
     rayLifeSmoothed.reset (sampleRate, knobRampSeconds);
-    rayLifeSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
+    rayLifeSmoothed.setCurrentAndTargetValue (1.0f);   // Runde 131: siehe processBlock
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     rayPhase = 0.0;
@@ -1219,6 +1219,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // alle 4) zugehoerigen Parameter der Sektion gleichzeitig.
     // LIFE skaliert alle Tiefen gemeinsam (Runde 37).
     const float life01 = juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f);
+    // Runde 131: fester Ausschlag fuer die neu modulierten Regler (HF Regain,
+    // Phaser Amount) in Prozentpunkten bei LIFE 100 %.
+    constexpr float kLifeModPct = 20.0f;
     // Runde 85: Life wird jetzt NACH der Kurve eingerechnet. Vorher lief es
     // davor - mit dem neuen Mindestwert in der Kurve wuerde Life auf null
     // sonst trotzdem 6 % Modulation stehen lassen.
@@ -1257,7 +1260,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     {
         const int pxMode = juce::jlimit (0, kParallaxModes - 1, (int) std::round (pParallaxMode->load()));
         float pxAmt = juce::jlimit (0.0f, 1.0f, pParallaxAmount->load() * 0.01f);
-        if (pTimewarpMod->load() > 0.5f && ! globalModBypass && pxAmt > 0.001f && timewarpDepthFrac > 0.001f)
+        // Runde 131: Micropitch wird nie moduliert (Runde 109) - auch Amount nicht.
+        if (timewarpModOn && pTimewarpMod->load() > 0.5f && ! globalModBypass && pxAmt > 0.001f && timewarpDepthFrac > 0.001f)
             pxAmt = juce::jlimit (0.0f, 1.0f, pxAmt + timewarpSine * pxAmt * timewarpDepthFrac);
         currentParallaxAmountLive.store (pxAmt * 100.0f, std::memory_order_relaxed);
         const auto pt = evalParallaxMode (pxMode, pxAmt);
@@ -1589,12 +1593,23 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     posOnGain.setTargetValue        ((pPosOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_POSITION))   ? 1.0f : 0.0f);
     rayOnGain.setTargetValue        ((pRayOn->load()        > 0.5f && (! soloActive || soloSection == SOLO_RAY))        ? 1.0f : 0.0f);
    #if SPACEX_RAYE_UI == 1
-    rayDepthSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pRayAmount->load() * 0.01f));   // Amount stufenlos
+    {
+        // Runde 131 (User): Phaser Amount moduliert (+-20 % x LIFE). Auf 0
+        // bleibt der Phaser aus.
+        const float amtBase = pRayAmount->load();
+        float amt = amtBase;
+        if (! globalModBypass && amtBase > 0.05f && life01 > 0.0f)
+            amt = juce::jlimit (0.0f, 100.0f, amtBase + positionSine * kLifeModPct * life01);
+        currentRayAmountLive.store (amt, std::memory_order_relaxed);
+        rayDepthSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, amt * 0.01f));   // Amount stufenlos
+    }
    #else
     rayDepthSmoothed.setTargetValue (rayStrengthToDepth (pRayStrength->load()));
    #endif
-    // LIFE regelt auch RAYE (User, Runde 39): 0 % = alles steht still.
-    rayLifeSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
+    // Runde 131: LIFE schaltet den Phaser nicht mehr stumm (sonst waere er
+    // bei LIFE-Default 0 gar nicht zu hoeren) - LIFE moduliert jetzt sein
+    // Amount, wie bei den anderen Reglern.
+    rayLifeSmoothed.setTargetValue (1.0f);
     // Mono-Check ist ein reines Monitoring-Utility, kein Solo-Ziel.
     monoCheckGain.setTargetValue    (pMonoCheck->load() > 0.5f ? 1.0f : 0.0f);
     // A/B-Dry-Vergleich: nur relevant, waehrend Mono-Check selbst aktiv ist
@@ -1779,7 +1794,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     {
         // >= 19990 heisst "aus": weit ueber Nyquist schicken, damit auch die
         // weiche Flanke der Maske komplett oberhalb des Hoerbaren liegt.
-        const float air = pHorizon->load();   // 0..100 %, siehe AIR
+        // Runde 131 (User): HF Regain moduliert - fester Ausschlag +-20 %,
+        // LIFE skaliert ihn. Auf 0 (aus) bleibt es aus, sonst wuerde die
+        // Funktion alle paar Sekunden von selbst angehen.
+        const float airBase = pHorizon->load();   // 0..100 %, siehe AIR
+        float air = airBase;
+        if (! globalModBypass && airBase >= 0.5f && life01 > 0.0f)
+            air = juce::jlimit (0.5f, 100.0f, airBase + galaxySine * kLifeModPct * life01);
+        currentRegainLivePercent.store (air, std::memory_order_relaxed);
         lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f,
                                          air < 0.5f ? 96000.0f
                                                     : 20000.0f * std::pow (0.025f, air * 0.01f));

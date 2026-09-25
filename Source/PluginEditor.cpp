@@ -5405,11 +5405,16 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // den Reglern weiter "aktiv" anzeigen, obwohl die Modulation gerade
         // komplett stummgeschaltet ist (siehe DSP: ID_GLOBAL_MOD_BYPASS).
         const bool globalModBypassRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS)->load() > 0.5f;
-        const bool timewarpModOnRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_TIMEWARP_MOD)->load()   > 0.5f && ! globalModBypassRaw;
-        const bool dimensionModOnRaw  = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_DIMENSION_MOD)->load()  > 0.5f && ! globalModBypassRaw;
-        const bool hyperdriveModOnRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_HYPERDRIVE_MOD)->load() > 0.5f && ! globalModBypassRaw;
-        const bool galaxyModOnRaw     = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_MOD)->load()     > 0.5f && ! globalModBypassRaw;
-        const bool positionModOnRaw   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_POSITION_MOD)->load()   > 0.5f && ! globalModBypassRaw;
+        // Runde 131 (User-Bug: "ohne Wuerfeln keine Mod-Punkte"): die alten
+        // Mod-Schalter je Sektion gibt es seit Runde 101 nicht mehr - der DSP
+        // haengt nur am globalen Mod-Schalter, die Punkte hingen aber noch an
+        // den alten Parametern, die erst der Wuerfel setzte. Jetzt genau wie
+        // im DSP. Micropitch wird nie moduliert.
+        const bool timewarpModOnRaw   = false;
+        const bool dimensionModOnRaw  = ! globalModBypassRaw;
+        const bool hyperdriveModOnRaw = ! globalModBypassRaw;
+        const bool galaxyModOnRaw     = ! globalModBypassRaw;
+        const bool positionModOnRaw   = ! globalModBypassRaw;
         const bool syncOnRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_SPEED_SYNC)->load() > 0.5f;
 
         const float driftPctRaw  = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_DRIFT)->load();
@@ -5464,6 +5469,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
         juce::ignoreUnused (blendPctRaw);
         applyLive (orbitSlider, isLcrOn && galaxyModOnRaw,
                    processor.currentOrbitLivePercent.load (std::memory_order_relaxed));
+        // Runde 131: HF Regain und Phaser Amount werden jetzt auch moduliert.
+        {
+            const float regainRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_HORIZON)->load();
+            applyLive (horizonSlider, isLcrOn && galaxyModOnRaw && regainRaw >= 0.5f,
+                       processor.currentRegainLivePercent.load (std::memory_order_relaxed));
+            const float rayAmtRaw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_AMOUNT)->load();
+            applyLive (rayAmountSlider, isRayOn && ! globalModBypassRaw && rayAmtRaw > 0.05f,
+                       processor.currentRayAmountLive.load (std::memory_order_relaxed));
+        }
         applyLive (offsetSlider, isPosOn && positionModOnRaw && std::abs (offsetPctRaw) > 0.05f,
                    processor.currentOffsetLivePercent.load (std::memory_order_relaxed));
         applyLive (posWidthSlider, isPosOn && positionModOnRaw && std::abs (posWidthPctRaw - 100.0f) > 0.05f,

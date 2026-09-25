@@ -175,6 +175,8 @@ public:
     // gleiches Live-Anzeige-Prinzip wie oben.
     std::atomic<float> currentGravityLivePercent { 50.0f };
     std::atomic<float> currentOrbitLivePercent { 0.0f };
+    std::atomic<float> currentRegainLivePercent { 0.0f };   // Runde 131: HF Regain moduliert
+    std::atomic<float> currentRayAmountLive     { 0.0f };   // Runde 131: Phaser Amount moduliert
     std::atomic<float> currentOffsetLivePercent { 0.0f };
     std::atomic<float> currentPosWidthLivePercent { 100.0f };
     std::atomic<float> currentDistanceLivePercent { 0.0f };
