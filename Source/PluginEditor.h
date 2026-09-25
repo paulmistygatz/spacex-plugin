@@ -2345,7 +2345,7 @@ private:
     void applyAdvancedModVisibility();
     // Menue-Option, siehe showPresetMenu(): Solo bleibt stehen, auch wenn die
     // solierte Sektion ausgeschaltet wird.
-    bool keepSoloWhenSectionOff = true;
+    bool keepSoloWhenSectionOff = false;   // Runde 116: fest aus
 
     // Fasst goniometer.setGoniometerActive()/setSpaceVisualsEnabled() an
     // einer Stelle zusammen - beide haengen von den beiden Hamburger-Menue-

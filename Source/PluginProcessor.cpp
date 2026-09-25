@@ -1905,10 +1905,12 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             const float wg = lcrWetGain.getNextValue();
             // Runde 115 (User): "EQ -> LCR". Mitten-Band auf den Center,
             // Seiten-Baender auf die Aussenanteile - vor dem Zurueckmischen.
-            // Haengt wie der EQ selbst am Schalter von MID-SIDE (wbGain).
+            // Runde 116 (User, "analog zu Phaser und Autopan"): sitzt der EQ in
+            // LCR, wirkt er dort auch, wenn MID-SIDE aus oder weggesolot ist -
+            // wie LINK beim Phaser das Autopan-Tempo weiter benutzt.
             if (msEqLcrRun)
             {
-                const float k = eqMv * wbGain;
+                const float k = eqMv;
                 const float cEq = msEqLcrC.process (center, msEqMidHsC);
                 const float lEq = msEqLcrLHs.process (msEqLcrLLs.process (lOnly, msEqSideLsC), msEqSideHsC);
                 const float rEq = msEqLcrRHs.process (msEqLcrRLs.process (rOnly, msEqSideLsC), msEqSideHsC);

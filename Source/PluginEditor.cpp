@@ -2142,8 +2142,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     writeProps.setValue ("showFocusHz", false);
                     prismBand.setShowHz (false);
                     writeProps.setValue ("galaxyActivateDefault", false);
-                    writeProps.setValue ("keepSoloWhenSectionOff", true);
-                    keepSoloWhenSectionOff = true;
+                    writeProps.setValue ("keepSoloWhenSectionOff", false);
+                    keepSoloWhenSectionOff = false;
                     modulationVisualsEnabled = true;
                     showMutateCategories = true;
                     writeProps.setValue ("technicalLabels", true);
@@ -4543,7 +4543,10 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
                         safe->startTour (true);
                 });
         }
-        keepSoloWhenSectionOff = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("keepSoloWhenSectionOff", true);
+        // Runde 116 (User-Bug: "Solo, Klick auf den Namen -> alle Sektionen
+        // aus"): die Option ist nicht mehr im Menue, stand aber auf "an".
+        // Jetzt fest aus - schaltet man die solierte Sektion aus, endet Solo.
+        keepSoloWhenSectionOff = false;
     }
     viewGearButton.onClick = [this]
     {
@@ -4880,6 +4883,11 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // solange RAYE laeuft und gekoppelt ist (siehe Block weiter unten).
     const bool rayPairedForHyper = isRayOn
         && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_RAY_PAIR)->load() > 0.5f;
+    // Runde 116 (User): dasselbe fuer "EQ -> LCR" - EQ-Feld, Punkte und x2 in
+    // MID-SIDE bleiben aktiv gezeichnet, solange LCR laeuft (auch Solo) und
+    // der EQ dort sitzt.
+    const bool eqInLcrLive = isLcrOn
+        && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_LCR)->load() > 0.5f;
 
     // Logo-Klick-Bypass: ALLE Regler bekommen zusaetzlich zum grauen
     // Overlay (siehe paintContent) exakt dieselbe graue "Aus"-Farbgebung wie
@@ -4954,12 +4962,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // gibt. Width und Elevate sind unsichtbar, ihre Zeilen koennen weg.
     setSectionOff (offsetSlider, isDriftOn);
     setSectionOff (distanceSlider, isWidthBoostOn);
-    setSectionOff (msEqButton,   isWidthBoostOn);
-    setSectionOff (msEqX2Button, isWidthBoostOn);
-    // Runde 115: EQ -> LCR tut nur etwas, wenn LCR UND Mid-Side laufen.
-    setSectionOff (lcrEqButton, isLcrOn && isWidthBoostOn);
+    setSectionOff (msEqButton,   isWidthBoostOn || eqInLcrLive);
+    setSectionOff (msEqX2Button, isWidthBoostOn || eqInLcrLive);
+    // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
+    setSectionOff (lcrEqButton, isLcrOn);
     {
-        const bool eqMoved = isLcrOn && isWidthBoostOn && lcrEqButton.getToggleState();
+        const bool eqMoved = eqInLcrLive;
         if ((bool) lcrEqButton.getProperties().getWithDefault ("pairedGold", false) != eqMoved)
         {
             lcrEqButton.getProperties().set ("pairedGold", eqMoved);
@@ -4974,7 +4982,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         if (msEqDots.paired != eqMoved) { msEqDots.paired = eqMoved; msEqDots.repaint(); }
     }
     {
-        const bool dotsOff = uiBypassed || ! isWidthBoostOn;
+        const bool dotsOff = uiBypassed || ! (isWidthBoostOn || eqInLcrLive);
         if (msEqDots.off != dotsOff) { msEqDots.off = dotsOff; msEqDots.repaint(); }
     }
     setSectionOff (rayStrengthButton, isRayOn);
@@ -5343,7 +5351,9 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 65 (User): reines Weiss war der einzige Punkt in der Oberflaeche,
     // der so hart leuchtete - jetzt derselbe Ton wie "Vol" und die anderen
     // Beschriftungen.
+    // Runde 116 (User): Sektion aus -> dieselbe Aus-Farbe wie alle anderen.
     speedBox.setColour (juce::ComboBox::textColourId,
+                         ! (isFlowOn || rayPairedForHyper) ? labelOffColour() :
                          isSyncOn ? themePalette().frameRaye.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
                                   : juce::Colour (0xff6a6e78));
 

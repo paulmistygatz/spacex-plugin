@@ -1864,9 +1864,13 @@ public:
     // fuer Icon und Schrift eines Icon-Schalters.
     static juce::Colour iconToggleColour (juce::Colour acc, bool lit, bool secOff, bool hot)
     {
-        return secOff ? (lit ? acc.withAlpha (0.45f) : iconOffColour().withAlpha (0.35f))
+        // Runde 116 (User): Sektion aus -> dieselbe Farbe wie VELVET/FLAT und
+        // die Regler-Namen (labelOffColour), nicht mehr gedimmtes Gold.
+        // Sektion an, Schalter aus: deutlich lesbarer als vorher ("zu dunkel,
+        // mit Box sah man es besser") - der neutrale Ton der Soft-Chips.
+        return secOff ? (lit ? labelOffColour() : labelOffColour().withAlpha (0.60f))
              : lit    ? acc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.30f)
-                      : iconOffColour().withAlpha (hot ? 0.85f : 0.55f);
+                      : (hot ? juce::Colour (0xffc3c8d2) : juce::Colour (0xff8f96a4));
     }
 
     static juce::Font phaseFont()
