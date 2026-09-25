@@ -3338,10 +3338,26 @@ void LCRMSAudioProcessorEditor::loadPreset (const juce::String& name)
 
 void LCRMSAudioProcessorEditor::stepPreset (int direction)
 {
-    const auto names = getPresetNames();
+    // Runde 163 (User: "Presets klicken - soll im Ordner bleiben"): die
+    // Pfeile blaettern nur im Ordner des geladenen Presets und springen am
+    // Ende wieder an den Anfang. Ohne Ordner (Default, lose Presets) nur
+    // durch diese.
+    const auto all = getPresetNames();
+    const auto curKey = resolvePresetKey (currentPresetName);
+    const auto folderOf = [] (const juce::String& k)
+    {
+        return k.containsChar ('/') ? k.upToFirstOccurrenceOf ("/", false, false) : juce::String();
+    };
+    const auto curFolder = folderOf (curKey);
+    juce::StringArray names;
+    for (const auto& n : all)
+        if (folderOf (n) == curFolder)
+            names.add (n);
+    if (names.isEmpty())
+        names = all;
     if (names.isEmpty())
         return;
-    int index = names.indexOf (resolvePresetKey (currentPresetName), true);
+    int index = names.indexOf (curKey, true);
     if (index < 0)
         index = (direction > 0) ? -1 : 0;
 
