@@ -3316,24 +3316,13 @@ public:
 
         if (button.getProperties().getWithDefault ("categoryArmed", false))
         {
-            // Runde 150 (User: "kann man das noch optimieren?"): statt eines
-            // goldenen Flecks hinter blau/goldenen Feldern (wirkte truebe)
-            // leuchtet jetzt jedes Feld in SEINER Farbe, dazu ein leiser Hof
-            // in der Profilfarbe. Alles atmet langsam (4 s) - "scharf
-            // geschaltet", ohne zu blinken. Der Editor-Timer zeichnet neu.
-            const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
-            const float breath = 0.5f + 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * t / 4.0);
+            // Runde 139 (User: "muss staerker glowen, war mal mehr"): kraeftiger
+            // Hof plus ein enger heller Kern, in der Farbe des Smart-Profils.
+            // (Runde 150 hatte Einzel-Glows + Atmen - User: "nicht besser", zurueck.)
             const auto lb = button.getLocalBounds().toFloat();
             const float rr = juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f;
-            softIconGlow (g, lb.getCentre(), rr, themePalette().knob, 1.0f + 0.7f * breath);
-            for (int bit = 0; bit < 4; ++bit)
-            {
-                const int row = bit / 2, col = bit % 2;
-                const bool purple = ((colorState >> bit) & 1) != 0;
-                const juce::Point<float> c (x0 + (float) col * (cell + gap) + cell * 0.5f,
-                                            y0 + (float) row * (cell + gap) + cell * 0.5f);
-                softIconGlow (g, c, cell * 1.15f, purple ? glowAccent : accent, 1.0f + 0.6f * breath);
-            }
+            softIconGlow (g, lb.getCentre(), rr,         themePalette().knob, 2.2f);
+            softIconGlow (g, lb.getCentre(), rr * 0.62f, themePalette().knob, 1.4f);
         }
 
         for (int row = 0; row < 2; ++row)

@@ -5144,9 +5144,6 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
     if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
         content.repaint (profileStarsArea);
-    // Runde 150: der Wuerfel atmet, solange ein Smart-Profil gewaehlt ist.
-    if (mutateCategoryValue > 0 && globalChaosButton.isShowing())
-        globalChaosButton.repaint();
     updateFooterValueLabels();
     updateHintBar();
     bool needsRepaint = false;
@@ -7450,8 +7447,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int hintH = 22;
         auto strip = area.removeFromBottom (hintH);
         area.removeFromBottom (6);
-        // Runde 150: das "?" sitzt jetzt vorne in der Footer-Reihe; die
-        // Hinweiszeile bekommt die ganze Breite.
+        // Runde 151 (User): das "?" bleibt hier unten links vor der Hinweiszeile.
+        helpButton.setBounds (strip.removeFromLeft (hintH));
+        strip.removeFromLeft (8);
         hintBarArea = strip;
         // Auto-Gain-Anzeige rechts in derselben Zeile, samt Klickflaeche.
         {
@@ -7633,18 +7631,30 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Die Reihe fuellt die ganze Breite: feste Abstaende in den Gruppen,
         // die Luft an den Trennlinien waechst mit, der Rest geht an die Meter.
         const int rowRight = controlRow.getRight();
-        constexpr int kGap  = 20;            // innerhalb einer Gruppe
-        constexpr int kAgW = 44, kAgH = 22;
-        constexpr int kHelpS = 22;           // "?" rueckt in die Reihe
+        // Runde 151 (User: "footer kaputt"): die Reihe ist nur ~380 px breit -
+        // mit grosszuegigen Abstaenden blieb fuer die Meter nichts uebrig und
+        // sie liefen in Mono hinein. Jetzt wird gerechnet: erst die Mindest-
+        // Abstaende, die Meter bekommen mindestens 70 px, was dann noch frei
+        // ist, verteilt sich auf Abstaende und Meter.
+        constexpr int kAgW = 36, kAgH = 22;
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
-
-        const int groupA = iconSize * 2 + kGap;                   // Mono, Dry
-        const int groupB = iconSize * 3 + kAgW + kGap * 3;        // Mix, Pan, Vol, AG
-        const int meterLabelW = 30;
-        const int meterIdeal  = 150;
-        const int freeForPads = controlRow.getWidth() - (kHelpS + 12) - meterLabelW - meterIdeal - groupA - groupB;
-        const int pad = juce::jlimit (14, 34, freeForPads / 4);  // Luft links+rechts je Trennlinie
+        const int meterLabelW = 26;
+        const int helpBlock   = 0;   // Runde 151 (User): das "?" gehoert NICHT in den Footer
+        const int iconsW      = iconSize * 5 + kAgW;
+        int kGap = 12, pad = 9;
+        {
+            const int fixedMin = helpBlock + meterLabelW + iconsW + kGap * 4 + pad * 4;
+            int spare = controlRow.getWidth() - fixedMin - 70;          // 70 = Mindestbreite Meter
+            if (spare > 0)
+            {
+                const int addPad = juce::jmin (spare / 3 / 4, 10);        // ein Drittel in die Trennlinien
+                pad  += addPad;  spare -= addPad * 4;
+                const int addGap = juce::jmin (spare / 3 / 4, 6);         // etwas in die Gruppen
+                kGap += addGap;  spare -= addGap * 4;
+            }
+        }
+        juce::ignoreUnused (kAgH);
 
         juce::Component* elems[6]  = { &monoCheckButton, &monoDryButton, &mixSlider, &panSlider, &volSlider, &autoGainButton };
         juce::Label*     labels[6] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &panLabel,  &volLabel,  &autoGainLabel  };
@@ -7662,7 +7672,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
                 elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
             else
                 elems[i]->setBounds (x, blockTop, iconSize, iconSize);
-            labels[i]->setBounds (x - 12, blockTop + iconSize + labelGap, w + 24, labelH);
+            labels[i]->setBounds (x - kGap / 2, blockTop + iconSize + labelGap, w + kGap, labelH);
             right = x - kGap;
             if (i == 2)                       // zwischen Mix und Dry: Trennlinie
             {
@@ -7675,22 +7685,19 @@ void LCRMSAudioProcessorEditor::layoutContent()
         footerSepTop  = blockTop - 2;
         footerSepBottom = blockTop + blockH + 2;
 
-        // "?" ganz links, mittig zur Reihe.
-        helpButton.setBounds (rowLeft, blockTop + iconSize / 2 - kHelpS / 2, kHelpS, kHelpS);
-
         // Meter-Block: IN oben, OUT darunter, unter OUT eine feine dB-Skala.
         {
             const int meterRowH  = 14;
             const int meterVGap  = 3;
             const int scaleH     = 11;
-            const int meterLeft  = rowLeft + kHelpS + 12;
+            const int meterLeft  = rowLeft + helpBlock;
             const int meterRight = footerSepX[0] - pad;
             const int stackH = meterRowH * 2 + meterVGap + scaleH;
             // Die beiden Balken stehen mittig zu den Icons, die Skala haengt
             // darunter auf Hoehe der Beschriftungen (Mono, Mix, ...).
             const int barsH = meterRowH * 2 + meterVGap;
             auto stack = juce::Rectangle<int> (meterLeft, blockTop + iconSize / 2 - barsH / 2,
-                                               juce::jmax (60, meterRight - meterLeft), stackH);
+                                               juce::jmax (30, meterRight - meterLeft), stackH);
 
             auto inRow = stack.removeFromTop (meterRowH);
             inputMeterLabel.setBounds (inRow.removeFromLeft (meterLabelW));
