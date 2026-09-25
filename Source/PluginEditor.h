@@ -2474,7 +2474,7 @@ private:
     std::unique_ptr<ButtonAttachment> lcrAttachment;
     std::unique_ptr<SliderAttachment> gravityAttachment, focusAttachment, horizonAttachment;
     std::unique_ptr<SliderAttachment> driftAttachment, bendAttachment;
-    std::unique_ptr<ButtonAttachment> polLAttachment, polRAttachment;
+    std::unique_ptr<juce::ParameterAttachment> polLAttachment, polRAttachment;   // Runde 148: nur Anzeige, siehe Konstruktor
     std::unique_ptr<SliderAttachment> sideWidthAttachment, sideBoostAttachment;
     std::unique_ptr<SliderAttachment> movementAttachment;
     std::unique_ptr<ButtonAttachment> pulseAttachment;

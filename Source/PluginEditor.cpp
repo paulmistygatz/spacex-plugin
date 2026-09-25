@@ -3945,8 +3945,23 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     polLinkButton.getProperties().set ("noLinkLines", true);
     content.addAndMakeVisible (polLButton);
     content.addAndMakeVisible (polRButton);
-    polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
-    polRAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_R, polRButton);
+    // Runde 148 (User: "der erste Crash ever", Klick auf Polarity L): der
+    // JUCE-ButtonAttachment setzt den Knopf bei jeder Parameteraenderung mit
+    // sendNotificationSync - das loest onClick erneut aus. Seit Runde 142
+    // schaltet onClick den Parameter selbst um: Klick -> Parameter -> Knopf ->
+    // onClick -> Parameter -> ... endlos, bis der Stack ueberlaeuft. Auch
+    // Automation und Preset-Laden haetten den Wert sofort wieder umgedreht.
+    // Jetzt eine schlanke ParameterAttachment: sie zeigt den Parameter nur an
+    // (dontSendNotification), geschaltet wird ausschliesslich in onClick.
+    auto polAttach = [this] (const juce::String& id, juce::TextButton& b)
+    {
+        auto att = std::make_unique<juce::ParameterAttachment> (*processor.apvts.getParameter (id),
+            [&b] (float v) { b.setToggleState (v >= 0.5f, juce::dontSendNotification); }, nullptr);
+        att->sendInitialUpdate();
+        return att;
+    };
+    polLAttachment = polAttach (LCRMSAudioProcessor::ID_POL_L, polLButton);
+    polRAttachment = polAttach (LCRMSAudioProcessor::ID_POL_R, polRButton);
     // Runde 126 (User): Cmd-Klick auf L oder R schaltet exklusiv - nur diese
     // Seite an, die andere aus (wie Solo).
     // Runde 142 (User-Bug: "wechselt hin und her"): vorher schaltete der Klick
@@ -3959,15 +3974,18 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     {
         auto* pl = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
         auto* pr = processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
-        if (pl == nullptr || pr == nullptr) return;
+        if (pl == nullptr || pr == nullptr || polLAttachment == nullptr || polRAttachment == nullptr) return;
+        // Als abgeschlossene Geste, damit der Host den Klick sauber als
+        // Automationspunkt / Undo-Schritt sieht.
         if (juce::ModifierKeys::currentModifiers.isCommandDown())
         {
-            pl->setValueNotifyingHost (leftSide ? 1.0f : 0.0f);
-            pr->setValueNotifyingHost (leftSide ? 0.0f : 1.0f);
+            polLAttachment->setValueAsCompleteGesture (leftSide ? 1.0f : 0.0f);
+            polRAttachment->setValueAsCompleteGesture (leftSide ? 0.0f : 1.0f);
             return;
         }
         auto* p = leftSide ? pl : pr;
-        p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f);
+        auto& a = leftSide ? *polLAttachment : *polRAttachment;
+        a.setValueAsCompleteGesture (p->getValue() > 0.5f ? 0.0f : 1.0f);
     };
     polLButton.onClick = [clickPol] { clickPol (true); };
     polRButton.onClick = [clickPol] { clickPol (false); };
