@@ -6801,7 +6801,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // weg, und das Feld bekommt deren Hoehe zurueck.
         {
             const int cw = 176, cbH = 30;   // Runde 113: etwas breiter (User: "etwas groesser")
-            // Runde 115 (User: "nicht ganz mittig"): mittig zwischen dem
+            // Vorlaeufige Lage - Runde 119 zentriert das Profil unten in
+            // layoutContent() neu (nach dem Sternenfeld). Runde 115: mittig zwischen dem
             // Ende des Slogans (breiteste Zeile der Wortmarke) und dem
             // ersten Icon der Kopfzeile (Power, ~6 px eingerueckt).
             const juce::Font sloganFont = juce::Font (juce::FontOptions (13.8f, juce::Font::bold))
@@ -6961,6 +6962,18 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
     auto leftColumn = area.removeFromLeft (gonioSize);
     area.removeFromLeft (20);
+
+    // Runde 119 (User): das Smart-Profil steht mittig zwischen dem rechten
+    // Rand des Sternenfelds und dem Pfeil "vorheriges Preset" - nicht
+    // zwischen Slogan und Kopfzeile (Runde 115 war falsch verstanden).
+    if (categoryButton.getWidth() > 0)
+    {
+        const int leftEnd = leftColumn.getRight();
+        const int arrowX  = presetPrevButton.getX() + 4;   // sichtbarer Pfeil
+        const int midX    = (leftEnd + arrowX) / 2;
+        categoryButton.setBounds (categoryButton.getBounds().withX (midX - categoryButton.getWidth() / 2));
+        catDots.setBounds (catDots.getBounds().withX (midX - catDots.getWidth() / 2));
+    }
 
     const int blockH = chipRowH + chipRowGap + gonioSize + correlationGap + correlationBarH + belowCorrH;
     auto block = leftColumn.withSizeKeepingCentre (gonioSize, blockH);
