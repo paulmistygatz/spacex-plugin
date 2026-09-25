@@ -2727,11 +2727,15 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
         return it;
     };
     constexpr int kEmptyId = 99999;   // nie waehlbar
+    juce::ignoreUnused (currentId);
 
-    menu.addItem (makeItem (0, presetNames[0]));   // Default
+    // Runde 156 (User): ALLE Ordner sehen gleich aus (Untermenue mit Pfeil) -
+    // der Ordner des geladenen Presets wird nur beim Oeffnen direkt
+    // aufgeklappt (siehe unten). "Default" steht nicht mehr oben, sondern
+    // unter den Ordnern.
+    constexpr int kOpenFolderId = 100010;   // Ordner-Eintrag, nie ein Ergebnis
+    int openFolderPos = -1;                 // Position des aktuellen Presets im Untermenue (nur waehlbare)
     const auto folders = presetFolderOrder();
-    if (! folders.isEmpty())
-        menu.addSeparator();
     static const char* const catFolders[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
     bool ownSeparatorDone = false;
     for (const auto& folder : folders)
@@ -2749,24 +2753,23 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
         for (int i = 1; i < presetNames.size(); ++i)
             if (presetNames[i].containsChar ('/') && presetNames[i].upToFirstOccurrenceOf ("/", false, false) == folder)
                 idx.add (i);
+        juce::PopupMenu sub;
+        sub.setLookAndFeel (&lookAndFeel);
+        int selectable = 0;
+        for (int i : idx)
+        {
+            auto it = makeItem (i, presetNames[i].fromFirstOccurrenceOf ("/", false, false));
+            if (folder == currentTop && it.isTicked && it.isEnabled)
+                openFolderPos = selectable;
+            if (it.isEnabled) ++selectable;
+            sub.addItem (it);
+        }
+        if (idx.isEmpty())
+            sub.addItem (kEmptyId, "(empty)", false);
         if (folder == currentTop)
-        {
-            menu.addSectionHeader (folder);
-            for (int i : idx)
-                menu.addItem (makeItem (i, "   " + presetNames[i].fromFirstOccurrenceOf ("/", false, false)));
-            if (idx.isEmpty())
-                menu.addItem (kEmptyId, "   (empty)", false);
-        }
+            menu.addSubMenu (folder, sub, true, std::unique_ptr<juce::Drawable>(), false, kOpenFolderId);
         else
-        {
-            juce::PopupMenu sub;
-            sub.setLookAndFeel (&lookAndFeel);
-            for (int i : idx)
-                sub.addItem (makeItem (i, presetNames[i].fromFirstOccurrenceOf ("/", false, false)));
-            if (idx.isEmpty())
-                sub.addItem (kEmptyId, "(empty)", false);
             menu.addSubMenu (folder, sub);
-        }
     }
     bool firstTop = true;
     for (int i = 1; i < presetNames.size(); ++i)
@@ -2775,20 +2778,26 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
             if (firstTop) { menu.addSeparator(); firstTop = false; }
             menu.addItem (makeItem (i, presetNames[i]));
         }
+    menu.addSeparator();
+    menu.addItem (makeItem (0, presetNames[0]));   // Default - unter den Ordnern (User)
 
     constexpr int kRenameId = 100000;
     if (! deleteMode)
     {
+        const bool ownPreset = currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName);
         menu.addSeparator();
-        menu.addItem (kRenameId, "Rename...", currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName));
+        menu.addItem (kRenameId, "Rename...", ownPreset);
+        // Runde 156 (User): Loeschen gehoert zu den Presets.
+        menu.addItem (kRenameId + 2, "Delete...", ownPreset);
         // Runde 57 (User): der Ordner gehoert zu den Presets, nicht in die
         // Einstellungen.
         menu.addItem (kRenameId + 1, "Preset Folder...");
     }
 
     auto menuOptions = juce::PopupMenu::Options().withTargetComponent (presetNameButton);
-    if (currentId > 0)
-        menuOptions = menuOptions.withItemThatMustBeVisible (currentId);
+    const bool autoOpen = currentTop.isNotEmpty() && folders.contains (currentTop);
+    if (autoOpen)
+        menuOptions = menuOptions.withInitiallySelectedItem (kOpenFolderId);
     menu.showMenuAsync (menuOptions,
         [this, presetNames, deleteMode] (int result)
         {
@@ -2800,6 +2809,12 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
             if (result == 100001)
             {
                 presetFolder().revealToUser();
+                return;
+            }
+            if (result == 100002)
+            {
+                if (presetDeleteButton.onClick)
+                    presetDeleteButton.onClick();
                 return;
             }
             if (result <= 0 || result > presetNames.size())
@@ -2819,6 +2834,25 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
                         deletePreset (name);
                 }));
         });
+
+    // Runde 156 (User: "den Ordner direkt offen haben, aber nicht anders
+    // aussehen als sonst"): JUCE kann ein Untermenue nicht per Befehl
+    // oeffnen - wohl aber per Tastatur. Der Ordner ist vorausgewaehlt
+    // (withInitiallySelectedItem), ein "Pfeil rechts" klappt ihn auf, und
+    // "Pfeil runter" fuehrt die Markierung auf das geladene Preset.
+    if (autoOpen)
+    {
+        juce::MessageManager::callAsync ([openFolderPos]
+        {
+            auto* m = juce::Component::getCurrentlyModalComponent();
+            if (m == nullptr || m->getName() != "menu")
+                return;
+            m->keyPressed (juce::KeyPress (juce::KeyPress::rightKey));
+            if (auto* sub = juce::Component::getCurrentlyModalComponent(); sub != nullptr && sub != m && sub->getName() == "menu")
+                for (int k = 0; k < openFolderPos; ++k)
+                    sub->keyPressed (juce::KeyPress (juce::KeyPress::downKey));
+        });
+    }
 }
 
 // Schreibt den aktuellen Zustand als eingebautes "Default". Erreichbar ueber
