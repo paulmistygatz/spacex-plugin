@@ -4,6 +4,7 @@
  #define SPACEX_PX_DIAG_ONLY 0
 #endif
 #include <JuceHeader.h>
+#include "../DSP/SideEq.h"
 
 // Modernes, reduziertes LookAndFeel: dunkler Hintergrund, flache Regler,
 // leuchtende Akzente (angelehnt an Nuro Audio). Bewusst simpel gehalten,
@@ -1509,69 +1510,42 @@ public:
                 g.setColour (icoCol.withAlpha (a));
                 if (edia >= 0)
                 {
-                    // Runde 105: Seiten-EQ in MID-SIDE als Kurve. ZWEI
-                    // parallele Linien = die Seiten (links + rechts), EINE
-                    // Linie = die Mitte - so sieht man, wen ein Modus trifft.
-                    // CROSS zeigt beide: Seiten steigen, Mitte faellt.
-                    //   0 FLAT  1 LOW CUT  2 AIR  3 TILT  4 SOFT  5 MID SOFT  6 CROSS
-                    auto ss = [] (float t, float lo, float hi)
+                    // Runde 125: die ECHTE Kurve aus DSP/SideEq.h (dieselben
+                    // Werte wie der Klang, Fader live). Side = zwei parallele
+                    // Linien, Mid (nur FOCUS) = eine duennere. Die Hoehe ist
+                    // gestaucht und uebertrieben, damit auch 3 dB sichtbar
+                    // sind; der Hochpass faellt links nach unten weg.
+                    //   0 TIGHT  1 CLEAR  2 FOCUS
+                    const float amt   = (float) (double) button.getProperties().getWithDefault ("eqAmt", 0.5);
+                    const auto  curve = sideeq::evaluate (edia, amt, true);
+                    const float w = 18.0f * sc, amp = 7.0f * sc;
+                    auto yOf = [] (float db)
                     {
-                        const float x = juce::jlimit (0.0f, 1.0f, (t - lo) / (hi - lo));
-                        return x * x * (3.0f - 2.0f * x);
+                        const float v = juce::jlimit (-1.0f, 1.0f, db / 24.0f);
+                        return std::copysign (std::pow (std::abs (v), 0.55f), v) * 0.5f;
                     };
-                    // Jede Form ist um die Mitte des Icons zentriert.
-                    auto shape = [&] (int kind, float t) -> float
-                    {
-                        switch (kind)
-                        {
-                            case 1:  return 0.5f - (1.0f - ss (t, 0.15f, 0.55f));
-                            case 2:  return ss (t, 0.45f, 0.85f) - 0.5f;
-                            case 3:  return (ss (t, 0.45f, 0.85f) - (1.0f - ss (t, 0.15f, 0.55f))) * 0.5f;
-                            case 4:
-                            case 5:  return 0.5f - ss (t, 0.45f, 0.85f);
-                            default: return 0.0f;
-                        }
-                    };
-                    const float w = 18.0f * sc, amp = 6.4f * sc;
-                    auto pathFor = [&] (int kind, float yOff)
+                    auto pathFor = [&] (bool side, float yOff)
                     {
                         juce::Path pth;
-                        for (int i = 0; i <= 40; ++i)
+                        for (int i = 0; i <= 48; ++i)
                         {
-                            const float t = (float) i / 40.0f;
-                            const float x = cx - w * 0.5f + w * t;
-                            const float y = cy + yOff - amp * shape (kind, t);
+                            const float  t  = (float) i / 48.0f;
+                            const double hz = 40.0 * std::pow (18000.0 / 40.0, (double) t);
+                            const float  x  = cx - w * 0.5f + w * t;
+                            const float  y  = cy + yOff - amp * yOf (sideeq::responseDb (curve, side, hz));
                             if (i == 0) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
                         }
                         return pth;
                     };
                     const juce::PathStrokeType pairStroke (0.95f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-                    const juce::PathStrokeType monoStroke (1.35f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+                    const juce::PathStrokeType monoStroke (1.20f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
                     const float gapPair = 1.5f * sc;
-                    auto drawSides = [&] (int kind)
+                    g.strokePath (pathFor (true, -gapPair), pairStroke);
+                    g.strokePath (pathFor (true,  gapPair), pairStroke);
+                    if (std::abs (curve.mHsDb) > 0.05f)
                     {
-                        g.strokePath (pathFor (kind, -gapPair), pairStroke);
-                        g.strokePath (pathFor (kind,  gapPair), pairStroke);
-                    };
-                    auto drawMid = [&] (int kind) { g.strokePath (pathFor (kind, 0.0f), monoStroke); };
-                    switch (edia)
-                    {
-                        case 1: case 2: case 3: case 4:
-                            drawSides (edia);
-                            break;
-                        case 5:
-                            drawMid (5);
-                            break;
-                        case 6:
-                            drawSides (2);
-                            g.setColour (icoCol.withAlpha (a * 0.60f));
-                            drawMid (5);
-                            break;
-                        default:
-                            // FLAT: eine ruhige, schwaechere Linie - nichts passiert.
-                            g.setColour (icoCol.withAlpha (a * 0.55f));
-                            drawMid (0);
-                            break;
+                        g.setColour (icoCol.withAlpha (a * 0.60f));
+                        g.strokePath (pathFor (false, 0.0f), monoStroke);
                     }
                 }
                 else if (rdia >= 0)
@@ -3562,6 +3536,31 @@ public:
                             float sliderPos, float minSliderPos, float maxSliderPos,
                             const juce::Slider::SliderStyle style, juce::Slider& slider) override
     {
+        // Runde 125: Mini-Fader im MID-SIDE-Kopf (EQ-Menge). Duenne Spur,
+        // Fuellung bis zum Griff, Strich bei 50 % (= Kurve wie abgestimmt).
+        if (slider.getProperties().getWithDefault ("miniFader", false))
+        {
+            const bool off = slider.getProperties().getWithDefault ("sectionOff", false);
+            const auto acc = slider.getProperties().contains ("faderColour")
+                               ? juce::Colour ((juce::uint32) (int) slider.getProperties()["faderColour"])
+                               : altAccentColour();
+            const auto col = off ? labelOffColour() : acc;
+            const float cy = (float) y + (float) height * 0.5f;
+            const float x0 = (float) x, x1 = (float) (x + width);
+            const float px = juce::jlimit (x0, x1, sliderPos);
+            const float th = 2.4f;
+            g.setColour (juce::Colours::white.withAlpha (0.10f));
+            g.fillRoundedRectangle (x0, cy - th * 0.5f, x1 - x0, th, th * 0.5f);
+            g.setColour (col.withAlpha (off ? 0.55f : 0.80f));
+            g.fillRoundedRectangle (x0, cy - th * 0.5f, juce::jmax (0.0f, px - x0), th, th * 0.5f);
+            const float mx = (x0 + x1) * 0.5f;
+            g.setColour (juce::Colours::white.withAlpha (off ? 0.14f : 0.26f));
+            g.fillRect (mx - 0.5f, cy - 4.0f, 1.0f, 8.0f);
+            const float r = slider.isMouseOverOrDragging() && ! off ? 5.0f : 4.4f;
+            g.setColour (col);
+            g.fillEllipse (px - r, cy - r, r * 2.0f, r * 2.0f);
+            return;
+        }
         // View-Panel-Regler (Zahnrad im Sternenfeld): schmaler waagerechter
         // Schlitz mit Fuellung und rundem Griff - flach, ohne Textbox.
         if (slider.getProperties().getWithDefault ("viewSlider", false) && style == juce::Slider::LinearHorizontal)

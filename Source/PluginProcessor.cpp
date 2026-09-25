@@ -126,6 +126,8 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pMsEq        = apvts.getRawParameterValue (ID_MS_EQ);
     pMsEqX2      = apvts.getRawParameterValue (ID_MS_EQ_X2);
     pMsEqLcr     = apvts.getRawParameterValue (ID_MS_EQ_LCR);
+    pMsEqOn      = apvts.getRawParameterValue (ID_MS_EQ_ON);
+    pMsEqAmt     = apvts.getRawParameterValue (ID_MS_EQ_AMT);
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
     pPosWidth    = apvts.getRawParameterValue (ID_POS_WIDTH);
     pPrismOn     = apvts.getRawParameterValue (ID_PRISM_ON);
@@ -382,6 +384,33 @@ void LCRMSAudioProcessor::updateShelfCoeffs (BiquadCoeffs& c, double sampleRate,
     }
     c.b0 = (float) (b0 / a0); c.b1 = (float) (b1 / a0); c.b2 = (float) (b2 / a0);
     c.a1 = (float) (a1 / a0); c.a2 = (float) (a2 / a0);
+}
+
+// Runde 125: Seiten-EQ. Ziel-Kurve aus Modus/Fader/An-Aus, die Werte
+// gleiten pro Block (~40 ms, Frequenzen in Oktaven) - Moduswechsel,
+// Fader und An/Aus knacken nicht. snap = sofort (prepareToPlay).
+void LCRMSAudioProcessor::updateMsEqCoeffs (bool snap, int numSamples) noexcept
+{
+    const int  mode = juce::jlimit (0, kMsEqModes - 1, (int) std::round (pMsEq->load()));
+    const bool on   = pMsEqOn->load() > 0.5f;
+    const auto t    = sideeq::evaluate (mode, pMsEqAmt->load() * 0.01f, on);
+    const float tgt[10] = { std::log2 (t.s1Hz), t.s1Q, std::log2 (t.s2Hz), t.s2Q,
+                            std::log2 (t.sHsHz), t.sHsDb, t.sHsQ,
+                            std::log2 (t.mHsHz), t.mHsDb, t.mHsQ };
+    const float a = snap ? 0.0f : std::exp (-(float) numSamples / (0.040f * (float) currentSampleRate));
+    for (int k = 0; k < 10; ++k)
+        msEqCur[k] += (1.0f - a) * (tgt[k] - msEqCur[k]);
+
+    auto toBq = [] (BiquadCoeffs& d, const sideeq::Coeffs& c)
+    {
+        d.b0 = (float) c.b0; d.b1 = (float) c.b1; d.b2 = (float) c.b2;
+        d.a1 = (float) c.a1; d.a2 = (float) c.a2;
+    };
+    const double sr = currentSampleRate > 0.0 ? currentSampleRate : 48000.0;
+    toBq (msEqS1C,  sideeq::highpass  (sr, std::exp2 (msEqCur[0]), msEqCur[1]));
+    toBq (msEqS2C,  sideeq::highpass  (sr, std::exp2 (msEqCur[2]), msEqCur[3]));
+    toBq (msEqSHsC, sideeq::highShelf (sr, std::exp2 (msEqCur[4]), msEqCur[5], msEqCur[6]));
+    toBq (msEqMHsC, sideeq::highShelf (sr, std::exp2 (msEqCur[7]), msEqCur[8], msEqCur[9]));
 }
 
 void LCRMSAudioProcessor::updatePeakingCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb, float q) noexcept
@@ -737,7 +766,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // Runde 105: Seiten-EQ in MID-SIDE (ersetzt DEPTH).
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_MS_EQ, 1 }, "Sides EQ",
-        juce::StringArray { "Flat", "Low Cut", "Air", "Tilt", "Soft", "Mid Soft", "Cross" }, 0));
+        juce::StringArray { "Tight", "Clear", "Focus" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_MS_EQ_ON, 1 }, "Sides EQ On", false));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ID_MS_EQ_AMT, 1 }, "Sides EQ Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f, "%"));
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_MS_EQ_X2, 1 }, "Sides EQ x2", false));
     params.push_back (std::make_unique<juce::AudioParameterBool> (
@@ -933,14 +967,11 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     elevateStateR.z1 = elevateStateR.z2 = 0.0f;
     updatePeakingCoeffs (elevateCoeffs, sampleRate, 6500.0f, 0.0f, 0.7f);
     distanceLpfL = distanceLpfR = 0.0f;
-    msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
-    msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
+    clearMsEqStates();
     msEqLcrMove.reset (sampleRate, 0.03);
     msEqLcrMove.setCurrentAndTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
-    msEqCur[0] = 0.0f; msEqCur[2] = 0.0f; msEqCur[4] = 0.0f;
-    updateShelfCoeffs (msEqMidHsC,  sampleRate, 3000.0f, 0.0f, 0.6f, true);
-    updateShelfCoeffs (msEqSideLsC, sampleRate,  450.0f, 0.0f, 0.6f, false);
-    updateShelfCoeffs (msEqSideHsC, sampleRate, 1500.0f, 0.0f, 0.6f, true);
+    msEqHoldSamples = 0;
+    updateMsEqCoeffs (true, 0);
     correlationSmooth = 0.0f;
     sideEmphasisSmooth = 0.0f;
 
@@ -1586,45 +1617,25 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     updatePeakingCoeffs (elevateCoeffs, currentSampleRate, 6500.0f, elevateTargetForCoeffs * 4.5f, 0.7f);
 
     // ===== SEITEN-EQ (Runde 105, ersetzt DEPTH) =====
-    // Startwerte - Paul stellt die Kurven mit einem Pro-Q ein, danach werden
-    // sie hier nachgebaut. Sanft und breit, damit sie auf fast allem passen.
-    //                       Mitte HS        Seiten LS       Seiten HS
-    //                       dB     Hz       dB     Hz       dB     Hz
-    {
-        static constexpr float kMsEqTable[kMsEqModes][6] = {
-            {  0.0f, 3000.0f,  0.0f, 450.0f,  0.0f, 1500.0f },   // FLAT
-            {  0.0f, 3000.0f, -3.0f, 450.0f,  0.0f, 1500.0f },   // LOW CUT
-            {  0.0f, 3000.0f,  0.0f, 450.0f,  3.0f, 1200.0f },   // AIR
-            {  0.0f, 3000.0f, -3.0f, 450.0f,  3.0f, 1200.0f },   // TILT
-            {  0.0f, 3000.0f,  0.0f, 450.0f, -3.0f, 2500.0f },   // SOFT
-            { -2.5f, 3000.0f,  0.0f, 450.0f,  0.0f, 1500.0f },   // MID SOFT
-            { -2.5f, 3000.0f,  0.0f, 450.0f,  2.5f, 3000.0f }    // CROSS
-        };
-        const int   mode = juce::jlimit (0, kMsEqModes - 1, (int) std::round (pMsEq->load()));
-        const float mul  = pMsEqX2->load() > 0.5f ? 2.0f : 1.0f;
-        const float* t   = kMsEqTable[mode];
-        // Gleiten pro Block (~40 ms). Frequenz in Oktaven; steht ein Filter
-        // auf 0 dB, bleibt seine Frequenz, wo sie ist - kein unnoetiges Wandern.
-        const float a = std::exp (-(float) numSamples / (0.040f * (float) currentSampleRate));
-        for (int k = 0; k < 3; ++k)
-        {
-            const float tDb = t[k * 2] * mul;
-            const float tHz = (tDb == 0.0f) ? msEqCur[k * 2 + 1] : std::log2 (t[k * 2 + 1]);
-            msEqCur[k * 2]     += (1.0f - a) * (tDb - msEqCur[k * 2]);
-            msEqCur[k * 2 + 1] += (1.0f - a) * (tHz - msEqCur[k * 2 + 1]);
-        }
-        updateShelfCoeffs (msEqMidHsC,  currentSampleRate, std::exp2 (msEqCur[1]), msEqCur[0], 0.6f, true);
-        updateShelfCoeffs (msEqSideLsC, currentSampleRate, std::exp2 (msEqCur[3]), msEqCur[2], 0.6f, false);
-        updateShelfCoeffs (msEqSideHsC, currentSampleRate, std::exp2 (msEqCur[5]), msEqCur[4], 0.6f, true);
-        msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
-    }
+    // Runde 125: Pauls Pro-Q-Kurven (DSP/SideEq.h), Fader + An/Aus.
+    updateMsEqCoeffs (false, numSamples);
+    msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
+    // Ist der EQ aus und ausgeklungen, laeuft gar nichts (Null-Test sauber).
+    if (pMsEqOn->load() > 0.5f)
+        msEqHoldSamples = (int) (currentSampleRate * 0.4);
+    else
+        msEqHoldSamples = juce::jmax (0, msEqHoldSamples - numSamples);
+    const bool msEqActive = msEqHoldSamples > 0;
+    if (! msEqActive)
+        clearMsEqStates();
     // Runde 115: die LCR-Filter laufen nur, solange der Schalter an ist oder
     // gerade ueberblendet wird. Danach werden sie geleert, damit beim
     // naechsten Einschalten kein alter Zustand nachklingt.
-    const bool msEqLcrRun = pMsEqLcr->load() > 0.5f || msEqLcrMove.isSmoothing();
+    const bool msEqLcrRun = msEqActive && (pMsEqLcr->load() > 0.5f || msEqLcrMove.isSmoothing());
     if (! msEqLcrRun)
     {
-        msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
+        msEqLcrC = {}; msEqLcrL1 = {}; msEqLcrL2 = {}; msEqLcrLHs = {};
+        msEqLcrR1 = {}; msEqLcrR2 = {}; msEqLcrRHs = {};
     }
 
     // ===== PRISM: Bandgrenzen einmal pro Block =====
@@ -1911,9 +1922,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             if (msEqLcrRun)
             {
                 const float k = eqMv;
-                const float cEq = msEqLcrC.process (center, msEqMidHsC);
-                const float lEq = msEqLcrLHs.process (msEqLcrLLs.process (lOnly, msEqSideLsC), msEqSideHsC);
-                const float rEq = msEqLcrRHs.process (msEqLcrRLs.process (rOnly, msEqSideLsC), msEqSideHsC);
+                const float cEq = msEqLcrC.process (center, msEqMHsC);
+                const float lEq = msEqLcrLHs.process (msEqLcrL2.process (msEqLcrL1.process (lOnly, msEqS1C), msEqS2C), msEqSHsC);
+                const float rEq = msEqLcrRHs.process (msEqLcrR2.process (msEqLcrR1.process (rOnly, msEqS1C), msEqS2C), msEqSHsC);
                 center += (cEq - center) * k;
                 lOnly  += (lEq - lOnly)  * k;
                 rOnly  += (rEq - rOnly)  * k;
@@ -2094,8 +2105,12 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             // und haengt am Schalter von MID-SIDE.
             // Runde 115: sitzt der EQ in LCR, wird er hier ausgeblendet.
             const float msK = 1.0f - eqInLcr;
-            const float mEq = m    + (msEqMidHs.process (m, msEqMidHsC) - m) * msK;
-            const float sEq = sWet + (msEqSideHs.process (msEqSideLs.process (sWet, msEqSideLsC), msEqSideHsC) - sWet) * msK;
+            float mEq = m, sEq = sWet;
+            if (msEqActive)
+            {
+                mEq = m    + (msEqMHs.process (m, msEqMHsC) - m) * msK;
+                sEq = sWet + (msEqSHs.process (msEqS2.process (msEqS1.process (sWet, msEqS1C), msEqS2C), msEqSHsC) - sWet) * msK;
+            }
             const float lWet = mEq + sEq;
             const float rWet = mEq - sEq;
             l = l + (lWet - l) * wbGain;
@@ -2713,8 +2728,7 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     bendL.reset();
     bendR.reset();
     elevateStateL = {}; elevateStateR = {};
-    msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
-    msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
+    clearMsEqStates();
     prismGalHpL = {}; prismGalLpL = {}; prismGalHpR = {}; prismGalLpR = {};
     prismDimHp = {}; prismDimLp = {};
     prismPosHp = {}; prismPosLp = {};

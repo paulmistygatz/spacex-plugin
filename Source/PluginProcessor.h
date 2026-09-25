@@ -3,6 +3,7 @@
 #include "DSP/ChannelDelayLine.h"
 #include "DSP/LCRExtractor.h"
 #include "DSP/SimplePitchShifter.h"
+#include "DSP/SideEq.h"
 #include "Licence.h"
 #include <array>
 #include <atomic>
@@ -440,14 +441,19 @@ public:
     // 30 % auf das Charakter-Tempo drauf.
     static constexpr auto ID_RAY_FAST     = "rayFast";
     // Runde 105 (User): Seiten-EQ in MID-SIDE statt DEPTH/Distance. Sieben
-    // feste Kurven, x2 verdoppelt die dB. Siehe kMsEqTable in processBlock.
+    // feste Kurven. Runde 125: x2 ist ersetzt (Parameter bleibt fuer alte
+    // Sessions stehen, wirkt nicht mehr) - siehe DSP/SideEq.h.
     static constexpr auto ID_MS_EQ        = "msEq";
     static constexpr auto ID_MS_EQ_X2     = "msEqX2";
     // Runde 115 (User): "EQ -> LCR" - derselbe EQ wandert in die LCR Matrix
     // und wirkt dort auf Center (Mitten-Band) und die Aussenanteile
     // (Seiten-Baender) statt auf Mid/Side. Nie beide gleichzeitig.
     static constexpr auto ID_MS_EQ_LCR    = "msEqLcr";
-    static constexpr int  kMsEqModes      = 7;
+    static constexpr int  kMsEqModes      = sideeq::kModes;   // Runde 125: TIGHT, CLEAR, FOCUS
+    // Runde 125 (User): eigener An/Aus-Schalter und ein Fader statt x2.
+    // Fader 0 % = nichts, 50 % = Kurve A, 100 % = Kurve B (siehe DSP/SideEq.h).
+    static constexpr auto ID_MS_EQ_ON     = "msEqOn";
+    static constexpr auto ID_MS_EQ_AMT    = "msEqAmt";
     static constexpr auto ID_RAY_AMOUNT   = "rayAmount";   // SpaceXraye
     static constexpr auto ID_RAY_CHAR     = "rayCharacter"; // SpaceXraye
     struct RayCharacter { float centreHz, sweepMul, fbMul, mixMul, stereoOffset, rateMul; };
@@ -631,6 +637,8 @@ private:
     std::atomic<float>* pMsEq   = nullptr;
     std::atomic<float>* pMsEqX2 = nullptr;
     std::atomic<float>* pMsEqLcr = nullptr;
+    std::atomic<float>* pMsEqOn  = nullptr;
+    std::atomic<float>* pMsEqAmt = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;
@@ -727,12 +735,22 @@ private:
     // Seiten-EQ (Runde 105): ein High Shelf auf der Mitte, ein Low und ein
     // High Shelf auf den Seiten. Jede Stellung setzt nur Gain/Frequenz; die
     // Werte gleiten pro Block (msEqCur), damit Umschalten nicht knackt.
-    BiquadCoeffs msEqMidHsC, msEqSideLsC, msEqSideHsC;
-    BiquadState  msEqMidHs, msEqSideLs, msEqSideHs;
+    // Runde 125: Side = Hochpass (2 Stufen) + High Shelf, Mid = High Shelf.
+    BiquadCoeffs msEqS1C, msEqS2C, msEqSHsC, msEqMHsC;
+    BiquadState  msEqS1, msEqS2, msEqSHs, msEqMHs;
     // Runde 115: dieselben Kurven auf den LCR-Anteilen (Center / L / R).
-    BiquadState  msEqLcrC, msEqLcrLLs, msEqLcrLHs, msEqLcrRLs, msEqLcrRHs;
+    BiquadState  msEqLcrC, msEqLcrL1, msEqLcrL2, msEqLcrLHs, msEqLcrR1, msEqLcrR2, msEqLcrRHs;
     juce::SmoothedValue<float> msEqLcrMove;   // 0 = EQ auf Mid/Side, 1 = in LCR
-    float msEqCur[6] = { 0.0f, 11.55f, 0.0f, 8.81f, 0.0f, 10.55f };   // dB, log2(Hz) je Filter
+    // Gleitende Kurvenwerte (Hz-Felder als log2): s1Hz s1Q s2Hz s2Q sHsHz sHsDb sHsQ mHsHz mHsDb mHsQ
+    float msEqCur[10] {};
+    int   msEqHoldSamples = 0;    // > 0: EQ laeuft (an oder klingt gerade aus)
+    void  updateMsEqCoeffs (bool snap, int numSamples) noexcept;
+    void  clearMsEqStates() noexcept
+    {
+        msEqS1 = {}; msEqS2 = {}; msEqSHs = {}; msEqMHs = {};
+        msEqLcrC = {}; msEqLcrL1 = {}; msEqLcrL2 = {}; msEqLcrLHs = {};
+        msEqLcrR1 = {}; msEqLcrR2 = {}; msEqLcrRHs = {};
+    }
     static void updateShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb,
                                    float slope, bool highShelf) noexcept;
     static void updatePeakingCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb, float q) noexcept;

@@ -1990,6 +1990,19 @@ private:
     juce::TextButton rayCharButton;
     juce::TextButton msEqButton, msEqX2Button;   // Runde 105: Seiten-EQ + x2 im MID-SIDE-Kopf
     juce::TextButton lcrEqButton;   // Runde 115: "EQ -> LCR" im LCR-Kopf
+    // Runde 125 (User): EQ-An/Aus + Fader im MID-SIDE-Kopf statt x2. Der
+    // Fader rastet bei 50 % (= Pauls Kurve A) leicht ein.
+    struct SnapSlider : public juce::Slider
+    {
+        double snapValue (double v, juce::Slider::DragMode) override
+        {
+            return std::abs (v - 50.0) < 3.0 ? 50.0 : v;
+        }
+    };
+    juce::TextButton msEqPowerButton;
+    SnapSlider       msEqAmtSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> msEqOnAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> msEqAmtAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> lcrEqAttachment;
     // Runde 49: kleiner FAST-Knopf im RAYE-Kopf (+30 % Tempo) - Ersatz fuer
     // den entfallenen Speed-Regler.

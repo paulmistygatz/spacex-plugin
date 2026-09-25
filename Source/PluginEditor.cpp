@@ -4225,7 +4225,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqButton.getProperties().set ("eqDiagram",
         juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
                       (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load())));
-    msEqButton.setTooltip ("Sides EQ: Flat, Low Cut, Air, Tilt, Soft, Mid Soft, Cross. Click for the next one, Cmd-click to go back");
+    msEqButton.setTooltip ("Sides EQ: Tight, Clear, Focus. Click for the next one, Cmd-click to go back");
     content.addAndMakeVisible (msEqButton);
     msEqButton.onClick = [this]
     {
@@ -4255,8 +4255,28 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqX2Button.getProperties().set ("softChip", true);
     msEqX2Button.getProperties().set ("hdrIcon", 3);         // Runde 110: doppelte Kurve
     msEqX2Button.setTooltip ("x2: doubles the curve of the Sides EQ");
-    content.addAndMakeVisible (msEqX2Button);
-    msEqX2Attachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_X2, msEqX2Button);
+    // Runde 125: x2 ist ersetzt. Der Knopf bleibt unsichtbar als Platzhalter
+    // im Kopf (layoutHeader reserviert damit die Breite fuer An/Aus + Fader).
+    msEqX2Button.getProperties().set ("headerPillW", 108);
+    content.addChildComponent (msEqX2Button);
+    msEqX2Button.setVisible (false);
+
+    msEqPowerButton.setClickingTogglesState (true);
+    msEqPowerButton.getProperties().set ("powerIcon", true);
+    msEqPowerButton.setWantsKeyboardFocus (false);
+    msEqPowerButton.setTooltip ("EQ on/off - compare with and without, the setting stays");
+    content.addAndMakeVisible (msEqPowerButton);
+    msEqOnAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_ON, msEqPowerButton);
+
+    msEqAmtSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    msEqAmtSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    msEqAmtSlider.getProperties().set ("miniFader", true);
+    msEqAmtSlider.setTextValueSuffix (" %");
+    msEqAmtSlider.setWantsKeyboardFocus (false);
+    msEqAmtSlider.setTooltip ("EQ amount: 50 % is the curve as tuned, 100 % the strongest. Double-click: back to 50 %");
+    content.addAndMakeVisible (msEqAmtSlider);
+    msEqAmtAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_AMT, msEqAmtSlider);
+    msEqAmtSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
 
     // Runde 115 (User): der EQ aus MID-SIDE kann in die LCR Matrix wandern.
     // Nur Text wie FAST/LINK; an = blau (gekoppelt), und das EQ-Feld unten
@@ -5006,12 +5026,29 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // gibt. Width und Elevate sind unsichtbar, ihre Zeilen koennen weg.
     setSectionOff (offsetSlider, isDriftOn);
     setSectionOff (distanceSlider, isWidthBoostOn);
-    setSectionOff (msEqButton,   isWidthBoostOn || eqInLcrLive);
-    setSectionOff (msEqX2Button, isWidthBoostOn || eqInLcrLive);
+    // Runde 125: EQ aus -> Feld, Punkte und Fader gedimmt wie eine Sektion;
+    // der An/Aus-Schalter selbst dimmt nur mit der Sektion.
+    const bool msEqOnNow = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_ON)->load() > 0.5f;
+    const bool msEqLive  = (isWidthBoostOn || eqInLcrLive) && msEqOnNow;
+    setSectionOff (msEqButton,      msEqLive);
+    setSectionOff (msEqAmtSlider,   msEqLive);
+    setSectionOff (msEqPowerButton, isWidthBoostOn || eqInLcrLive);
     // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
     setSectionOff (lcrEqButton, isLcrOn);
     {
-        const bool eqMoved = eqInLcrLive;
+        const bool eqMoved = eqInLcrLive && msEqOnNow;
+        // Runde 125: Schalter und Fader in Gold, blau wenn der EQ in LCR sitzt.
+        const int accentNow = (int) (eqMoved ? pairAccentColour() : altAccentColour()).getARGB();
+        if ((int) msEqPowerButton.getProperties().getWithDefault ("powerColour", 0) != accentNow)
+        {
+            msEqPowerButton.getProperties().set ("powerColour", accentNow);
+            msEqPowerButton.repaint();
+        }
+        if ((int) msEqAmtSlider.getProperties().getWithDefault ("faderColour", 0) != accentNow)
+        {
+            msEqAmtSlider.getProperties().set ("faderColour", accentNow);
+            msEqAmtSlider.repaint();
+        }
         if ((bool) lcrEqButton.getProperties().getWithDefault ("pairedGold", false) != eqMoved)
         {
             lcrEqButton.getProperties().set ("pairedGold", eqMoved);
@@ -5032,7 +5069,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         }
     }
     {
-        const bool dotsOff = uiBypassed || ! (isWidthBoostOn || eqInLcrLive);
+        const bool dotsOff = uiBypassed || ! msEqLive;
         if (msEqDots.off != dotsOff) { msEqDots.off = dotsOff; msEqDots.repaint(); }
     }
     setSectionOff (rayStrengthButton, isRayOn);
@@ -5485,7 +5522,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     {
         // Runde 105: Seiten-EQ in MID-SIDE.
         static const char* const eqNames[LCRMSAudioProcessor::kMsEqModes] =
-            { "FLAT", "LOW CUT", "AIR", "TILT", "SOFT", "MID SOFT", "CROSS" };
+            { "TIGHT", "CLEAR", "FOCUS" };
         const int e = juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
                                     (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
         if (msEqButton.getButtonText() != eqNames[e])
@@ -5493,6 +5530,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
         if ((int) msEqButton.getProperties().getWithDefault ("eqDiagram", -1) != e)
         {
             msEqButton.getProperties().set ("eqDiagram", e);
+            msEqButton.repaint();
+        }
+        // Runde 125: das Icon zeichnet die echte Kurve - Fader live mitgeben.
+        const float amt01 = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_AMT)->load() * 0.01f;
+        if (std::abs ((float) (double) msEqButton.getProperties().getWithDefault ("eqAmt", -1.0) - amt01) > 1.0e-4f)
+        {
+            msEqButton.getProperties().set ("eqAmt", (double) amt01);
             msEqButton.repaint();
         }
         // Farbe: siehe Runde 115 bei setSectionOff (msEqButton) - Gold wie die
@@ -7873,6 +7917,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
     }
 
     auto wbInner = layoutHeader (wbFrame.reduced (10), widthBoostPowerButton, widthBoostSoloButton, widthBoostTitleLabel, &dimensionModButton, &dimensionModDepthSlider, &widthBoostLockButton, &msEqX2Button);
+    {
+        // Runde 125: An/Aus + Fader im Platz, den der (unsichtbare) x2-Knopf
+        // im Kopf reserviert hat.
+        auto hb = msEqX2Button.getBounds();
+        msEqX2Button.setVisible (false);
+        msEqPowerButton.setBounds (hb.removeFromLeft (22).withSizeKeepingCentre (20, 20));
+        hb.removeFromLeft (4);
+        msEqAmtSlider.setBounds (hb.withSizeKeepingCentre (hb.getWidth(), 18));
+    }
     {
         // Runde 105: Width, Sides und das Icon-Feld des Seiten-EQ. Das Feld
         // ist so breit wie die in Micropitch und Phaser; alle drei stehen
