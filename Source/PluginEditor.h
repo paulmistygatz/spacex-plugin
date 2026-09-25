@@ -687,6 +687,21 @@ private:
             for (int yy : { ruleTopY, ruleBottomY })
                 if (yy > 0)
                     g.fillRect (b.getX() + 30.0f, (float) yy, b.getWidth() - 60.0f, 1.0f);
+
+            // Runde 139 (User): die Mistycat-Katze auf der Rueckseite - wie ein
+            // Herstellerzeichen auf dem Typenschild, oben links.
+            {
+                static const juce::Image cat = juce::ImageCache::getFromMemory (SpaceXManualData::mistycat_head_png,
+                                                                                SpaceXManualData::mistycat_head_pngSize);
+                if (cat.isValid())
+                {
+                    const float h = 26.0f, w = h * (float) cat.getWidth() / (float) cat.getHeight();
+                    g.setOpacity (0.85f);
+                    g.drawImage (cat, juce::Rectangle<float> (b.getX() + 28.0f, b.getY() + 26.0f, w, h),
+                                 juce::RectanglePlacement::centred);
+                    g.setOpacity (1.0f);
+                }
+            }
         }
 
         void resized() override

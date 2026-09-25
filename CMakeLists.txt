@@ -141,7 +141,8 @@ juce_add_binary_data(SpaceXManual
     SOURCES     docs/SpaceXManual_EN.pdf
                 docs/theme-previews/theme_daynight.png
                 docs/theme-previews/theme_fireflies.png
-                docs/theme-previews/theme_scifi.png)
+                docs/theme-previews/theme_scifi.png
+                docs/brand/mistycat_head.png)
 
 # Runde 133: Werks-Presets im Plugin. Dateiname "Ordner__Name.spacex" -
 # beim ersten Start (bzw. wenn die Werks-Version steigt) schreibt das Plugin

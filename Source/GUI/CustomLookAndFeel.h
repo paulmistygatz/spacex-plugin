@@ -3298,9 +3298,12 @@ public:
         // ein runder Schimmer, der in den Knopf passt.
         if (button.getProperties().getWithDefault ("categoryArmed", false))
         {
+            // Runde 139 (User: "muss staerker glowen, war mal mehr"): kraeftiger
+            // Hof plus ein enger heller Kern, in der Farbe des Smart-Profils.
             const auto lb = button.getLocalBounds().toFloat();
-            softIconGlow (g, lb.getCentre(), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f,
-                          themePalette().frameRaye, 1.0f);
+            const float rr = juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f;
+            softIconGlow (g, lb.getCentre(), rr,         themePalette().knob, 2.2f);
+            softIconGlow (g, lb.getCentre(), rr * 0.62f, themePalette().knob, 1.4f);
         }
 
         const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * (bigCube ? 0.60f : 0.42f));
