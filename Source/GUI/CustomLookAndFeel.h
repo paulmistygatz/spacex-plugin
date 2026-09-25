@@ -1061,6 +1061,15 @@ public:
                 const bool secOff = button.getProperties().getWithDefault ("sectionOff", false);
                 const bool lit    = button.getToggleState() || gold;
                 const bool hot    = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+                // Runde 166 (User: "oben B, beim Phaser D"): statt Schein ein
+                // eindeutiger Zustands-Anzeiger links vom Wort - 1 = LED-Punkt
+                // (EQ -> LCR), 2 = Mini-Schalter (FAST, LINK). Wort und
+                // Anzeiger stehen rechtsbuendig im Knopf.
+                if (const int ctl = (int) button.getProperties().getWithDefault ("ctlStyle", 0); ctl > 0)
+                {
+                    drawCtlIndicator (g, button, ctl, lit, secOff, hot, softChipAccent (button));
+                    return;
+                }
                 juce::Rectangle<float> iconR, textR;
                 // Weicher, kantenloser Schein hinter dem ganzen Schalter, wenn
                 // an (Runde 111) - fuer Text-Schalter und Ø gleich.
@@ -1961,6 +1970,62 @@ public:
 
     // Farbe eines Soft-Chips - dieselbe Logik wie btnAccent in
     // drawButtonBackground: Gold = an (altAccent), Blau = gekoppelt.
+    // Runde 166: Schrift der kleinen Kopf-Schalter (EQ -> LCR, FAST, LINK).
+    static juce::Font hdrTextFont (juce::Button& b)
+    {
+        const float sz = (float) (double) b.getProperties().getWithDefault ("hdrTextSize", 11.5);
+        return juce::Font (juce::FontOptions (sz, juce::Font::bold)).withExtraKerningFactor (0.07f);
+    }
+    // Breite, die Anzeiger + Wort brauchen (fuer das Layout im Editor).
+    static int ctlContentWidth (juce::Button& b)
+    {
+        const int ctl = (int) b.getProperties().getWithDefault ("ctlStyle", 0);
+        const float tw = juce::GlyphArrangement::getStringWidth (hdrTextFont (b), b.getButtonText());
+        return juce::roundToInt (tw) + (ctl == 2 ? 20 : 13) + 1;
+    }
+    static void drawCtlIndicator (juce::Graphics& g, juce::Button& b, int ctl, bool lit, bool secOff, bool hot, juce::Colour acc)
+    {
+        const auto lb = b.getLocalBounds().toFloat();
+        const float tw = juce::GlyphArrangement::getStringWidth (hdrTextFont (b), b.getButtonText());
+        const float cy = lb.getCentreY();
+        const float k  = secOff ? 0.45f : 1.0f;
+        if (ctl == 1)
+        {
+            // LED: aus = leerer Ring, an = gefuellter Punkt mit Schein.
+            const float cx = lb.getRight() - tw - 8.0f;
+            if (lit && ! secOff)
+            {
+                juce::ColourGradient glow (acc.withAlpha (0.30f), cx, cy, acc.withAlpha (0.0f), cx + 8.0f, cy, true);
+                g.setGradientFill (glow);
+                g.fillEllipse (cx - 8.0f, cy - 8.0f, 16.0f, 16.0f);
+            }
+            if (lit)
+            {
+                g.setColour (acc.withAlpha (k));
+                g.fillEllipse (cx - 3.4f, cy - 3.4f, 6.8f, 6.8f);
+            }
+            else
+            {
+                g.setColour ((hot ? juce::Colour (0xff9aa0ab) : juce::Colour (0xff6d7280)).withMultipliedAlpha (k));
+                g.drawEllipse (cx - 3.2f, cy - 3.2f, 6.4f, 6.4f, 1.3f);
+            }
+            return;
+        }
+        // Mini-Schalter: Spur 15 x 9, Knopf rechts = an. Kompakt - im
+        // Phaser-Kopf ist neben dem Namen nur ~125 px Platz fuer beide.
+        const float tw2 = 15.0f, th = 9.0f;
+        const float x0 = lb.getRight() - tw - 5.0f - tw2;
+        const juce::Rectangle<float> track (x0, cy - th * 0.5f, tw2, th);
+        g.setColour (lit ? acc.withAlpha (0.45f * k) : juce::Colour (0xff2a2d35).withMultipliedAlpha (secOff ? 0.6f : 1.0f));
+        g.fillRoundedRectangle (track, th * 0.5f);
+        const float kr = 3.1f;
+        const float kx = lit ? track.getRight() - th * 0.5f : track.getX() + th * 0.5f;
+        const juce::Colour knob = lit ? acc.interpolatedWith (juce::Colours::white, 0.65f)
+                                      : (hot ? juce::Colour (0xff9aa0ab) : juce::Colour (0xff6d7280));
+        g.setColour (knob.withMultipliedAlpha (k));
+        g.fillEllipse (kx - kr, cy - kr, kr * 2.0f, kr * 2.0f);
+    }
+
     juce::Colour softChipAccent (juce::Button& b) const
     {
         const bool gold   = b.getProperties().getWithDefault ("pairedGold", false)
@@ -2175,8 +2240,12 @@ public:
                     // Runde 161 (User: "EQ -> LCR, FAST, LINK zu klein"):
                     // eigene Schriftgroesse per Property.
                     if (button.getProperties().contains ("hdrTextSize"))
-                        g.setFont (juce::Font (juce::FontOptions ((float) (double) button.getProperties()["hdrTextSize"],
-                                                                  juce::Font::bold)).withExtraKerningFactor (0.10f));
+                        g.setFont (hdrTextFont (button));
+                    if ((int) button.getProperties().getWithDefault ("ctlStyle", 0) > 0)
+                    {
+                        g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centredRight, false);
+                        return;
+                    }
                     g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
                 }
                 return;

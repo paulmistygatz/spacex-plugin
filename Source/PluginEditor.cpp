@@ -4388,7 +4388,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayPairButton.setClickingTogglesState (true);
     rayPairButton.getProperties().set ("softChip", true);    // Runde 108: blau = gekoppelt
     rayPairButton.getProperties().set ("hdrIcon", 2);        // Runde 110: Kettenglieder
-    rayPairButton.getProperties().set ("hdrTextSize", 11.5); // Runde 161
+    rayPairButton.getProperties().set ("hdrTextSize", 11.0); // Runde 161
+    rayPairButton.getProperties().set ("ctlStyle", 2);       // Runde 166: Mini-Schalter
     rayPairButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
@@ -4400,7 +4401,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayFastButton.getProperties().set ("altAccent", true);   // Gold, PAIR bekommt den Hauptakzent
     rayFastButton.getProperties().set ("softChip", true);    // Runde 108: moderne Form
     rayFastButton.getProperties().set ("hdrIcon", 1);        // Runde 110: Doppelpfeil
-    rayFastButton.getProperties().set ("hdrTextSize", 11.5); // Runde 161
+    rayFastButton.getProperties().set ("hdrTextSize", 11.0); // Runde 161
+    rayFastButton.getProperties().set ("ctlStyle", 2);       // Runde 166: Mini-Schalter
     rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
     content.addAndMakeVisible (rayFastButton);
     rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
@@ -4652,7 +4654,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     lcrEqButton.getProperties().set ("headerPillW", 86);
     lcrEqButton.getProperties().set ("softChip", true);
     lcrEqButton.getProperties().set ("hdrIcon", 2);           // nur der Name
-    lcrEqButton.getProperties().set ("hdrTextSize", 11.5);    // Runde 161 (User): Schrift war zu klein
+    lcrEqButton.getProperties().set ("hdrTextSize", 11.0);    // Runde 161 (User): Schrift war zu klein
+    lcrEqButton.getProperties().set ("ctlStyle", 1);          // Runde 166: LED-Punkt
     lcrEqButton.setTooltip ("EQ to LCR: the Mid-Side EQ works on Center and Sides of the LCR Matrix instead of Mid and Side");
     content.addAndMakeVisible (lcrEqButton);
     lcrEqAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_LCR, lcrEqButton);
@@ -8792,10 +8795,22 @@ void LCRMSAudioProcessorEditor::layoutContent()
                #endif
             }
             // Runde 55 (User: "fast und pair sind mir zu klein").
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (58, rayPairHeaderArea.getWidth()),
-                                                                              juce::jmin (24, rayPairHeaderArea.getHeight())));
-            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (58, rayFastHeaderArea.getWidth()),
-                                                                              juce::jmin (24, rayFastHeaderArea.getHeight())));
+            // Runde 166 (User: "FAST zu nah am Namen"): FAST und LINK als Paar
+            // rechtsbuendig, jeweils genau so breit wie Schalter + Wort.
+            {
+                const int h  = juce::jmin (24, rayPairHeaderArea.getHeight());
+                const int cy = rayPairHeaderArea.getCentreY();
+                const int wL = CustomLookAndFeel::ctlContentWidth (rayPairButton);
+                const int wF = CustomLookAndFeel::ctlContentWidth (rayFastButton);
+                const int right = rayPairHeaderArea.getRight() - 2;
+                // Luecke zwischen den beiden: 12 px, wird es neben dem Namen
+                // eng, schrumpft sie bis 6 px (der Name hat Vorrang).
+                const int minLeft = rayTitleLabel.getRight() + 18;
+                const int gapFL = juce::jlimit (6, 12, (right - wL - wF) - minLeft);
+                rayPairButton.setBounds (right - wL, cy - h / 2, wL, h);
+                rayFastButton.setBounds (right - wL - gapFL - wF, cy - h / 2, wF, h);
+                juce::ignoreUnused (rayFastHeaderArea);
+            }
         }
        #else
         auto slotA = rayFrame.removeFromLeft (slotW);
