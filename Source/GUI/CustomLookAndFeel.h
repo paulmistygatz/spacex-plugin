@@ -1008,6 +1008,89 @@ public:
         const bool altAcc = button.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
         const juce::Colour btnAccent = gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
 
+        // Runde 110 (User: "die letzten Kaesten weg"): Icon-Schalter ohne
+        // Flaeche. ØL/ØR: Icon oben, Buchstabe darunter. FAST/PAIR/x2: Icon
+        // links, Name rechts. An = Schimmer + Farbe, aus = gedimmt.
+        if (! isComicTheme())
+        {
+            const int  hdrIcon = (int)  button.getProperties().getWithDefault ("hdrIcon", 0);
+            const bool phase   = (bool) button.getProperties().getWithDefault ("phaseIcon", false);
+            if (hdrIcon > 0 || phase)
+            {
+                const auto lb     = button.getLocalBounds().toFloat();
+                const bool secOff = button.getProperties().getWithDefault ("sectionOff", false);
+                const bool lit    = button.getToggleState() || gold;
+                const bool hot    = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+                juce::Rectangle<float> iconR, textR;
+                if (phase)
+                    iconR = lb.withTrimmedBottom (17.0f);
+                else
+                    hdrIconLayout (button, lb, iconR, textR);
+                const auto  c = iconR.getCentre();
+                const float s = juce::jmin (iconR.getWidth(), iconR.getHeight());
+                const float glowR = juce::jmin (s * (phase ? 0.62f : 0.80f), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f);
+                if (! secOff && (lit || hot))
+                    softIconGlow (g, c, glowR, btnAccent,
+                                  lit ? (shouldDrawButtonAsDown ? 1.9f : hot ? 1.55f : 1.0f) : 0.5f);
+                const juce::Colour col = secOff ? (lit ? btnAccent.withAlpha (0.45f) : iconOffColour().withAlpha (0.45f))
+                                       : lit    ? btnAccent.interpolatedWith (juce::Colour (0xfff2f4f8), 0.30f)
+                                                : iconOffColour().withAlpha (hot ? 0.95f : 0.75f);
+                g.setColour (col);
+                const juce::PathStrokeType st (juce::jmax (1.5f, s * (phase ? 0.075f : 0.095f)),
+                                               juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+                if (phase)
+                {
+                    // Ø - das Zeichen fuer Phasendrehung
+                    const float r = s * 0.30f;
+                    juce::Path ring;
+                    ring.addEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+                    g.strokePath (ring, st);
+                    juce::Path slash;
+                    slash.startNewSubPath (c.x - r * 1.15f, c.y + r * 1.15f);
+                    slash.lineTo (c.x + r * 1.15f, c.y - r * 1.15f);
+                    g.strokePath (slash, st);
+                }
+                else if (hdrIcon == 1)
+                {
+                    // FAST: Doppelpfeil
+                    const float h = s * 0.26f, w = s * 0.20f;
+                    juce::Path p;
+                    for (float dx : { -s * 0.13f, s * 0.11f })
+                    {
+                        p.startNewSubPath (c.x + dx - w * 0.5f, c.y - h);
+                        p.lineTo (c.x + dx + w * 0.5f, c.y);
+                        p.lineTo (c.x + dx - w * 0.5f, c.y + h);
+                    }
+                    g.strokePath (p, st);
+                }
+                else if (hdrIcon == 2)
+                {
+                    // PAIR: zwei Kettenglieder
+                    const float w = s * 0.46f, h = s * 0.28f;
+                    juce::Path a, b;
+                    a.addRoundedRectangle (c.x - w + w * 0.14f, c.y - h * 0.5f, w, h, h * 0.5f);
+                    b.addRoundedRectangle (c.x - w * 0.14f,     c.y - h * 0.5f, w, h, h * 0.5f);
+                    g.strokePath (a, st);
+                    g.strokePath (b, st);
+                }
+                else
+                {
+                    // x2: dieselbe Kurve zweimal - flach und steil
+                    const float w = s * 0.42f;
+                    juce::Path flat, steep;
+                    flat.startNewSubPath (c.x - w, c.y + s * 0.16f);
+                    flat.cubicTo (c.x - w * 0.1f, c.y + s * 0.16f, c.x + w * 0.1f, c.y + s * 0.03f, c.x + w, c.y + s * 0.03f);
+                    steep.startNewSubPath (c.x - w, c.y + s * 0.24f);
+                    steep.cubicTo (c.x, c.y + s * 0.24f, c.x, c.y - s * 0.22f, c.x + w, c.y - s * 0.22f);
+                    g.setColour (col.withMultipliedAlpha (0.5f));
+                    g.strokePath (flat, st);
+                    g.setColour (col);
+                    g.strokePath (steep, st);
+                }
+                return;
+            }
+        }
+
         // Runde 108: Soft-Chip statt Umriss-Pille (FAST, PAIR, x2, L/R).
         if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
         {
@@ -1710,6 +1793,21 @@ public:
         textR = { x0 + iw + gap, area.getY(), tw + 6.0f, h };
     }
 
+    // Runde 110: Icon links + Name rechts fuer die kleinen Schalter in den
+    // Sektionskoepfen (FAST, PAIR, x2) - schmaleres Icon als bei den Feldern.
+    static void hdrIconLayout (juce::Button& b, juce::Rectangle<float> area,
+                               juce::Rectangle<float>& iconR, juce::Rectangle<float>& textR)
+    {
+        const auto f   = unifiedButtonFont (b.getHeight());
+        const float h  = area.getHeight();
+        const float iw = h * 1.05f;
+        const float gap = h * 0.12f;
+        const float tw = juce::GlyphArrangement::getStringWidth (f, b.getButtonText()) + 2.0f;
+        const float x0 = area.getCentreX() - (iw + gap + tw) * 0.5f;
+        iconR = { x0, area.getY(), iw, h };
+        textR = { x0 + iw + gap, area.getY(), tw + 6.0f, h };
+    }
+
     // Farbe eines Soft-Chips - dieselbe Logik wie btnAccent in
     // drawButtonBackground: Gold = an (altAccent), Blau = gekoppelt.
     juce::Colour softChipAccent (juce::Button& b) const
@@ -1883,6 +1981,30 @@ public:
                 g.setColour (secOffC ? labelOffColour()
                                      : litC ? softChipAccent (button).interpolatedWith (juce::Colour (0xfff2f4f8), 0.42f)
                                             : juce::Colour (0xff8f96a4));
+            }
+            // Runde 110: Icon-Schalter (ØL/ØR, FAST, PAIR, x2).
+            if (! isComicTheme()
+                && ((int) button.getProperties().getWithDefault ("hdrIcon", 0) > 0
+                    || (bool) button.getProperties().getWithDefault ("phaseIcon", false)))
+            {
+                const bool secOffT = button.getProperties().getWithDefault ("sectionOff", false);
+                const bool litT    = button.getToggleState() || (bool) button.getProperties().getWithDefault ("pairedGold", false);
+                g.setColour (secOffT ? labelOffColour()
+                                     : litT ? softChipAccent (button).interpolatedWith (juce::Colour (0xfff2f4f8), 0.42f)
+                                            : juce::Colour (0xff8f96a4));
+                if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
+                {
+                    g.setFont (unifiedButtonFont (32));
+                    g.drawText (button.getButtonText(), button.getLocalBounds().removeFromBottom (17),
+                                juce::Justification::centred, false);
+                }
+                else
+                {
+                    juce::Rectangle<float> iconR, textR;
+                    hdrIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                    g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
+                }
+                return;
             }
             // Runde 108: Icon links, Name rechts daneben (Smart-Profil, PRE/POST).
             if ((int) button.getProperties().getWithDefault ("profileDiagram", -1) >= 0
@@ -2200,7 +2322,9 @@ public:
         auto c = b.getCentre();
         const float r = s * 0.27f;
 
-        auto col = juce::Colour (0xffd9645c).withAlpha (button.isEnabled() ? 0.9f : 0.3f);
+        // Runde 110 (User): Reset ist keine Gefahr - neutral wie die anderen
+        // Werkzeuge, Rot erst, wenn die Maus darauf steht.
+        auto col = juce::Colour (0xffb5b9c2).withAlpha (button.isEnabled() ? 1.0f : 0.3f);
         if (button.isEnabled() && (down || highlighted))
             col = juce::Colour (0xffff7f76);
         g.setColour (col);
@@ -2336,9 +2460,10 @@ public:
         const float s = juce::jmin (b.getWidth(), b.getHeight());
         auto c = b.getCentre();
 
-        auto col = lit ? glowAccent : iconOffColour();
+        // Runde 110: neutral - Blau heisst "gekoppelt", das ist Kopieren nicht.
+        auto col = lit ? juce::Colour (0xffd7dbe4) : iconOffColour();
         if (lit && (down || highlighted))
-            col = juce::Colour (0xffcf9bff);
+            col = juce::Colours::white;
         g.setColour (col.withAlpha (button.isEnabled() ? 1.0f : 0.3f));
 
         // Schaft + Spitze, plus ein kleiner Doppelstrich am Schaftanfang als
@@ -2466,14 +2591,11 @@ public:
     {
         auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
         const bool isEmpty = button.getProperties().getWithDefault ("presetNameEmpty", false);
-        const float corner = bounds.getHeight() * 0.32f;
-
-        // Eingelassene Flaeche
-        g.setColour (juce::Colour (0xff101218).withAlpha (down ? 0.95f : 0.80f));
+        // Runde 110 (User): Soft-Flaeche wie die Chips statt Umriss - das Feld
+        // war das letzte Element der Kopfzeile mit Linie.
+        const float corner = bounds.getHeight() * 0.5f;
+        g.setColour (juce::Colours::white.withAlpha (down ? 0.10f : highlighted ? 0.075f : 0.05f));
         g.fillRoundedRectangle (bounds, corner);
-
-        g.setColour (juce::Colours::white.withAlpha (highlighted || down ? 0.22f : 0.11f));
-        g.drawRoundedRectangle (bounds, corner, 1.0f);
 
         // Kleiner Aufklapp-Pfeil rechts - das Zeichen dafuer, dass hier eine
         // Liste dranhaengt.
@@ -2618,9 +2740,13 @@ public:
         const float lineY = full.getCentreY();
         const float endInsetL = full.getX() + full.getWidth() * 0.27f;
         const float endInsetR = full.getRight() - full.getWidth() * 0.27f;
-        g.setColour (lineCol.withAlpha (sectionIsOff ? 0.45f : 0.6f));
-        g.drawLine (endInsetL, lineY, iconBounds.getX() - 2.0f, lineY, 0.6f);
-        g.drawLine (iconBounds.getRight() + 2.0f, lineY, endInsetR, lineY, 0.6f);
+        // Runde 110: sitzt der Link zwischen ØL und ØR, braucht er keine Linien.
+        if (! (bool) button.getProperties().getWithDefault ("noLinkLines", false))
+        {
+            g.setColour (lineCol.withAlpha (sectionIsOff ? 0.45f : 0.6f));
+            g.drawLine (endInsetL, lineY, iconBounds.getX() - 2.0f, lineY, 0.6f);
+            g.drawLine (iconBounds.getRight() + 2.0f, lineY, endInsetR, lineY, 0.6f);
+        }
 
         // Klassisches Kettenglied-Symbol: zwei ueberlappende, leicht
         // gedrehte Kapsel-Ringe.
@@ -2791,8 +2917,10 @@ public:
         // Feedback: "A und B sollen leuchten, also farbig sein".
         // A und B in verschiedenen Farben (User-Wunsch): A violett, B tuerkis -
         // so sieht man auch aus dem Augenwinkel, welcher Slot gerade spielt.
-        const juce::Colour activeA = sectionIsOff ? iconOnInOffSection() : glowAccent;
-        const juce::Colour activeB = sectionIsOff ? iconOnInOffSection() : accent;
+        // Runde 110: A und B sind gleichwertig - aktiv heisst in beiden Faellen
+        // dieselbe Farbe (Gold = an).
+        const juce::Colour activeA = sectionIsOff ? iconOnInOffSection() : themePalette().knob;
+        const juce::Colour activeB = activeA;
         const juce::Colour dimCol (0xff6a6e78);
 
         // Groesser als der Rest der globalen Zeile (User-Wunsch: "muss von
@@ -2924,9 +3052,10 @@ public:
         auto bounds = button.getLocalBounds().toFloat().reduced (3.0f);
         const bool bypassed = button.getToggleState();
 
-        static const juce::Colour onGreen (0xff3ddc73);
-        static const juce::Colour offRed  (0xffff5b5b);
-        auto col = bypassed ? offRed : onGreen;
+        // Runde 110 (User: "Kopfzeile ruhiger"): kein Ampel-Gruen/Rot mehr.
+        // An = die Theme-Farbe, Bypass = gedimmt - wie jedes andere Icon.
+        auto col = bypassed ? iconOffColour().withAlpha (0.75f)
+                            : themePalette().knob.interpolatedWith (juce::Colour (0xfff2f4f8), 0.15f);
 
         g.setColour (col);
         auto centre = bounds.getCentre();
@@ -3006,15 +3135,14 @@ public:
         // Ist eine Smart-Kategorie gewaehlt, bekommt dieser Wuerfel einen
         // dezenten Hof - man sieht dann sofort, dass die Kategorie hier oben
         // wirkt und der andere Wuerfel gesperrt ist (User).
+        // Runde 110 (User): die Ellipsen waren groesser als der Knopf und wurden
+        // an seinen Kanten abgeschnitten - das sah aus wie ein Kasten. Jetzt
+        // ein runder Schimmer, der in den Knopf passt.
         if (button.getProperties().getWithDefault ("categoryArmed", false))
         {
-            const auto c = button.getLocalBounds().toFloat().getCentre();
-            for (int layer = 3; layer >= 1; --layer)
-            {
-                const float rr = bounds.getWidth() * (0.55f + 0.22f * (float) layer);
-                g.setColour (themePalette().chip.withAlpha (0.055f * (float) (4 - layer)));
-                g.fillEllipse (c.x - rr, c.y - rr * 0.8f, rr * 2.0f, rr * 1.6f);
-            }
+            const auto lb = button.getLocalBounds().toFloat();
+            softIconGlow (g, lb.getCentre(), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f,
+                          themePalette().frameRaye, 1.0f);
         }
 
         const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * (bigCube ? 0.60f : 0.42f));

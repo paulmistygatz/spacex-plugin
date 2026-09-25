@@ -3672,8 +3672,12 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         b->getProperties().set ("softChip", true);
         b->getProperties().set ("altAccent", true);
     }
-    polLButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98" "L")));
-    polRButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98" "R")));
+    // Runde 110: das Ø ist jetzt das Icon, der Name darunter nur noch L/R.
+    polLButton.setButtonText ("L");
+    polRButton.setButtonText ("R");
+    polLButton.getProperties().set ("phaseIcon", true);
+    polRButton.getProperties().set ("phaseIcon", true);
+    polLinkButton.getProperties().set ("noLinkLines", true);
     content.addAndMakeVisible (polLButton);
     content.addAndMakeVisible (polRButton);
     polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
@@ -3986,6 +3990,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Entscheidung ("wer bestimmt das Tempo?"), also dieselbe Form.
     rayPairButton.setClickingTogglesState (true);
     rayPairButton.getProperties().set ("softChip", true);    // Runde 108: blau = gekoppelt
+    rayPairButton.getProperties().set ("hdrIcon", 2);        // Runde 110: Kettenglieder
     rayPairButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
@@ -3996,6 +4001,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayFastButton.getProperties().set ("thinOnFrame", true);
     rayFastButton.getProperties().set ("altAccent", true);   // Gold, PAIR bekommt den Hauptakzent
     rayFastButton.getProperties().set ("softChip", true);    // Runde 108: moderne Form
+    rayFastButton.getProperties().set ("hdrIcon", 1);        // Runde 110: Doppelpfeil
     rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
     content.addAndMakeVisible (rayFastButton);
     rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
@@ -4208,6 +4214,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqX2Button.getProperties().set ("altAccent", true);   // wie FAST
     msEqX2Button.getProperties().set ("headerPill", true);
     msEqX2Button.getProperties().set ("softChip", true);
+    msEqX2Button.getProperties().set ("hdrIcon", 3);         // Runde 110: doppelte Kurve
     msEqX2Button.setTooltip ("x2: doubles the curve of the Sides EQ");
     content.addAndMakeVisible (msEqX2Button);
     msEqX2Attachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_X2, msEqX2Button);
@@ -7144,7 +7151,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
             {
                 // Runde 105: Text-Pille im Kopf (x2 in MID-SIDE) - dieselbe
                 // Groesse wie FAST und PAIR beim Phaser.
-                const int pw = 56, ph = juce::jmin (24, headerH);
+                const int pw = 64, ph = juce::jmin (24, headerH);
                 auto fArea = header.removeFromRight (pw);
                 header.removeFromRight (6);
                 filterBtn->setBounds (fArea.withSizeKeepingCentre (pw, ph));
@@ -7358,8 +7365,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // selbst gleich hoch blieb - deshalb wird der ganze L/R+1-4-Block
         // jetzt vertikal MITTIG im verfuegbaren Bereich platziert, statt oben
         // zu kleben.
-        const int lrBtnW = 60, lrBtnH = 36;
-        const int lrGap = 12;
+        // Runde 110 (User): ØL/ØR sind Icon-Schalter - Ø oben, Buchstabe
+        // darunter - und der Link sitzt zwischen ihnen statt in einer eigenen
+        // Zeile darueber.
+        const int lrBtnW = 60, lrBtnH = 56;
+        const int lrGap = 34;
         const int posBtnGap = 8;
         // Zwei Knoepfe statt vier, und sie tragen jetzt Woerter statt Ziffern -
         // 36 px waren viel zu schmal, im Build stand "EAR..." da. Zusammen
@@ -7405,11 +7415,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         polRButton.setBounds (lrCentered);
 
         {
-            const int linkBottom = lrTop - linkGapV;
-            const int linkH      = juce::jlimit (12, linkAreaH, linkBottom - polInner.getY());
-            polLinkButton.setBounds (juce::Rectangle<int> (polInner.getX(), linkBottom - linkH,
-                                                           polInner.getWidth(), linkH)
-                                        .withSizeKeepingCentre (lrBtnW * 2 + lrGap, linkH));
+            // Mittig zwischen den beiden Ø, auf Hoehe der Icons (ohne die
+            // Buchstaben darunter).
+            const int linkS = juce::jmin (lrGap - 4, linkAreaH);
+            const int iconMidY = lrTop + (lrBtnH - 17) / 2;
+            polLinkButton.setBounds (polLButton.getRight() + (lrGap - linkS) / 2, iconMidY - linkS / 2, linkS, linkS);
+            juce::ignoreUnused (linkGapV);
         }
 
         auto posRow = juce::Rectangle<int> (polInner.getX(), lateTop, polInner.getWidth(), posBtnH);
@@ -7801,8 +7812,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // ("RA...", "PH..."), sobald die Sektion schmal war.
     const int rayTitleNeed = juce::GlyphArrangement::getStringWidthInt (sectionTitleFont(), rayTitleLabel.getText()) + 14;
     const int rayRightRoom = juce::jmax (0, rayHeader.getWidth() - rayTitleNeed);
-    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (124, rayRightRoom));
-    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (60, rayHeadRight.getWidth()));
+    // Runde 110: Icon + Name brauchen etwas mehr Breite als die Chips.
+    auto rayHeadRight = rayHeader.removeFromRight (juce::jmin (152, rayRightRoom));
+    const auto rayPairHeaderArea = rayHeadRight.removeFromRight (juce::jmin (76, rayHeadRight.getWidth()));
     rayHeadRight.removeFromRight (5);
     const auto rayFastHeaderArea = rayHeadRight;
    #else
@@ -7880,9 +7892,9 @@ void LCRMSAudioProcessorEditor::layoutContent()
                #endif
             }
             // Runde 55 (User: "fast und pair sind mir zu klein").
-            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayPairHeaderArea.getWidth()),
+            rayPairButton.setBounds (rayPairHeaderArea.withSizeKeepingCentre (juce::jmin (74, rayPairHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayPairHeaderArea.getHeight())));
-            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (56, rayFastHeaderArea.getWidth()),
+            rayFastButton.setBounds (rayFastHeaderArea.withSizeKeepingCentre (juce::jmin (74, rayFastHeaderArea.getWidth()),
                                                                               juce::jmin (24, rayFastHeaderArea.getHeight())));
         }
        #else
