@@ -7053,9 +7053,14 @@ void LCRMSAudioProcessorEditor::layoutContent()
         constexpr int kFileW   = kUndoBtnW * 2 + kGap;                 // Save, Delete
         constexpr int kStateW  = kABW + kGap + kCopyW + kGap + kUndoBtnW; // A/B, Copy, Reset
         constexpr int kGroupGap = 10;   // Save/Delete | A/B Copy Reset: Luecke statt Strich
-        constexpr int kNameW   = kRow1W - (kPArrowW * 2 + kPSmallGap * 2) - kSepBlockW - kFileW - kGroupGap - kStateW;
+        // Runde 129 (User): Namensfeld etwas breiter. Der Block waechst um
+        // kNameExtra; Zeile 1 verteilt das auf die Luecke vor LCR und die
+        // Trennstriche, damit beide Zeilen links und rechts buendig bleiben.
+        constexpr int kNameExtra = 30;
+        constexpr int kBlockW  = kRow1W + kNameExtra;
+        constexpr int kNameW   = kRow1W - (kPArrowW * 2 + kPSmallGap * 2) - kSepBlockW - kFileW - kGroupGap - kStateW + kNameExtra;
 
-        auto block = titleBar.removeFromRight (kRow1W).withSizeKeepingCentre (kRow1W, kRowH * 2 + kRowGap);
+        auto block = titleBar.removeFromRight (kBlockW).withSizeKeepingCentre (kBlockW, kRowH * 2 + kRowGap);
         auto row1 = block.removeFromTop (kRowH);
         block.removeFromTop (kRowGap);
         auto row2 = block.removeFromTop (kRowH);
@@ -7095,10 +7100,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         globalRowSeparatorBottom = row1.getBottom() + 3;
         auto sep1 = [&]
         {
-            row1.removeFromLeft (kSepGap);
+            row1.removeFromLeft (kSepGap + 5);
             globalRowSeparatorX.add (row1.getX());
             row1.removeFromLeft (kSepW);
-            row1.removeFromLeft (kSepGap);
+            row1.removeFromLeft (kSepGap + 5);
         };
 
         auto live = row1.removeFromLeft (kLiveW);
@@ -7116,7 +7121,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         globalBreatheButton.setVisible (false);
         globalBreatheButton.setBounds ({});
 
-        row1.removeFromLeft (kGalaxyGap);
+        row1.removeFromLeft (kGalaxyGap + kNameExtra - 20);
         globalGalaxyActivateButton.setBounds (row1.removeFromLeft (kGalaxyW));
 
         sep1();
