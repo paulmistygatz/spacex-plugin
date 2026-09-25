@@ -1510,43 +1510,63 @@ public:
                 g.setColour (icoCol.withAlpha (a));
                 if (edia >= 0)
                 {
-                    // Runde 125: die ECHTE Kurve aus DSP/SideEq.h (dieselben
-                    // Werte wie der Klang, Fader live). Side = zwei parallele
-                    // Linien, Mid (nur FOCUS) = eine duennere. Die Hoehe ist
-                    // gestaucht und uebertrieben, damit auch 3 dB sichtbar
-                    // sind; der Hochpass faellt links nach unten weg.
-                    //   0 TIGHT  1 CLEAR  2 FOCUS
-                    const float amt   = (float) (double) button.getProperties().getWithDefault ("eqAmt", 0.5);
-                    const auto  curve = sideeq::evaluate (edia, amt, true);
-                    const float w = 18.0f * sc, amp = 7.0f * sc;
-                    auto yOf = [] (float db)
-                    {
-                        const float v = juce::jlimit (-1.0f, 1.0f, db / 24.0f);
-                        return std::copysign (std::pow (std::abs (v), 0.55f), v) * 0.5f;
-                    };
-                    auto pathFor = [&] (bool side, float yOff)
+                    // Runde 126 (User): EINE Linie fuer die Seiten, bei FOCUS
+                    // eine zweite, duennere fuer die Mitte. Gezeichnete Form
+                    // (sideeq::Look), die fliessend morpht; der Hochpass geht
+                    // als Gerade nach unten raus und blendet dort aus. Dazu
+                    // eine ganz feine 0-dB-Linie.
+                    sideeq::Look L = sideeq::lookFor (edia, 0.5f);
+                    if (auto* arr = button.getProperties()["eqLook"].getArray())
+                        if (arr->size() == sideeq::kLookFields)
+                        {
+                            float v[sideeq::kLookFields];
+                            for (int k = 0; k < sideeq::kLookFields; ++k) v[k] = (float) (double) (*arr)[k];
+                            L = { v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8] };
+                        }
+                    const float w = 20.0f * sc, amp = 6.5f * sc;
+                    const float x0 = cx - w * 0.5f;
+                    const float y0 = cy - amp * 0.15f;             // 0 dB leicht ueber der Mitte
+                    const juce::Rectangle<float> clipR (x0 - 2.0f, y0 - amp * 1.25f, w + 4.0f, amp * 2.45f);
+
+                    g.setColour (icoCol.withAlpha (0.16f * a));
+                    g.drawHorizontalLine ((int) std::round (y0), x0, x0 + w);
+
+                    auto pathFor = [&] (bool side)
                     {
                         juce::Path pth;
-                        for (int i = 0; i <= 48; ++i)
+                        constexpr int N = 96;
+                        for (int i = 0; i <= N; ++i)
                         {
-                            const float  t  = (float) i / 48.0f;
-                            const double hz = 40.0 * std::pow (18000.0 / 40.0, (double) t);
-                            const float  x  = cx - w * 0.5f + w * t;
-                            const float  y  = cy + yOff - amp * yOf (sideeq::responseDb (curve, side, hz));
+                            const float t = (float) i / (float) N;
+                            const float x = x0 + w * t;
+                            const float y = juce::jlimit (clipR.getY() - 4.0f, clipR.getBottom() + 4.0f,
+                                                          y0 - amp * sideeq::lookY (L, side, t));
                             if (i == 0) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
                         }
                         return pth;
                     };
-                    const juce::PathStrokeType pairStroke (0.95f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-                    const juce::PathStrokeType monoStroke (1.20f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-                    const float gapPair = 1.5f * sc;
-                    g.strokePath (pathFor (true, -gapPair), pairStroke);
-                    g.strokePath (pathFor (true,  gapPair), pairStroke);
-                    if (std::abs (curve.mHsDb) > 0.05f)
+                    juce::Graphics::ScopedSaveState ss (g);
+                    g.reduceClipRegion (clipR.toNearestInt());
+                    // Nach unten ausblenden: der Hochpass verschwindet weich.
+                    auto fillFaded = [&] (const juce::Path& stroke, float alpha)
                     {
-                        g.setColour (icoCol.withAlpha (a * 0.60f));
-                        g.strokePath (pathFor (false, 0.0f), monoStroke);
+                        juce::ColourGradient fade (icoCol.withAlpha (alpha), 0.0f, y0 + amp * 0.85f,
+                                                   icoCol.withAlpha (0.0f),  0.0f, clipR.getBottom(), false);
+                        g.setGradientFill (fade);
+                        g.fillPath (stroke);
+                    };
+                    const float mAlpha = juce::jlimit (0.0f, 1.0f, std::abs (L.mG) / 1.5f);
+                    if (mAlpha > 0.01f)
+                    {
+                        juce::Path st;
+                        juce::PathStrokeType (1.1f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
+                            .createStrokedPath (st, pathFor (false));
+                        fillFaded (st, a * 0.55f * mAlpha);
                     }
+                    juce::Path st;
+                    juce::PathStrokeType (1.45f * sc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded)
+                        .createStrokedPath (st, pathFor (true));
+                    fillFaded (st, a);
                 }
                 else if (rdia >= 0)
                 {

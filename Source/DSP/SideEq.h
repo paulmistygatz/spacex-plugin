@@ -132,4 +132,57 @@ namespace sideeq
                       + magDb (highpass (sr, c.s2Hz, c.s2Q), sr, hz)
                       + magDb (highShelf (sr, c.sHsHz, c.sHsDb, c.sHsQ), sr, hz));
     }
+
+    // ===== ICON (Runde 126) =====
+    // Nicht die exakte Kurve, sondern eine gezeichnete Form, die aussieht wie
+    // in Pro-Q und fliessend morpht: Hochpass als gerade Linie nach unten
+    // mit weichem Knie (Softplus), Shelves als weiche S-Kurve (Sigmoid).
+    // Alle Werte sind stetig - das Icon kann zwischen Modi und Faderstellungen
+    // ueberblenden, ohne Ecken und ohne Spruenge.
+    // x: 0..1 = 20 Hz..20 kHz (log), y: +1 oben, 0 = 0 dB.
+    struct Look { float hpX, hpSlope, hpW, sX, sG, sW, mX, mG, mW; };
+    constexpr int kLookFields = 9;
+
+    inline float xOf (float hz) noexcept { return std::log10 (std::max (hz, 20.0f) / 20.0f) / 3.0f; }
+
+    inline Look lookOf (const Curve& c) noexcept
+    {
+        const bool  o24 = c.s2Hz > 20.0f;
+        const float q   = o24 ? c.s1Q / kQ24a : c.s1Q;
+        return { xOf (c.s1Hz), o24 ? 7.0f : 4.0f, 0.032f / std::max (q, 0.3f),
+                 xOf (c.sHsHz), c.sHsDb, 0.045f / std::max (c.sHsQ, 0.2f),
+                 xOf (c.mHsHz), c.mHsDb, 0.045f / std::max (c.mHsQ, 0.2f) };
+    }
+
+    // Unter 50 % bleibt die Form des Modus erkennbar (mindestens 35 %
+    // Auspraegung) - das Icon zeigt WAS der Modus macht, der Fader WIE VIEL.
+    inline Look lookFor (int mode, float amount01) noexcept
+    {
+        mode = std::clamp (mode, 0, kModes - 1);
+        const Look A = lookOf (curveA (mode)), B = lookOf (curveB (mode));
+        const float a = std::clamp (amount01, 0.0f, 1.0f);
+        if (a <= 0.5f)
+        {
+            const float k = 0.35f + 0.65f * (a * 2.0f);
+            Look L = A;
+            L.hpSlope *= k; L.sG *= k; L.mG *= k;
+            return L;
+        }
+        const float t = (a - 0.5f) * 2.0f;
+        auto m = [t] (float p, float q) { return p + (q - p) * t; };
+        return { m (A.hpX, B.hpX), m (A.hpSlope, B.hpSlope), m (A.hpW, B.hpW),
+                 m (A.sX, B.sX), m (A.sG, B.sG), m (A.sW, B.sW),
+                 m (A.mX, B.mX), m (A.mG, B.mG), m (A.mW, B.mW) };
+    }
+
+    inline float lookY (const Look& L, bool side, float x) noexcept
+    {
+        auto sig = [] (float z) { return 1.0f / (1.0f + std::exp (-z)); };
+        if (! side)
+            return 0.9f * std::tanh (L.mG * sig ((x - L.mX) / L.mW) / 8.0f);
+        const float shelf = 0.9f * std::tanh (L.sG * sig ((x - L.sX) / L.sW) / 8.0f);
+        const float d  = (L.hpX - x) / L.hpW;
+        const float sp = L.hpW * (d > 20.0f ? d : std::log1p (std::exp (d)));
+        return shelf - L.hpSlope * sp;
+    }
 }

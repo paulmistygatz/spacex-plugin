@@ -261,7 +261,7 @@ private:
         // sind seit der Pille dezent genug, um keinen Schalter zu brauchen.
         // "Flat" ist als Layout raus, "Technical Labels" dafuer hier
         // eingezogen: es ist eine Frage der Beschriftung, also Layout.
-        static constexpr int kThemes  = 4;   // Runde 66 (User): Moon raus
+        static constexpr int kThemes  = 3;   // Runde 126 (User): Pop Art raus   // Runde 66 (User): Moon raus
         // Runde 71 (User): die Layout-Spalte ist raus. Jedes Theme hat sein
         // festes Layout (Outline), also gibt es nichts mehr zu waehlen - und
         // "Technical Labels" ist ohnehin eine Frage der BESCHRIFTUNG, nicht
@@ -293,7 +293,7 @@ private:
         std::function<void()>     onClose;
 
         // Reihenfolge wie im alten Menue (User-Wunsch aus Runde 23).
-        static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple, idThemeComic }; return a; }
+        static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
         static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation }; return a; }
@@ -323,7 +323,7 @@ private:
 
             // Runde 66 (User): vier Themes, Day & Night als Standard und
             // zuerst. "Fireflies" heisst jetzt "Fairy Tale" (User).
-            static const char* const themeNames[kThemes]  = { "Day & Night", "Fairy Tale", "Science Fiction", "Pop Art" };
+            static const char* const themeNames[kThemes]  = { "Day & Night", "Fairy Tale", "Science Fiction" };
             static const char* const layoutNames[kLayouts] = { "3D", "Outline", "Technical Labels" };
             // Runde 31: "Changes Focus", "Focus: Click Moves Edge" und
             // "Show Focus Hz" sind mit dem Focus-Bereich weggefallen,
@@ -352,7 +352,7 @@ private:
             themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
             themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
             themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
-            themeFull[3] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_pop_png,       SpaceXManualData::theme_pop_pngSize);
+            // Runde 126: Pop Art ist raus - kein viertes Vorschaubild mehr.
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
@@ -434,7 +434,7 @@ private:
 
             // Farbtupfer links neben jedem Theme-Namen - schneller zu treffen
             // als eine reine Textliste.
-            static const juce::uint32 dots[kThemes] = { 0xffe3b25f, 0xff9a7bff, 0xff5be3ff, 0xffff5fa8 };
+            static const juce::uint32 dots[kThemes] = { 0xffe3b25f, 0xff9a7bff, 0xff5be3ff };
             for (int i = 0; i < kThemes; ++i)
             {
                 auto r = themeBtn[i].getBounds().toFloat();
@@ -2001,6 +2001,17 @@ private:
     };
     juce::TextButton msEqPowerButton;
     SnapSlider       msEqAmtSlider;
+    // Runde 126: das EQ-Icon morpht mit 60 Hz fliessend zu seiner Zielform
+    // (Modus + Fader) - der Haupt-Timer mit 20 Hz war zu ruckelig.
+    struct EqIconTicker : public juce::Timer
+    {
+        std::function<void()> fn;
+        void timerCallback() override { if (fn) fn(); }
+    };
+    EqIconTicker eqIconTicker;
+    float eqLookCur[sideeq::kLookFields] {};
+    bool  eqLookInit = false;
+    void  tickEqIcon();
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> msEqOnAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> msEqAmtAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> lcrEqAttachment;

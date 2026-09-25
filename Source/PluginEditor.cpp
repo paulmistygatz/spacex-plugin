@@ -828,6 +828,7 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     // wo die Quelle im Stereobild sitzt.
     categoryButton.getProperties().set ("profileDiagram", juce::jlimit (0, kNumCategories, mutateCategoryValue));
     categoryButton.getProperties().set ("iconAbove", true);   // Runde 110: Icon ueber dem Namen
+    content.repaint (categoryButton.getBounds().expanded (180, 30));   // Runde 126: Glow folgt dem Profil
     categoryButton.getProperties().set ("pillColour",
         (int) (profileArmed ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
     categoryButton.repaint();
@@ -1621,8 +1622,8 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
 
     // Polarity
     tip (polTitleLabel,  "POLARITY: flips the phase of one channel at a chosen point in the chain");
-    tip (polLButton,     "L: flip the left channel");
-    tip (polRButton,     "R: flip the right channel");
+    tip (polLButton,     "L: flip the left channel. Cmd-click: only left");
+    tip (polRButton,     "R: flip the right channel. Cmd-click: only right");
     tip (polLinkButton,  "Link: switch L and R together");
     tip (polPos2Button,  technicalLabels ? "Pre / Post: click to switch. Pre flips right after the LCR stage, Post at the end after the width"
                                         : "Early / Late: click to switch. Early flips right after Galaxy, Late at the end after the width");
@@ -1905,7 +1906,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
                             : settingsSnap.layout == 1 ? idLayoutFrameless : idLayoutEasy);
     if (uiThemeIndex != settingsSnap.theme)
     {
-        static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3, 2 };   // Runde 66: Day & Night, Fairy Tale, Sci-Fi, Pop
+        static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3 };   // Runde 126: Day & Night, Fairy Tale, Sci-Fi (Pop raus)
         for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
             if (themeForId[i] == settingsSnap.theme)
             {
@@ -2029,7 +2030,7 @@ void LCRMSAudioProcessorEditor::closeSettingsPanel()
 void LCRMSAudioProcessorEditor::refreshSettingsPanel()
 {
     juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
-    static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3, 2 };   // Runde 66: Day & Night, Fairy Tale, Sci-Fi, Pop
+    static const int themeForId[SettingsPanelComponent::kThemes] = { 4, 1, 3 };   // Runde 126: Day & Night, Fairy Tale, Sci-Fi (Pop raus)
     for (int i = 0; i < SettingsPanelComponent::kThemes; ++i)
         settingsPanel.themeBtn[i].setToggleState (uiThemeIndex == themeForId[i], juce::dontSendNotification);
 
@@ -3721,6 +3722,25 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (polRButton);
     polLAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_L, polLButton);
     polRAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_POL_R, polRButton);
+    // Runde 126 (User): Cmd-Klick auf L oder R schaltet exklusiv - nur diese
+    // Seite an, die andere aus (wie Solo). Der normale Klick hat schon
+    // umgeschaltet; danach wird der Endzustand gesetzt.
+    auto exclusivePol = [this] (bool leftSide)
+    {
+        if (! juce::ModifierKeys::currentModifiers.isCommandDown()) return;
+        juce::Component::SafePointer<LCRMSAudioProcessorEditor> safe (this);
+        juce::MessageManager::callAsync ([safe, leftSide]
+        {
+            if (safe == nullptr) return;
+            auto* pl = safe->processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_L);
+            auto* pr = safe->processor.apvts.getParameter (LCRMSAudioProcessor::ID_POL_R);
+            if (pl == nullptr || pr == nullptr) return;
+            pl->setValueNotifyingHost (leftSide ? 1.0f : 0.0f);
+            pr->setValueNotifyingHost (leftSide ? 0.0f : 1.0f);
+        });
+    };
+    polLButton.onClick = [exclusivePol] { exclusivePol (true); };
+    polRButton.onClick = [exclusivePol] { exclusivePol (false); };
 
     // Link-Button: keine eigene Parameter-Bindung (reine Aktion) - schaltet
     // L UND R gemeinsam um. Logik (User-Feedback): ist aktuell KEINER von
@@ -4277,6 +4297,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (msEqAmtSlider);
     msEqAmtAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_AMT, msEqAmtSlider);
     msEqAmtSlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
+    eqIconTicker.fn = [this] { tickEqIcon(); };
+    eqIconTicker.startTimerHz (60);
 
     // Runde 115 (User): der EQ aus MID-SIDE kann in die LCR Matrix wandern.
     // Nur Text wie FAST/LINK; an = blau (gekoppelt), und das EQ-Feld unten
@@ -5532,13 +5554,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
             msEqButton.getProperties().set ("eqDiagram", e);
             msEqButton.repaint();
         }
-        // Runde 125: das Icon zeichnet die echte Kurve - Fader live mitgeben.
-        const float amt01 = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_AMT)->load() * 0.01f;
-        if (std::abs ((float) (double) msEqButton.getProperties().getWithDefault ("eqAmt", -1.0) - amt01) > 1.0e-4f)
-        {
-            msEqButton.getProperties().set ("eqAmt", (double) amt01);
-            msEqButton.repaint();
-        }
+        // Runde 126: die Icon-Form kommt aus tickEqIcon() (60 Hz, fliessend).
         // Farbe: siehe Runde 115 bei setSectionOff (msEqButton) - Gold wie die
         // anderen Icon-Felder, blau wenn der EQ in LCR sitzt.
         if (msEqDots.index != e) { msEqDots.index = e; msEqDots.repaint(); }
@@ -5837,6 +5853,54 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // eigene Gruppe, ohne Kasten.
     // Runde 115 (User): der Strich ist wieder weg - das Profil steht jetzt
     // mittig zwischen Wortmarke und Kopfzeile und braucht ihn nicht.
+
+    // Runde 126 (User: "rechts und links um die Smart-Profile ein Glow, da
+    // ist ja noch viel Platz"): ein flacher, breiter Lichtschein hinter dem
+    // Icon und zwei feine Lichtlinien nach links und rechts, die nach aussen
+    // auslaufen - wie ein Horizont, auf dem das Profil sitzt. Mit gewaehltem
+    // Profil kraeftiger. Rein statisch, kostet nichts.
+    if (categoryButton.isVisible())
+    {
+        const auto cb    = categoryButton.getBounds().toFloat();
+        const float cx   = cb.getCentreX();
+        const float iy   = cb.getY() + cb.getHeight() * 0.34f;   // Hoehe der Icon-Mitte
+        const bool armed = mutateCategoryValue > 0;
+        const auto col   = themePalette().frameRaye;
+        // Platz links bis zum Slogan-Ende, rechts bis zum Preset-Pfeil.
+        const float room = juce::jmin (cx - 300.0f, (float) presetPrevButton.getX() - cx - 8.0f);
+        const float reach = juce::jlimit (60.0f, 170.0f, room);
+
+        // (1) weicher, flacher Schein - Ellipse ueber eine gestauchte Kreisfuellung
+        {
+            juce::Graphics::ScopedSaveState keep (g);
+            const float hw = reach, hh = 30.0f;
+            g.addTransform (juce::AffineTransform::scale (1.0f, hh / hw, cx, iy));
+            juce::ColourGradient halo (col.withAlpha (armed ? 0.13f : 0.06f), cx, iy,
+                                       col.withAlpha (0.0f), cx + hw, iy, true);
+            halo.addColour (0.45, col.withAlpha (armed ? 0.05f : 0.022f));
+            g.setGradientFill (halo);
+            g.fillEllipse (cx - hw, iy - hw, hw * 2.0f, hw * 2.0f);
+        }
+        // (2) zwei Lichtlinien, innen hell, nach aussen auslaufend
+        const float gap = 40.0f;
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float xa = cx + side * gap, xb = cx + side * reach;
+            juce::ColourGradient line (col.withAlpha (armed ? 0.50f : 0.26f), xa, iy,
+                                       col.withAlpha (0.0f), xb, iy, false);
+            g.setGradientFill (line);
+            g.fillRect (juce::Rectangle<float>::leftTopRightBottom (juce::jmin (xa, xb), iy - 0.55f,
+                                                                    juce::jmax (xa, xb), iy + 0.55f));
+            // zwei winzige Lichtpunkte auf der Linie
+            for (float f : { 0.30f, 0.62f })
+            {
+                const float px = xa + (xb - xa) * f;
+                const float r  = f < 0.5f ? 1.3f : 0.9f;
+                g.setColour (col.withAlpha ((armed ? 0.55f : 0.28f) * (1.0f - f * 0.6f)));
+                g.fillEllipse (px - r, iy - r, r * 2.0f, r * 2.0f);
+            }
+        }
+    }
 
     // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
     // Claim-Untertitel wirkte "amateurhaft" (User-Feedback) und wurde
@@ -6349,6 +6413,33 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
 // voll farbig). So liegt er wirklich ueber allem; nur der Logo-Klick-
 // bereich selbst bleibt normal bedienbar (Bypass wieder ausschalten
 // funktioniert weiterhin per Klick auf das Logo).
+// Runde 126: EQ-Icon - Zielform aus Modus und Fader, die angezeigte Form
+// gleitet mit 60 Hz dorthin (Zeitkonstante ~70 ms). Auch ein Moduswechsel
+// wird so zu einer Bewegung statt eines Sprungs.
+void LCRMSAudioProcessorEditor::tickEqIcon()
+{
+    const int mode = juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
+                                   (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
+    const float amt = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_AMT)->load() * 0.01f;
+    const auto L = sideeq::lookFor (mode, amt);
+    const float tgt[sideeq::kLookFields] = { L.hpX, L.hpSlope, L.hpW, L.sX, L.sG, L.sW, L.mX, L.mG, L.mW };
+    bool changed = ! eqLookInit;
+    for (int k = 0; k < sideeq::kLookFields; ++k)
+    {
+        if (! eqLookInit) { eqLookCur[k] = tgt[k]; continue; }
+        const float d = tgt[k] - eqLookCur[k];
+        if (d == 0.0f) continue;
+        eqLookCur[k] = std::abs (d) < 1.0e-4f ? tgt[k] : eqLookCur[k] + d * 0.22f;
+        changed = true;
+    }
+    eqLookInit = true;
+    if (! changed) return;
+    juce::Array<juce::var> arr;
+    for (int k = 0; k < sideeq::kLookFields; ++k) arr.add ((double) eqLookCur[k]);
+    msEqButton.getProperties().set ("eqLook", juce::var (arr));
+    msEqButton.repaint();
+}
+
 // ===== THEME =====
 void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
 {
@@ -6361,6 +6452,8 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
     // landen auf dem neuen Standard Day & Night (4). Uebrig bleiben
     // Day & Night (4), Fairy Tale (1), Sci-Fi (3) und Pop (2).
     if (uiThemeIndex == 0 || uiThemeIndex == 5) uiThemeIndex = 4;
+    // Runde 126 (User): "Pop" ist ebenfalls raus - landet auf Day & Night.
+    if (uiThemeIndex == 2) uiThemeIndex = 4;
     uiThemeRef() = (UiTheme) uiThemeIndex;
     // Runde 71 (User): jedes Theme hat sein festes Layout. Outline traegt
     // seit Runde 66 eine themeeigene Fuellung, damit ist die Unterscheidung
