@@ -1419,10 +1419,21 @@ public:
                                 dot (24.0f, 16.0f, 5.5f, 1.0f);
                                 break;
                             }
-                            case 2:   // BACKINGS: breit, aber ordentlich
-                                for (float x : { 8.0f, 19.0f, 29.0f, 40.0f })
-                                    dot (x, 16.0f, 3.4f, 1.0f);
+                            case 2:   // BACKINGS: Runde 145 (User) "Chor" - drei Stimmen, die
+                            {         // sich ueberlappen. Die vier Punkte sahen aus wie die Auswahlpunkte.
+                                for (float x : { 16.0f, 32.0f })
+                                {
+                                    juce::Path ring;
+                                    const auto q = P (x, 16.0f);
+                                    ring.addEllipse (q.x - 8.0f * sc, q.y - 8.0f * sc, 16.0f * sc, 16.0f * sc);
+                                    stroke (ring, 2.0f, 0.6f);
+                                }
+                                juce::Path mid;
+                                const auto q = P (24.0f, 16.0f);
+                                mid.addEllipse (q.x - 8.0f * sc, q.y - 8.0f * sc, 16.0f * sc, 16.0f * sc);
+                                stroke (mid, 2.0f, 1.0f);
                                 break;
+                            }
                             case 3:   // AD-LIBS: verstreut, in Bewegung
                             {
                                 dot (9.0f, 10.0f, 3.0f, 1.0f);
