@@ -1,0 +1,25 @@
+from PIL import Image
+A=Image.open('/root/.claude/uploads/a71bb867-aa28-5042-a560-f9be5b172d12/4b2d6501-image.png').convert('RGB')
+B=Image.open('/root/.claude/uploads/a71bb867-aa28-5042-a560-f9be5b172d12/a5dfc3d2-image.png').convert('RGB')
+def c(im,box,name,base=2000):
+    k=im.size[0]/base
+    x0,y0,x1,y1=[int(round(v*k)) for v in box]
+    im.crop((x0,y0,x1,y1)).save('img/'+name+'.png')
+c(A,(0,0,2000,1157),'full')
+c(B,(0,0,2000,1157),'full_backings')
+c(A,(815,18,1975,178),'header')
+c(B,(838,18,1030,170),'profile_backings')
+c(A,(838,18,1030,170),'profile_lead')
+c(A,(1115,40,1440,100),'liverow')
+c(A,(795,182,1505,485),'lcr')
+c(A,(1528,182,1968,485),'polarity')
+c(A,(795,510,1293,785),'micropitch')
+c(B,(795,510,1293,785),'micropitch_double')
+c(A,(1315,510,1968,785),'midside')
+c(B,(1315,510,1968,785),'midside_focus')
+c(A,(795,812,1505,1072),'autopan')
+c(A,(1528,812,1968,1072),'phaser')
+c(A,(20,975,775,1080),'footer')
+c(A,(22,222,768,968),'starfield')
+c(A,(20,20,570,170),'logo')
+c(A,(20,178,720,225),'infoline')
