@@ -1160,7 +1160,11 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Entscheidung - der globale Mod-Schalter - und LIFE bestimmt, wie weit
     // sie geht. Die alten Parameter bleiben nur wegen bestehender Presets
     // erhalten und werden nicht mehr gelesen.
-    const bool timewarpModOn   = ! globalModBypass;
+    // Runde 109 (User): Micropitch wird NIE moduliert - ein wanderndes Delay
+    // bzw. eine wandernde Verstimmung macht den phasigen Klang, der bei
+    // jedem Laden anders ausfaellt.
+    const bool timewarpModOn   = false;
+    juce::ignoreUnused (globalModBypass);
     const bool dimensionModOn  = ! globalModBypass;
     // Hyperdrive-Mod bleibt jetzt auch bei aktivem Bar-Sync einschaltbar
     // (User-Feedback: "trotzdem an gehen, wirkt sich dann eben nur auf Flow

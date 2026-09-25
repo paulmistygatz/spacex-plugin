@@ -2292,12 +2292,120 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
             for (const auto& f : legacy.findChildFiles (juce::File::findFiles, false, "*" + juce::String (kPresetExt)))
                 f.copyFileTo (folder.getChildFile (f.getFileName()));
     }
+    // Runde 109 (User): die vier Smart-Kategorien als echte Ordner - einmalig.
+    // Loescht der User einen davon im Finder, kommt er nicht wieder. Dabei
+    // wandern vorhandene Presets, die mit einem Smart-Profil gespeichert
+    // wurden, in dessen Ordner; alle anderen bleiben, wo sie sind.
+    if (! props.getBoolValue ("presetCategoryFolders", false))
+    {
+        static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+        for (auto* c : cats)
+            folder.getChildFile (c).createDirectory();
+        for (const auto& f : folder.findChildFiles (juce::File::findFiles, false, "*" + juce::String (kPresetExt)))
+            if (auto xml = juce::XmlDocument::parse (f))
+            {
+                const int cat = xml->getIntAttribute ("mutateCategory", 0);
+                if (cat >= 1 && cat <= 4)
+                {
+                    const auto target = folder.getChildFile (cats[cat - 1]).getChildFile (f.getFileName());
+                    if (! target.exists())
+                        f.moveFileTo (target);
+                }
+            }
+        props.setValue ("presetCategoryFolders", true);
+        props.saveIfNeeded();
+    }
     return folder;
+}
+
+// Ordner in Menue-Reihenfolge: erst die Smart-Kategorien (in deren
+// Reihenfolge), dann eigene Ordner alphabetisch.
+juce::StringArray LCRMSAudioProcessorEditor::presetFolderOrder() const
+{
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    const auto root = presetFolder();
+    juce::StringArray order;
+    for (auto* c : cats)
+        if (root.getChildFile (c).isDirectory())
+            order.add (c);
+    juce::StringArray others;
+    for (const auto& d : root.findChildFiles (juce::File::findDirectories, false))
+        if (! order.contains (d.getFileName()) && ! d.getFileName().startsWithChar ('.'))
+            others.add (d.getFileName());
+    others.sortNatural();
+    order.addArray (others);
+    return order;
+}
+
+juce::String LCRMSAudioProcessorEditor::presetDisplayName (const juce::String& key)
+{
+    return key.containsChar ('/') ? key.fromLastOccurrenceOf ("/", false, false) : key;
+}
+
+juce::String LCRMSAudioProcessorEditor::presetFolderOf (const juce::String& key)
+{
+    return key.containsChar ('/') ? key.upToLastOccurrenceOf ("/", false, false) : juce::String();
+}
+
+// Jeder Teil des Pfads einzeln dateinamen-tauglich machen - der
+// Schraegstrich selbst muss stehen bleiben.
+static juce::String legalPresetPath (const juce::String& key)
+{
+    auto parts = juce::StringArray::fromTokens (key, "/", {});
+    parts.removeEmptyStrings();
+    for (auto& p : parts)
+        p = juce::File::createLegalFileName (p.trim());
+    return parts.joinIntoString ("/");
+}
+
+// Alte Namen ohne Ordner (A/B, Sessions, eben verschobene Presets) auf den
+// echten Ort umschreiben.
+juce::String LCRMSAudioProcessorEditor::resolvePresetKey (const juce::String& key) const
+{
+    if (key.isEmpty() || isDefaultPresetName (key) || key.containsChar ('/'))
+        return key;
+    const auto f = presetFile (key);
+    if (! f.existsAsFile())
+        return key;
+    return f.getRelativePathFrom (presetFolder()).replaceCharacter ('\\', '/')
+            .upToLastOccurrenceOf (kPresetExt, false, true);
+}
+
+// Wohin ein neu gespeichertes Preset kommt:
+//  - "Ordner/Name" getippt -> genau dorthin
+//  - derselbe Name wie das geladene Preset -> dieses Preset (ueberschreiben)
+//  - sonst in den Ordner des aktiven Smart-Profils,
+//  - ohne Profil in den Ordner des geladenen Presets, sonst nach oben.
+juce::String LCRMSAudioProcessorEditor::keyForTypedName (const juce::String& typed) const
+{
+    if (typed.containsChar ('/') || isDefaultPresetName (typed))
+        return typed;
+    const auto cur = resolvePresetKey (currentPresetName);
+    if (cur.isNotEmpty() && ! isDefaultPresetName (cur) && typed.equalsIgnoreCase (presetDisplayName (cur)))
+        return cur;
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    juce::String folder;
+    if (mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
+        folder = cats[mutateCategoryValue - 1];
+    else
+        folder = presetFolderOf (cur);
+    return folder.isEmpty() ? typed : folder + "/" + typed;
 }
 
 juce::File LCRMSAudioProcessorEditor::presetFile (const juce::String& name) const
 {
-    return presetFolder().getChildFile (juce::File::createLegalFileName (name) + kPresetExt);
+    const auto root = presetFolder();
+    auto f = root.getChildFile (legalPresetPath (name) + kPresetExt);
+    if (! f.existsAsFile() && ! name.containsChar ('/'))
+    {
+        // Name ohne Ordner: das Preset kann inzwischen in einem Ordner liegen.
+        juce::Array<juce::File> hits;
+        root.findChildFiles (hits, juce::File::findFiles, true,
+                             juce::File::createLegalFileName (name) + kPresetExt);
+        if (! hits.isEmpty())
+            return hits.getFirst();
+    }
+    return f;
 }
 
 // Einmalige Uebernahme der alten Properties-Presets in den Ordner.
@@ -2321,15 +2429,25 @@ void LCRMSAudioProcessorEditor::migrateLegacyPresets()
 
 juce::StringArray LCRMSAudioProcessorEditor::getPresetNames() const
 {
+    // Runde 109: Reihenfolge = Menue-Reihenfolge (auch fuer die Pfeile):
+    // Default, dann die Ordner, dann was oben ohne Ordner liegt.
     juce::StringArray names;
     names.add (kDefaultPresetName);
-    juce::Array<juce::File> files;
-    presetFolder().findChildFiles (files, juce::File::findFiles, false, juce::String ("*") + kPresetExt);
-    juce::StringArray user;
-    for (const auto& f : files)
-        user.add (f.getFileNameWithoutExtension());
-    user.sortNatural();
-    names.addArray (user);
+    const auto root = presetFolder();
+    for (const auto& folder : presetFolderOrder())
+    {
+        juce::StringArray inFolder;
+        for (const auto& f : root.getChildFile (folder).findChildFiles (juce::File::findFiles, true, juce::String ("*") + kPresetExt))
+            inFolder.add (f.getRelativePathFrom (root).replaceCharacter ('\\', '/')
+                              .upToLastOccurrenceOf (kPresetExt, false, true));
+        inFolder.sortNatural();
+        names.addArray (inFolder);
+    }
+    juce::StringArray top;
+    for (const auto& f : root.findChildFiles (juce::File::findFiles, false, juce::String ("*") + kPresetExt))
+        top.add (f.getFileNameWithoutExtension());
+    top.sortNatural();
+    names.addArray (top);
     return names;
 }
 
@@ -2405,17 +2523,66 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     const bool galaxyArmedNow =
         processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f;
 
-    for (int i = 0; i < presetNames.size(); ++i)
+    // Runde 109 (User): Ordner. Der Ordner des geladenen Presets steht
+    // aufgeklappt da (Ueberschrift + Presets), das Preset selbst ist
+    // abgehakt; alle anderen Ordner sind Untermenues.
+    const auto currentKey = resolvePresetKey (currentPresetName);
+    const auto currentTop = currentKey.containsChar ('/') ? currentKey.upToFirstOccurrenceOf ("/", false, false)
+                                                          : juce::String();
+    int currentId = 0;
+    auto makeItem = [&] (int i, const juce::String& label)
     {
-        const bool isDef = isDefaultPresetName (presetNames[i]);
+        const auto& key = presetNames[i];
+        const bool isDef = isDefaultPresetName (key);
         // Galaxy global aus: Presets mit Galaxy grau (User, Runde 35).
         const bool galaxyBlocked = ! deleteMode && ! isDef && ! galaxyArmedNow
-                                   && presetTreeUsesGalaxy (presetTree (presetNames[i]));
-        const bool enabled = ! (deleteMode && isDef) && ! galaxyBlocked;
-        menu.addItem (i + 1, presetNames[i], enabled, presetNames[i].equalsIgnoreCase (currentPresetName));
-        if (isDef && presetNames.size() > 1)
-            menu.addSeparator();
+                                   && presetTreeUsesGalaxy (presetTree (key));
+        juce::PopupMenu::Item it (label);
+        it.itemID    = i + 1;
+        it.isEnabled = ! (deleteMode && isDef) && ! galaxyBlocked;
+        it.isTicked  = key.equalsIgnoreCase (currentKey);
+        if (it.isTicked)
+            currentId = i + 1;
+        return it;
+    };
+    constexpr int kEmptyId = 99999;   // nie waehlbar
+
+    menu.addItem (makeItem (0, presetNames[0]));   // Default
+    const auto folders = presetFolderOrder();
+    if (! folders.isEmpty())
+        menu.addSeparator();
+    for (const auto& folder : folders)
+    {
+        juce::Array<int> idx;
+        for (int i = 1; i < presetNames.size(); ++i)
+            if (presetNames[i].containsChar ('/') && presetNames[i].upToFirstOccurrenceOf ("/", false, false) == folder)
+                idx.add (i);
+        if (folder == currentTop)
+        {
+            menu.addSectionHeader (folder);
+            for (int i : idx)
+                menu.addItem (makeItem (i, "   " + presetNames[i].fromFirstOccurrenceOf ("/", false, false)));
+            if (idx.isEmpty())
+                menu.addItem (kEmptyId, "   (empty)", false);
+        }
+        else
+        {
+            juce::PopupMenu sub;
+            sub.setLookAndFeel (&lookAndFeel);
+            for (int i : idx)
+                sub.addItem (makeItem (i, presetNames[i].fromFirstOccurrenceOf ("/", false, false)));
+            if (idx.isEmpty())
+                sub.addItem (kEmptyId, "(empty)", false);
+            menu.addSubMenu (folder, sub);
+        }
     }
+    bool firstTop = true;
+    for (int i = 1; i < presetNames.size(); ++i)
+        if (! presetNames[i].containsChar ('/'))
+        {
+            if (firstTop) { menu.addSeparator(); firstTop = false; }
+            menu.addItem (makeItem (i, presetNames[i]));
+        }
 
     constexpr int kRenameId = 100000;
     if (! deleteMode)
@@ -2427,7 +2594,10 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
         menu.addItem (kRenameId + 1, "Preset Folder...");
     }
 
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetNameButton),
+    auto menuOptions = juce::PopupMenu::Options().withTargetComponent (presetNameButton);
+    if (currentId > 0)
+        menuOptions = menuOptions.withItemThatMustBeVisible (currentId);
+    menu.showMenuAsync (menuOptions,
         [this, presetNames, deleteMode] (int result)
         {
             if (result == 100000)
@@ -2449,7 +2619,7 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
                 return;
             }
             juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
-                "Delete Preset", "Delete preset \"" + name + "\"?",
+                "Delete Preset", "Delete preset \"" + presetDisplayName (name) + "\"?",
                 nullptr,
                 juce::ModalCallbackFunction::create ([this, name] (int okResult)
                 {
@@ -2540,9 +2710,13 @@ void LCRMSAudioProcessorEditor::writePreset (const juce::String& name)
             }
     }
     if (auto xml = tree.createXml())
-        presetFile (name).replaceWithText (xml->toString());
+    {
+        const auto target = presetFile (name);
+        target.getParentDirectory().createDirectory();
+        target.replaceWithText (xml->toString());
+    }
 
-    currentPresetName = name;
+    currentPresetName = resolvePresetKey (name);
     presetSignature = computePresetSignature();
     presetDirty = false;
     refreshPresetNameDisplay();
@@ -2552,7 +2726,7 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
 {
     // "Default" darf jetzt auch hier ueberschrieben werden (User: "so dass
     // beide Wege gehen") - im Menue gibt es denselben Befehl weiterhin.
-    const juce::String prefill = prefillCurrent ? currentPresetName : juce::String();
+    const juce::String prefill = prefillCurrent ? presetDisplayName (currentPresetName) : juce::String();
 
     presetNameDialog = std::make_unique<juce::AlertWindow> ("Save Preset",
                                                               "Preset name:",
@@ -2572,6 +2746,7 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
 
         if (name.isEmpty())
             return;
+        name = keyForTypedName (name);   // Runde 109: in welchen Ordner?
         if (isDefaultPresetName (name))
         {
             // Beide Wege fuehren zum selben Ziel (User).
@@ -2591,7 +2766,7 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
         {
             juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
                 "Overwrite Preset",
-                "Preset \"" + name + "\" already exists. Overwrite it?",
+                "Preset \"" + presetDisplayName (name) + "\" already exists. Overwrite it?",
                 nullptr,
                 juce::ModalCallbackFunction::create ([this, name] (int okResult)
                 {
@@ -2736,12 +2911,12 @@ void LCRMSAudioProcessorEditor::promptRenamePreset()
 {
     if (currentPresetName.isEmpty() || isDefaultPresetName (currentPresetName))
         return;
-    const juce::String oldName = currentPresetName;
+    const juce::String oldName = resolvePresetKey (currentPresetName);
 
     presetNameDialog = std::make_unique<juce::AlertWindow> ("Rename Preset",
                                                               "New name:",
                                                               juce::MessageBoxIconType::NoIcon);
-    presetNameDialog->addTextEditor ("name", oldName, "Preset name");
+    presetNameDialog->addTextEditor ("name", presetDisplayName (oldName), "Preset name");
     if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
     presetNameDialog->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
@@ -2754,17 +2929,22 @@ void LCRMSAudioProcessorEditor::promptRenamePreset()
             name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
         presetNameDialog.reset();
 
-        if (name.isEmpty() || name == oldName || isDefaultPresetName (name))
+        if (name.isEmpty() || name == presetDisplayName (oldName) || isDefaultPresetName (name))
             return;
+        // Runde 109: umbenannt wird im selben Ordner (ausser man tippt selbst
+        // "Ordner/Name").
+        if (! name.containsChar ('/') && presetFolderOf (oldName).isNotEmpty())
+            name = presetFolderOf (oldName) + "/" + name;
         if (presetFile (name).existsAsFile())
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
                 "Rename Preset", "A preset named \"" + name + "\" already exists.");
             return;
         }
+        presetFile (name).getParentDirectory().createDirectory();
         if (presetFile (oldName).moveFileTo (presetFile (name)))
         {
-            currentPresetName = name;
+            currentPresetName = resolvePresetKey (name);
             refreshPresetNameDisplay();
         }
     }), false);
@@ -2825,7 +3005,7 @@ void LCRMSAudioProcessorEditor::stepPreset (int direction)
     const auto names = getPresetNames();
     if (names.isEmpty())
         return;
-    int index = names.indexOf (currentPresetName, true);
+    int index = names.indexOf (resolvePresetKey (currentPresetName), true);
     if (index < 0)
         index = (direction > 0) ? -1 : 0;
 
@@ -2878,7 +3058,8 @@ float LCRMSAudioProcessorEditor::signatureOfTree (const juce::ValueTree& tree)
 
 void LCRMSAudioProcessorEditor::refreshPresetNameDisplay()
 {
-    juce::String text = currentPresetName.isEmpty() ? juce::String (kDefaultPresetName) : currentPresetName;
+    juce::String text = currentPresetName.isEmpty() ? juce::String (kDefaultPresetName)
+                                                    : presetDisplayName (currentPresetName);
     if (presetDirty)
         text += " *";
     if (presetNameButton.getButtonText() != text)
@@ -4109,7 +4290,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             return;
         const juce::String name = currentPresetName;
         juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
-            "Delete Preset", "Delete preset \"" + name + "\"?",
+            "Delete Preset", "Delete preset \"" + presetDisplayName (name) + "\"?",
             nullptr,
             juce::ModalCallbackFunction::create ([this, name] (int okResult)
             {
@@ -7382,7 +7563,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // laeuft fest mit (siehe PluginProcessor).
     parallaxHpButton.setVisible (false);
     parallaxHpButton.setBounds ({});
-    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, &driftModDepthSlider, &driftLockButton);
+    // Runde 109: Micropitch hat keine Modulation mehr - auch im Tune-Build
+    // kein Tiefe-Regler.
+    driftModDepthSlider.setVisible (false);
+    driftModDepthSlider.setBounds ({});
+    auto driftInner = layoutHeader (driftFrame.reduced (10), driftPowerButton, driftSoloButton, driftTitleLabel, &driftModButton, nullptr, &driftLockButton);
 
     if (! kNewParallax)
     {

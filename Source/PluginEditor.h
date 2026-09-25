@@ -2254,6 +2254,14 @@ private:
     // Dateibasiertes Preset-System (siehe PluginEditor.cpp, "PRESET-SYSTEM").
     juce::File presetFolder() const;
     juce::File presetFile (const juce::String& name) const;
+    // Runde 109 (User): Presets in Ordnern - die Smart-Kategorien als echte
+    // Ordner im Finder, weitere Ordner darf man selbst anlegen. Ein Preset
+    // heisst intern "Ordner/Name"; angezeigt wird nur der Name.
+    juce::StringArray presetFolderOrder() const;
+    static juce::String presetDisplayName (const juce::String& key);
+    static juce::String presetFolderOf (const juce::String& key);
+    juce::String resolvePresetKey (const juce::String& key) const;
+    juce::String keyForTypedName (const juce::String& typed) const;
     void migrateLegacyPresets();
     static bool isDefaultPresetName (const juce::String& name);
     juce::ValueTree defaultPresetTree() const;
