@@ -6131,23 +6131,33 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             g.setGradientFill (halo);
             g.fillEllipse (cx - hw, iy - hw, hw * 2.0f, hw * 2.0f);
         }
-        // (2) zwei Lichtlinien, innen hell, nach aussen auslaufend
-        const float gap = 40.0f;
-        for (float side : { -1.0f, 1.0f })
+        // (2) Runde 135 (User: "Linien passen nicht - eher eine Art Klammer,
+        // nur als Glow"): links und rechts ein weicher Lichtbogen wie eine
+        // Klammer um Icon und Namen. Nur Schein, keine harte Linie: mehrere
+        // breite, sehr transparente Striche uebereinander ergeben den Glow,
+        // innen ein ganz feiner hellerer Kern.
         {
-            const float xa = cx + side * gap, xb = cx + side * reach;
-            juce::ColourGradient line (col.withAlpha (armed ? 0.50f : 0.26f), xa, iy,
-                                       col.withAlpha (0.0f), xb, iy, false);
-            g.setGradientFill (line);
-            g.fillRect (juce::Rectangle<float>::leftTopRightBottom (juce::jmin (xa, xb), iy - 0.55f,
-                                                                    juce::jmax (xa, xb), iy + 0.55f));
-            // zwei winzige Lichtpunkte auf der Linie
-            for (float f : { 0.30f, 0.62f })
+            const float my  = cb.getY() + cb.getHeight() * 0.50f;           // Mitte von Icon + Name
+            const float rad = cb.getHeight() * 0.62f;
+            const float span = 0.62f;                                       // halber Oeffnungswinkel (rad)
+            const float off  = juce::jmax (60.0f, juce::jmin (84.0f, reach));   // Abstand der Boegen zur Mitte
+            for (float side : { -1.0f, 1.0f })
             {
-                const float px = xa + (xb - xa) * f;
-                const float r  = f < 0.5f ? 1.3f : 0.9f;
-                g.setColour (col.withAlpha ((armed ? 0.55f : 0.28f) * (1.0f - f * 0.6f)));
-                g.fillEllipse (px - r, iy - r, r * 2.0f, r * 2.0f);
+                // Bogen um einen Mittelpunkt, der zur Profilmitte hin versetzt
+                // ist - so woelbt er sich nach aussen wie ")(" gespiegelt: "( )".
+                const float ccx = cx + side * (off - rad);
+                const float a0  = side < 0.0f ? juce::MathConstants<float>::pi * 1.5f
+                                              : juce::MathConstants<float>::halfPi;
+                juce::Path arc;
+                arc.addCentredArc (ccx, my, rad, rad, 0.0f, a0 - span, a0 + span, true);
+                const float base = armed ? 0.075f : 0.04f;
+                for (int k = 5; k >= 0; --k)
+                {
+                    const float wdt = 1.2f + (float) k * 2.6f;
+                    const float t   = 1.0f - (float) k / 6.0f;
+                    g.setColour (col.withAlpha (base * t * t + (k == 0 ? (armed ? 0.16f : 0.08f) : 0.0f)));
+                    g.strokePath (arc, juce::PathStrokeType (wdt, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                }
             }
         }
     }
