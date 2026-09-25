@@ -83,24 +83,32 @@ void GoniometerComponent::rescalePhoto()
 // RGB-JPEG + Alpha-PNG -> ein ARGB-Bild.
 static juce::Image combineRgbAlpha (const unsigned char* rgbData, int rgbN, const unsigned char* aData, int aN)
 {
+    // Runde 133 (User: "Starfield laedt langsam"): statt getPixelColour/
+    // setPixelColour pro Pixel (langsam - Formatumrechnung bei jedem Zugriff)
+    // direkt ueber die Pixelzeiger. Gleiches Ergebnis: Alpha = Rotkanal des
+    // Masken-Bilds, vormultipliziert.
     juce::Image rgb   = juce::ImageFileFormat::loadFrom (rgbData, (size_t) rgbN);
     juce::Image alpha = juce::ImageFileFormat::loadFrom (aData,   (size_t) aN);
     if (! rgb.isValid())
         return {};
-    juce::Image out (juce::Image::ARGB, rgb.getWidth(), rgb.getHeight(), true);
-    juce::Image::BitmapData src (rgb, juce::Image::BitmapData::readOnly);
-    juce::Image::BitmapData dst (out, juce::Image::BitmapData::writeOnly);
+    juce::Image out = rgb.convertedToFormat (juce::Image::ARGB);
+    out.duplicateIfShared();
     const bool hasAlpha = alpha.isValid() && alpha.getWidth() == rgb.getWidth() && alpha.getHeight() == rgb.getHeight();
-    std::unique_ptr<juce::Image::BitmapData> al;
-    if (hasAlpha)
-        al = std::make_unique<juce::Image::BitmapData> (alpha, juce::Image::BitmapData::readOnly);
-    for (int y = 0; y < rgb.getHeight(); ++y)
-        for (int x = 0; x < rgb.getWidth(); ++x)
+    if (! hasAlpha)
+        return out;
+    juce::Image mask = alpha.convertedToFormat (juce::Image::ARGB);
+    juce::Image::BitmapData dst (out,  juce::Image::BitmapData::readWrite);
+    juce::Image::BitmapData src (mask, juce::Image::BitmapData::readOnly);
+    for (int y = 0; y < dst.height; ++y)
+    {
+        for (int x = 0; x < dst.width; ++x)
         {
-            const juce::Colour c = src.getPixelColour (x, y);
-            const float a = hasAlpha ? al->getPixelColour (x, y).getFloatRed() : 1.0f;
-            dst.setPixelColour (x, y, c.withAlpha (a));
+            auto* p = reinterpret_cast<juce::PixelARGB*> (dst.getPixelPointer (x, y));
+            const auto* m = reinterpret_cast<const juce::PixelARGB*> (src.getPixelPointer (x, y));
+            p->setAlpha (255);
+            p->multiplyAlpha ((int) m->getRed());
         }
+    }
     return out;
 }
 

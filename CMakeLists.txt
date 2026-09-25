@@ -141,8 +141,17 @@ juce_add_binary_data(SpaceXManual
     SOURCES     docs/SpaceXManual_EN.pdf
                 docs/theme-previews/theme_daynight.png
                 docs/theme-previews/theme_fireflies.png
-                docs/theme-previews/theme_scifi.png
-                docs/theme-previews/theme_pop.png)
+                docs/theme-previews/theme_scifi.png)
+
+# Runde 133: Werks-Presets im Plugin. Dateiname "Ordner__Name.spacex" -
+# beim ersten Start (bzw. wenn die Werks-Version steigt) schreibt das Plugin
+# sie in ~/Documents/SpaceX/Presets/<Ordner>/, ohne Vorhandenes zu
+# ueberschreiben. Neue Presets: Datei in presets/factory/ legen, fertig.
+file(GLOB SPACEX_FACTORY_PRESETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/presets/factory/*.spacex")
+juce_add_binary_data(SpaceXPresets
+    HEADER_NAME SpaceXPresetData.h
+    NAMESPACE   SpaceXPresetData
+    SOURCES     ${SPACEX_FACTORY_PRESETS})
 
 target_sources(LCRMSPlugin PRIVATE
     Source/PluginProcessor.cpp
@@ -169,6 +178,7 @@ target_compile_definitions(LCRMSPlugin PUBLIC
 target_link_libraries(LCRMSPlugin
     PRIVATE
         SpaceXManual
+        SpaceXPresets
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

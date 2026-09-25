@@ -14,7 +14,14 @@
 // Shelf; Mid = High Shelf. Eine 12-dB-Kurve parkt die zweite Stufe bei 10 Hz.
 namespace sideeq
 {
-    constexpr int kModes = 3;   // 0 TIGHT, 1 CLEAR, 2 FOCUS
+    // Runde 133: FLAT als vierter Parameterwert HINTEN, damit Presets mit
+    // TIGHT/CLEAR/FOCUS (0..2) gueltig bleiben. In der Oberflaeche steht
+    // FLAT vorne (siehe displayFromParam / paramFromDisplay).
+    constexpr int kModes = 4;   // 0 TIGHT, 1 CLEAR, 2 FOCUS, 3 FLAT
+    constexpr int kFlat  = 3;
+    inline bool isFlat (int mode) noexcept { return mode == kFlat; }
+    inline int  displayFromParam (int p) noexcept { return p == kFlat ? 0 : p + 1; }
+    inline int  paramFromDisplay (int d) noexcept { return d == 0 ? kFlat : d - 1; }
 
     struct Curve
     {
@@ -33,6 +40,7 @@ namespace sideeq
         {
             case 1:  return { 350.0f, 0.9f, kOffHz, kOffQ,  3000.0f,  3.0f, 0.5f,  6000.0f, 0.0f, 0.3f };   // CLEAR
             case 2:  return { 350.0f, 0.9f, kOffHz, kOffQ,  8000.0f, -8.0f, 0.4f,  6000.0f, 2.0f, 0.3f };   // FOCUS
+            case 3:  return { kOffHz, kOffQ, kOffHz, kOffQ,  3000.0f,  0.0f, 0.5f,  6000.0f, 0.0f, 0.3f };  // FLAT
             default: return { 350.0f, 0.9f, kOffHz, kOffQ,  3000.0f,  0.0f, 0.5f,  6000.0f, 0.0f, 0.3f };   // TIGHT
         }
     }
@@ -44,6 +52,7 @@ namespace sideeq
             case 1:  return { 500.0f, 0.6f, kOffHz, kOffQ, 12000.0f,   5.0f, 0.7f, 6000.0f, 0.0f, 0.3f };  // CLEAR
             case 2:  return { 600.0f, 0.8f * kQ24a, 600.0f, 0.8f * kQ24b,
                                                      8000.0f, -20.0f, 0.8f, 6000.0f, 3.0f, 0.3f };          // FOCUS (24 dB/Okt)
+            case 3:  return curveA (3);                                                                     // FLAT
             default: return { 500.0f, 0.6f, kOffHz, kOffQ,  3000.0f,   0.0f, 0.5f, 6000.0f, 0.0f, 0.3f };  // TIGHT
         }
     }

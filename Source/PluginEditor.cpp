@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "SpaceXManualData.h"   // eingebettetes Handbuch, siehe openManual()
+#include "SpaceXPresetData.h"   // Runde 133: Werks-Presets, siehe presetFolder()
 #include "GUI/SpaceAssets.h"
 
 namespace
@@ -1213,6 +1214,7 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     tipFor (rayAmountSlider,      "Amount: how strong the movement is");
     tipFor (categoryButton,  "Smart profile: click for the next one, Cmd-click to go back. The dice then stays inside what fits that source");
     tipFor (globalChaosButton, "Smart: rolls a new setting and decides which sections belong in it");
+    applyHintTexts();   // Runde 133
 
     if (getWidth() > 0)
     {
@@ -1605,6 +1607,101 @@ void LCRMSAudioProcessorEditor::applyLayoutMode()
         c->setVisible (true);
 }
 
+// ===== INFOZEILE (Runde 133, User: "neu machen - nur aktuelle Labels,
+// einfache Erklaerung, Key Commands erwaehnen") =====
+// Ein Satz, was es tut - danach, getrennt mit " · ", die Tastenkuerzel.
+// Laeuft als LETZTES nach applyHoverHints() und applyLabelStyle(), damit
+// keine alten Texte (Galaxy, Timewarp, ...) mehr durchkommen.
+void LCRMSAudioProcessorEditor::applyHintTexts()
+{
+    auto tip = [] (juce::SettableTooltipClient& c, const juce::String& text) { c.setTooltip (text); };
+    const juce::String knob    = " · Cmd-click or double-click: default";
+    const juce::String section = " · Click: on/off · Cmd-click: solo · Cmd+Shift-click: reset section";
+    const juce::String cycle   = " · Click: next · Cmd-click: previous";
+
+    // Kopf
+    tip (logoButton,                 "Bypass: click the logo to switch the whole plugin off and on");
+    tip (globalBypassButton,         "Bypass: switch the whole plugin off and on");
+    tip (globalChaosButton,          "Smart: rolls a new setting. With a Smart profile it stays inside what suits that source. Paused during solo");
+    tip (lifeSlider,                 "Life: how much everything moves - modulation depth for all sections. 0 = still" + knob);
+    tip (globalModBypassButton,      "Mod: all modulation on or off");
+    tip (globalGalaxyActivateButton, "LCR: starts the LCR Matrix engine. Adds latency while it runs");
+    tip (undoButton,                 "Undo");
+    tip (redoButton,                 "Redo");
+    tip (presetMenuButton,           "Settings: themes, behaviour, preset folder");
+    tip (presetPrevButton,           "Previous preset");
+    tip (presetNextButton,           "Next preset");
+    tip (presetNameButton,           "Presets: click to open the list");
+    tip (globalSaveSizeButton,       "Save: store the current setting as a preset - pick the folder in the dialog");
+    tip (presetDeleteButton,         "Delete the current preset");
+    tip (globalABButton,             "A/B: switch between two settings to compare");
+    tip (abCopyButton,               "Copy: copy the active side to the other one");
+    tip (globalResetButton,          "Reset: back to the default setting");
+    tip (categoryButton,             "Smart profile: Lead Vocal, Backings, Ad-Libs, Send FX - guides the Smart dice" + cycle);
+    tip (catDots,                    "Smart profile: click a dot to pick it");
+
+    // Sektionen
+    tip (lcrTitleLabel,        "LCR MATRIX: splits the image into left, centre and right" + section);
+    tip (polTitleLabel,        "POLARITY: flips the phase of the left and/or right channel" + section);
+    tip (driftTitleLabel,      "MICROPITCH: makes a mono sound wide with tiny time and pitch offsets" + section);
+    tip (widthBoostTitleLabel, "MID-SIDE: width, side level and the Sides EQ" + section);
+    tip (flowTitleLabel,       "AUTOPAN: moves the sound between left and right" + section);
+    tip (rayTitleLabel,        "PHASER: a stereo phaser that moves the image" + section);
+    for (auto* b : { &lcrLockButton, &polLockButton, &driftLockButton, &widthBoostLockButton, &flowLockButton, &posLockButton, &rayLockButton })
+        tip (*b, "Lock: the Smart dice leaves this section alone");
+
+    // LCR MATRIX
+    tip (orbitSlider,   "L/R: level of the left and right parts. All the way down = centre only" + knob);
+    tip (gravitySlider, "C-Weight: how strongly the centre is separated from the sides" + knob);
+    tip (horizonSlider, "HF Regain: brings back the highs the split takes away. 0 = off" + knob);
+    tip (lcrEqButton,   juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR: the Sides EQ works on centre and sides of the LCR Matrix instead of mid and side"));
+
+    // POLARITY
+    tip (polLButton,     "L: flip the phase of the left channel · Cmd-click: only left");
+    tip (polRButton,     "R: flip the phase of the right channel · Cmd-click: only right");
+    tip (polLinkButton,  "Link: switch L and R together");
+    tip (polPos2Button,  "PRE/POST: flip before or after Micropitch and Mid-Side");
+
+    // MICROPITCH
+    tip (parallaxAmountSlider,     "Amount: how much of the style - from off to full" + knob);
+    tip (parallaxModeButtons[0],   "Style: Velvet, Halo, Illusion, Double" + cycle);
+    tip (pxModeDots,               "Style: click a dot to pick it");
+
+    // MID-SIDE
+    tip (sideWidthSlider, "Width: how far the image reaches. Below 100 % narrower, above wider" + knob);
+    tip (sideBoostSlider, "Sides: level of the sides, the centre stays as it is" + knob);
+    tip (msEqButton,      "Sides EQ: Flat, Tight (cleans the lows), Clear (clean + air), Focus (calmer, brighter centre)" + cycle);
+    tip (msEqDots,        "Sides EQ: click a dot to pick it");
+    tip (msEqPowerButton, "EQ on/off - compare with and without, the setting stays");
+    tip (msEqAmtSlider,   "EQ amount: 50 % = as tuned, 100 % = strongest, 0 % = off · Double-click: 50 %");
+
+    // AUTOPAN
+    tip (movementSlider,  "Amount: how far the sound travels left and right" + knob);
+    tip (pulseButton,     "Pulse: a smoother, pulse-like movement instead of a sine");
+    tip (speedRateSlider, "Speed: how fast it moves. Locked while synced to bars" + knob);
+    tip (syncButton,      "Sync: lock the speed to the song tempo");
+    tip (speedBox,        "Rate: note length of one movement while Sync is on");
+
+    // PHASER
+    tip (rayAmountSlider, "Amount: how strong the phaser is" + knob);
+    tip (rayCharButton,   "Character: Sweep, Shimmer, Spin, Swirl" + cycle);
+    tip (rayModeDots,     "Character: click a dot to pick it");
+    tip (rayFastButton,   "Fast: runs the character a bit quicker");
+    tip (rayPairButton,   "Link: follow Autopan at half its speed");
+
+    // Fuss
+    tip (monoCheckButton, "Mono: listen to the result in mono");
+    tip (monoDryButton,   "Dry: while in mono, compare with the unprocessed input");
+    tip (mixSlider,       "Mix: blend between original and processed · Right-click: lock against presets, A/B, Reset and Smart" + knob);
+    tip (panSlider,       "Pan: balance at the very end" + knob);
+    tip (volSlider,       "Vol: output level, plus or minus 6 dB · Right-click: lock against presets and Reset" + knob);
+    tip (autoGainButton,  "AG: auto gain - matches output to input level for a fair bypass comparison. Click: on/off");
+    tip (goniometer,      "Starfield: click to switch the scope on or off · Cmd-click centre: trace colour · Shift-click: look");
+    tip (viewGearButton,  "View: display settings for the starfield");
+    tip (correlationMeter, "Correlation: right of centre is mono-safe, left of it cancels in mono");
+    tip (helpButton,      "Help: show a short explanation for whatever the mouse is over");
+}
+
 void LCRMSAudioProcessorEditor::applyHoverHints()
 {
     auto tip = [] (juce::SettableTooltipClient& c, const char* text) { c.setTooltip (text); };
@@ -1718,6 +1815,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     helpButton.setToggleState (juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("hoverHints", false),
                                juce::dontSendNotification);
     helpButton.repaint();
+    applyHintTexts();   // Runde 133: die neuen Texte gewinnen
 }
 
 // Liest den Tooltip des Elements unter der Maus und legt ihn in die
@@ -2364,6 +2462,33 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
                 }
             }
         props.setValue ("presetCategoryFolders", true);
+        props.saveIfNeeded();
+    }
+    // Runde 133 (User: "Presets in den Installer"): die Werks-Presets stecken
+    // im Plugin selbst - das funktioniert mit dem .pkg genauso wie mit einem
+    // von Hand kopierten VST3. Einmal pro Werks-Version; vorhandene Dateien
+    // bleiben unangetastet, geloeschte kommen erst mit einer neuen Version.
+    constexpr int kFactoryPresetsVersion = 1;
+    if (props.getIntValue ("factoryPresetsVersion", 0) < kFactoryPresetsVersion)
+    {
+        for (int i = 0; i < SpaceXPresetData::namedResourceListSize; ++i)
+        {
+            const juce::String file = juce::String::fromUTF8 (SpaceXPresetData::originalFilenames[i]);
+            if (! file.endsWithIgnoreCase (kPresetExt) || ! file.contains ("__"))
+                continue;
+            const auto sub  = file.upToFirstOccurrenceOf ("__", false, false).trim();
+            const auto name = file.fromFirstOccurrenceOf ("__", false, false).trim();
+            int size = 0;
+            if (const char* data = SpaceXPresetData::getNamedResource (SpaceXPresetData::namedResourceList[i], size))
+            {
+                const auto dir = folder.getChildFile (sub);
+                dir.createDirectory();
+                const auto target = dir.getChildFile (name);
+                if (! target.exists())
+                    target.replaceWithData (data, (size_t) size);
+            }
+        }
+        props.setValue ("factoryPresetsVersion", kFactoryPresetsVersion);
         props.saveIfNeeded();
     }
     return folder;
@@ -4345,16 +4470,18 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqButton.getProperties().set ("eqDiagram",
         juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
                       (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load())));
-    msEqButton.setTooltip ("Sides EQ: Tight, Clear, Focus. Click for the next one, Cmd-click to go back");
+    msEqButton.setTooltip ("Sides EQ: Flat, Tight, Clear, Focus. Click for the next one, Cmd-click to go back");
     content.addAndMakeVisible (msEqButton);
     msEqButton.onClick = [this]
     {
         if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MS_EQ))
         {
             constexpr int n = LCRMSAudioProcessor::kMsEqModes;
-            const int cur = juce::jlimit (0, n - 1, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
+            // Runde 133: in der Anzeige-Reihenfolge FLAT, TIGHT, CLEAR, FOCUS.
+            const int cur  = juce::jlimit (0, n - 1, (int) std::round (prm->convertFrom0to1 (prm->getValue())));
             const bool back = juce::ModifierKeys::currentModifiers.isCommandDown();
-            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) ((cur + (back ? n - 1 : 1)) % n)));
+            const int d    = (sideeq::displayFromParam (cur) + (back ? n - 1 : 1)) % n;
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) sideeq::paramFromDisplay (d)));
         }
     };
     msEqDots.count = LCRMSAudioProcessor::kMsEqModes;
@@ -4362,7 +4489,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     msEqDots.onPick = [this] (int i)
     {
         if (auto* prm = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MS_EQ))
-            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) sideeq::paramFromDisplay (i)));
     };
     content.addAndMakeVisible (msEqDots);
 
@@ -4695,7 +4822,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         // Runde 100 (User, nach Feedback eines Engineer-Kollegen): die
         // technische Beschriftung ist der Standard, die Space-Namen sind die
         // Option ("SpaceX Labels" unter den Themes).
-        technicalLabels = juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("technicalLabels", true);
+        technicalLabels = true;   // Runde 133: "SpaceX Labels" entfernt - immer technische Namen
         applyLabelStyle();
 
         // Runde 58 (User-Korrektur): beim allerersten Oeffnen startet direkt
@@ -5663,12 +5790,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
        #endif
     {
         // Runde 105: Seiten-EQ in MID-SIDE.
+        // Runde 133: Anzeige-Reihenfolge FLAT, TIGHT, CLEAR, FOCUS.
         static const char* const eqNames[LCRMSAudioProcessor::kMsEqModes] =
-            { "TIGHT", "CLEAR", "FOCUS" };
+            { "FLAT", "TIGHT", "CLEAR", "FOCUS" };
         const int e = juce::jlimit (0, LCRMSAudioProcessor::kMsEqModes - 1,
                                     (int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
-        if (msEqButton.getButtonText() != eqNames[e])
-            msEqButton.setButtonText (eqNames[e]);
+        const int eShown = sideeq::displayFromParam (e);
+        if (msEqButton.getButtonText() != eqNames[eShown])
+            msEqButton.setButtonText (eqNames[eShown]);
         if ((int) msEqButton.getProperties().getWithDefault ("eqDiagram", -1) != e)
         {
             msEqButton.getProperties().set ("eqDiagram", e);
@@ -5677,7 +5806,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
         // Runde 126: die Icon-Form kommt aus tickEqIcon() (60 Hz, fliessend).
         // Farbe: siehe Runde 115 bei setSectionOff (msEqButton) - Gold wie die
         // anderen Icon-Felder, blau wenn der EQ in LCR sitzt.
-        if (msEqDots.index != e) { msEqDots.index = e; msEqDots.repaint(); }
+        if (msEqDots.index != eShown) { msEqDots.index = eShown; msEqDots.repaint(); }
     }
     }
 

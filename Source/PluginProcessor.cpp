@@ -766,9 +766,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
     // Runde 105: Seiten-EQ in MID-SIDE (ersetzt DEPTH).
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_MS_EQ, 1 }, "Sides EQ",
-        juce::StringArray { "Tight", "Clear", "Focus" }, 0));
+        juce::StringArray { "Tight", "Clear", "Focus", "Flat" }, 3));   // Runde 133: Flat hinten (alte Presets bleiben gueltig)
     params.push_back (std::make_unique<juce::AudioParameterBool> (
-        juce::ParameterID { ID_MS_EQ_ON, 1 }, "Sides EQ On", false));
+        juce::ParameterID { ID_MS_EQ_ON, 1 }, "Sides EQ On", true));   // Runde 133: an, Modus FLAT = neutral
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ID_MS_EQ_AMT, 1 }, "Sides EQ Amount",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f, "%"));
@@ -954,7 +954,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rayCoefValid = false; rayCoefCountdown = 0;
     offsetPanCachePos = -9.0f;
     rayLifeSmoothed.reset (sampleRate, knobRampSeconds);
-    rayLifeSmoothed.setCurrentAndTargetValue (1.0f);   // Runde 131: siehe processBlock
+    rayLifeSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     rayPhase = 0.0;
@@ -1396,9 +1396,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // -1..1 geclampt - die Modulation kann Orbit also nur noch NACH OBEN
     // auslenken (Richtung "mehr L+R"), nie mehr in die entfallene negative
     // ("nur Center") Richtung.
-    if (galaxyModOn && galaxyDepthFrac > kNeutralEps)
+    // Runde 133 (User): L/R (frueher Orbit) mit festem Ausschlag +-15 % x LIFE.
+    if (galaxyModOn && life01 > 0.0f)
     {
-        blendTarget = juce::jlimit (0.0f, 1.0f, blendRawBase + galaxySine * galaxyDepthFrac);
+        blendTarget = juce::jlimit (0.0f, 1.0f, blendRawBase + galaxySine * 0.15f * life01);
     }
     blendSmoothed.setTargetValue (blendTarget);
     currentOrbitLivePercent.store (blendTarget * 100.0f, std::memory_order_relaxed);
@@ -1606,10 +1607,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
    #else
     rayDepthSmoothed.setTargetValue (rayStrengthToDepth (pRayStrength->load()));
    #endif
-    // Runde 131: LIFE schaltet den Phaser nicht mehr stumm (sonst waere er
-    // bei LIFE-Default 0 gar nicht zu hoeren) - LIFE moduliert jetzt sein
-    // Amount, wie bei den anderen Reglern.
-    rayLifeSmoothed.setTargetValue (1.0f);
+    // LIFE regelt auch RAYE (User, Runde 39): 0 % = alles steht still.
+    // Runde 133: wieder wie vorher - Pauls Presets sind so abgestimmt
+    // (Runde 131 hatte das entfernt). LIFE moduliert zusaetzlich das Amount.
+    rayLifeSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, pLife->load() * 0.01f));
     // Mono-Check ist ein reines Monitoring-Utility, kein Solo-Ziel.
     monoCheckGain.setTargetValue    (pMonoCheck->load() > 0.5f ? 1.0f : 0.0f);
     // A/B-Dry-Vergleich: nur relevant, waehrend Mono-Check selbst aktiv ist
@@ -1636,7 +1637,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     updateMsEqCoeffs (false, numSamples);
     msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
     // Ist der EQ aus und ausgeklungen, laeuft gar nichts (Null-Test sauber).
-    if (pMsEqOn->load() > 0.5f)
+    // Runde 133: FLAT ist "aus" wie der Schalter - die Filter duerfen ruhen.
+    if (pMsEqOn->load() > 0.5f && ! sideeq::isFlat ((int) std::round (pMsEq->load())))
         msEqHoldSamples = (int) (currentSampleRate * 0.4);
     else
         msEqHoldSamples = juce::jmax (0, msEqHoldSamples - numSamples);
@@ -1800,7 +1802,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float airBase = pHorizon->load();   // 0..100 %, siehe AIR
         float air = airBase;
         if (! globalModBypass && airBase >= 0.5f && life01 > 0.0f)
-            air = juce::jlimit (0.5f, 100.0f, airBase + galaxySine * kLifeModPct * life01);
+            air = juce::jlimit (0.5f, 100.0f, airBase + galaxySine * 10.0f * life01);   // Runde 133 (User): +-10 %
         currentRegainLivePercent.store (air, std::memory_order_relaxed);
         lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f,
                                          air < 0.5f ? 96000.0f

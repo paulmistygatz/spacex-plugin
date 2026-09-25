@@ -349,9 +349,9 @@ private:
             // was einen erwartet, ohne etwas umzustellen.
             // Runde 62 (User): die Vorschau zeigt schlicht die ganze
             // Oberflaeche im jeweiligen Theme - kein Layout-Hover mehr.
-            themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);
-            themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize);
-            themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);
+            // Runde 133 (User: "Laden dauert"): die drei Vorschaubilder werden
+            // erst dekodiert, wenn das Panel sie zeigt (themeShot()), nicht
+            // mehr beim Oeffnen des Plugins.
             // Runde 126: Pop Art ist raus - kein viertes Vorschaubild mehr.
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
@@ -444,7 +444,7 @@ private:
             // Vorschau des gerade aktiven (oder ueberfahrenen) Themes.
             {
                 const int idx = hoverTheme >= 0 ? hoverTheme : activeThemeIdx();
-                const auto& shot = themeFull[idx];
+                const juce::Image shot = themeShot (idx);
                 auto pr = previewArea.toFloat();
                 if (idx >= 0 && idx < kThemes && shot.isValid() && ! pr.isEmpty())
                 {
@@ -543,8 +543,10 @@ private:
             behavRuleY  = col1.getY();
             behavRuleX1 = col1.getX() + 16;
             behavRuleX2 = col1.getRight();
-            col1.removeFromTop (8);
-            labelBtn.setBounds (col1.removeFromTop (36).withTrimmedLeft (16));
+            // Runde 133 (User): "SpaceX Labels" ist weg - es gibt nur noch die
+            // technischen Namen.
+            labelBtn.setBounds ({});
+            labelBtn.setVisible (false);
             col1.removeFromTop (18);
             stack (col1, behavHead,  behavBtn,  kBehav,   0);
             // Runde 71: die Layout-Knoepfe gibt es nicht mehr.
@@ -565,6 +567,20 @@ private:
         int hoverTheme = -1;
         int behavRuleY = 0, behavRuleX1 = 0, behavRuleX2 = 0;
         juce::Image themeFull[kThemes];      // ganze Oberflaeche je Theme
+        juce::Image themeShot (int i)
+        {
+            if (i < 0 || i >= kThemes) return {};
+            if (! themeFull[i].isValid())
+            {
+                switch (i)
+                {
+                    case 0:  themeFull[0] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_daynight_png,  SpaceXManualData::theme_daynight_pngSize);  break;
+                    case 1:  themeFull[1] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_fireflies_png, SpaceXManualData::theme_fireflies_pngSize); break;
+                    default: themeFull[2] = juce::ImageCache::getFromMemory (SpaceXManualData::theme_scifi_png,     SpaceXManualData::theme_scifi_pngSize);     break;
+                }
+            }
+            return themeFull[i];
+        }
         juce::Rectangle<int> previewArea;
     };
 
@@ -2150,6 +2166,7 @@ private:
     };
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     void applyHoverHints();
+    void applyHintTexts();   // Runde 133: neue Infozeilen-Texte (ueberschreibt die alten)
     void applyLayoutMode();
     // Hinweiszeile unter dem Footer: liest den Tooltip des Elements unter der
     // Maus und zeigt ihn dort an (statt als Kaestchen an der Maus, User).

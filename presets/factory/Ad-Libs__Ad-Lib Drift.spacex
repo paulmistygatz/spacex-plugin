@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PARAMS sectionLocked_6="0" mutateCategory="1">
+  <PARAM id="bend" value="3.309999942779541"/>
+  <PARAM id="dimensionDepth" value="56.40000152587891"/>
+  <PARAM id="dimensionMod" value="1.0"/>
+  <PARAM id="drift" value="15.70000171661377"/>
+  <PARAM id="driftOn" value="1.0"/>
+  <PARAM id="flowOn" value="1.0"/>
+  <PARAM id="galaxyDepth" value="38.5"/>
+  <PARAM id="galaxyMod" value="1.0"/>
+  <PARAM id="globalModBypass" value="0.0"/>
+  <PARAM id="hyperdriveDepth" value="15.19999980926514"/>
+  <PARAM id="hyperdriveMod" value="1.0"/>
+  <PARAM id="lcrBlend" value="0.0"/>
+  <PARAM id="lcrEnabled" value="0.0"/>
+  <PARAM id="lcrSensitivity" value="58.0"/>
+  <PARAM id="monoCheck" value="0.0"/>
+  <PARAM id="monoDry" value="0.0"/>
+  <PARAM id="movement" value="33.29999923706055"/>
+  <PARAM id="polOn" value="1.0"/>
+  <PARAM id="polarityL" value="0.0"/>
+  <PARAM id="polarityPos" value="1.0"/>
+  <PARAM id="polarityR" value="0.0"/>
+  <PARAM id="posDistance" value="25.5"/>
+  <PARAM id="posElevate" value="0.0"/>
+  <PARAM id="posOffset" value="4.90000057220459"/>
+  <PARAM id="posOn" value="1.0"/>
+  <PARAM id="posWidth" value="96.30000305175781"/>
+  <PARAM id="positionDepth" value="22.5"/>
+  <PARAM id="positionMod" value="1.0"/>
+  <PARAM id="pulse" value="0.0"/>
+  <PARAM id="sideBoost" value="0.0"/>
+  <PARAM id="sideWidth" value="100.0"/>
+  <PARAM id="soloSection" value="0.0"/>
+  <PARAM id="speed" value="4.0"/>
+  <PARAM id="speedRate" value="0.1610000133514404"/>
+  <PARAM id="speedSync" value="0.0"/>
+  <PARAM id="timewarpDepth" value="10.69999980926514"/>
+  <PARAM id="timewarpMod" value="1.0"/>
+  <PARAM id="volTrim" value="2.299999713897705"/>
+  <PARAM id="widthBoostOn" value="0.0"/>
+  <PARAM id="galaxyActivate" value="0.0"/>
+  <PARAM id="timewarpBalance" value="0.0"/>
+  <PARAM id="mix"/>
+  <PARAM id="prismDimBypass"/>
+  <PARAM id="prismGalaxy"/>
+  <PARAM id="prismHi"/>
+  <PARAM id="prismLo"/>
+  <PARAM id="prismOn"/>
+  <PARAM id="prismVisBypass"/>
+  <PARAM id="rayOn" value="1.0"/>
+  <PARAM id="rayPair" value="1.0"/>
+  <PARAM id="rayRate"/>
+  <PARAM id="rayStrength"/>
+  <PARAM id="wing"/>
+  <PARAM id="autoGain"/>
+  <PARAM id="bassGuard"/>
+  <PARAM id="depth"/>
+  <PARAM id="lcrAir"/>
+  <PARAM id="life" value="69.5"/>
+  <PARAM id="msEq"/>
+  <PARAM id="msEqAmt"/>
+  <PARAM id="msEqLcr"/>
+  <PARAM id="msEqOn"/>
+  <PARAM id="msEqX2"/>
+  <PARAM id="outPan"/>
+  <PARAM id="parallaxAmount" value="79.30000305175781"/>
+  <PARAM id="parallaxHp"/>
+  <PARAM id="parallaxMode" value="2.0"/>
+  <PARAM id="rayAmount" value="28.70000076293945"/>
+  <PARAM id="rayCharacter" value="3.0"/>
+  <PARAM id="rayFast" value="0.0"/>
+</PARAMS>
