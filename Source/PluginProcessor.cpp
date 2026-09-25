@@ -1403,9 +1403,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // auslenken (Richtung "mehr L+R"), nie mehr in die entfallene negative
     // ("nur Center") Richtung.
     // Runde 133 (User): L/R (frueher Orbit) mit festem Ausschlag +-15 % x LIFE.
+    // Runde 167 (User-Bug: "L/R wird moduliert, auch wenn der Regler auf 0
+    // ist"): der Ausschlag waechst jetzt von 0 an mit - bei 0 steht L/R
+    // still, ab 15 % gilt der volle Ausschlag. Dasselbe fuer Regain und
+    // Phaser-Amount (sonst "springt" ein fast zugedrehter Regler an).
     if (galaxyModOn && life01 > 0.0f)
     {
-        blendTarget = juce::jlimit (0.0f, 1.0f, blendRawBase + galaxySine * 0.15f * life01);
+        const float depth = 0.15f * juce::jlimit (0.0f, 1.0f, blendRawBase / 0.15f);
+        blendTarget = juce::jlimit (0.0f, 1.0f, blendRawBase + galaxySine * depth * life01);
     }
     blendSmoothed.setTargetValue (blendTarget);
     currentOrbitLivePercent.store (blendTarget * 100.0f, std::memory_order_relaxed);
@@ -1606,7 +1611,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float amtBase = pRayAmount->load();
         float amt = amtBase;
         if (! globalModBypass && amtBase > 0.05f && life01 > 0.0f)
-            amt = juce::jlimit (0.0f, 100.0f, amtBase + positionSine * kLifeModPct * life01);
+            amt = juce::jlimit (0.0f, 100.0f, amtBase + positionSine * kLifeModPct * juce::jlimit (0.0f, 1.0f, amtBase / kLifeModPct) * life01);   // Runde 167
         currentRayAmountLive.store (amt, std::memory_order_relaxed);
         rayDepthSmoothed.setTargetValue (juce::jlimit (0.0f, 1.0f, amt * 0.01f));   // Amount stufenlos
     }
@@ -1808,7 +1813,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float airBase = pHorizon->load();   // 0..100 %, siehe AIR
         float air = airBase;
         if (! globalModBypass && airBase >= 0.5f && life01 > 0.0f)
-            air = juce::jlimit (0.5f, 100.0f, airBase + galaxySine * 10.0f * life01);   // Runde 133 (User): +-10 %
+            air = juce::jlimit (0.5f, 100.0f, airBase + galaxySine * 10.0f * juce::jlimit (0.0f, 1.0f, airBase / 10.0f) * life01);   // Runde 133: +-10 %, Runde 167: von 0 an einblenden
         currentRegainLivePercent.store (air, std::memory_order_relaxed);
         lcrExtractor.setExtractionRange (bassGuardOn ? 120.0f : 20.0f,
                                          air < 0.5f ? 96000.0f
