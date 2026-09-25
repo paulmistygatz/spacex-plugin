@@ -16,6 +16,12 @@ INTRO = [
     "safe by ear, one decision at a time.",
 ]
 
+COVER_PILLARS = [
+    ("Fast", "One click to a finished sound."),
+    ("Light", "Low CPU. Zero latency without LCR."),
+    ("Clean", "A real L / C / R split, not just mid-side."),
+    ("Safe", "Hand-tuned. Nothing you have to undo."),
+]
 PILLARS = [
     ("Fast", "One click to a finished sound. Smart profiles for lead vocals, backings, adlibs and send FX."),
     ("Light", "Low CPU. Zero latency - unless you arm the LCR engine. Then you pay a little for the real thing."),
@@ -53,6 +59,10 @@ WHERE = [
     ("Music", "Keys, pads, synths, whole music busses."),
     ("Bass", "Fatness and stereo - with a low end that stays put."),
 ]
+CREATE_TITLE = "And where there is no room, it makes some"
+CREATE = ("Width, depth and a real third dimension - elegant, and mono-compatible. That part matters. "
+          "A mono lead becomes a convincing double that still sounds like a record. Drums, a kick, a mono sub "
+          "or an 808 gain depth and weight. Space without reverb - more depth, more 3D.")
 WHERE_RULE = ("Rule of thumb: the more room already sits in front of SpaceX, the further you can push it. "
               "Last in the chain is the usual spot. It is not a mastering EQ in disguise - on the master "
               "bus only if you know exactly why.")

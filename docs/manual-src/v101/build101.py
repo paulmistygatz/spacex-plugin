@@ -93,7 +93,10 @@ dl.kv dd{ color:#c9ced8 }
 .cover .top{ position:absolute; top:20mm; left:18mm; right:18mm; display:flex; justify-content:space-between; font-family:Sora; font-size:7pt; letter-spacing:.34em; color:var(--mut) }
 .cover .logo{ position:absolute; top:40mm; left:0; right:0; text-align:center }
 .cover .logo img{ width:118mm }
-.cover .claim{ position:absolute; left:18mm; right:18mm; bottom:36mm }
+.cover .claim{ position:absolute; left:18mm; right:18mm; bottom:66mm }
+.cpil{ position:absolute !important; left:18mm; right:18mm; bottom:30mm; display:grid; grid-template-columns:repeat(4,1fr); gap:5mm }
+.cpil i{ display:block; width:7mm; height:.7mm; background:var(--gold); border-radius:1mm; margin-bottom:2.5mm }
+.cpil h3{ margin-bottom:1.2mm } .cpil p{ font-size:8.6pt; line-height:1.4; color:#c3c8d2; margin:0 }
 .cover .claim h1{ font-size:34pt; letter-spacing:.05em; margin-bottom:4mm }
 .cover .claim p{ font-size:11.5pt; color:#d5d9e1; max-width:130mm; font-weight:300 }
 .cover .meta{ position:absolute; left:18mm; right:18mm; bottom:16mm; display:flex; gap:3mm; align-items:center }
@@ -160,16 +163,18 @@ page('''
 <div class="claim"><div class="eyebrow">Stereo imaging, tuned by ear</div>
 <h1>Depth<br>without <em>reverb.</em></h1>
 <p>Six stages, the Smart dice, a real L / C / R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
-<div class="meta"><span class="pill">Version %s</span><span class="pill b">VST3</span><span class="pill x">Low CPU</span><span class="pill x">Zero latency without LCR</span></div>
-''' % (jpg('cover_bg'), VERSION, img('logo_a'), VERSION), cls='cover', foot=False)
+<div class="cpil">%s</div>
+<div class="meta"><span class="pill">Version %s</span><span class="pill b">VST3</span></div>
+''' % (jpg('cover_bg'), VERSION, img('logo_a'),
+       ''.join('<div><i></i><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in COVER_PILLARS), VERSION), cls='cover', foot=False)
 
 # 2 intro ----------------------------------------------------------------------
 pill = ''.join('<div class="card pillar"><div class="ic"></div><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in PILLARS)
 page('''%s<h1>Space is the<br><em>last free room</em><br>in your mix.</h1>
 <p class="lead">%s</p>%s
-<div class="sp"></div><div class="grid4">%s</div><div class="sp"></div>
+<div class="sp"></div>
 <div class="card"><h3>Who built this</h3>%s</div>''' % (
-    eyebrow('01', 'What it is'), e(INTRO_LEAD), ''.join('<p>%s</p>' % e(x) for x in INTRO), pill,
+    eyebrow('01', 'What it is'), e(INTRO_LEAD), ''.join('<p>%s</p>' % e(x) for x in INTRO),
     ''.join('<p>%s</p>' % e(x) for x in BIO)))
 
 # 3 jobs + where ---------------------------------------------------------------
@@ -180,8 +185,9 @@ page('''%s<h1>One plugin.<br><em>Up to five jobs.</em></h1>
 <table class="jobs">%s</table><div class="sp2"></div>
 <p class="big-quote" style="margin-top:4mm">%s</p>
 <div class="sp"></div>%s<h1 style="font-size:17pt">Where it belongs</h1>
-<div class="where">%s</div><div class="sp"></div><div class="tip"><b>RULE OF THUMB</b>%s</div>''' % (
-    eyebrow('02', 'Why it exists'), rows, e(JOBS_NOTE), eyebrow('', 'Built for vocals. Great on everything else.'), wh, e(WHERE_RULE)))
+<div class="where">%s</div><div class="sp"></div>
+<div class="grid2"><div class="tip"><b>RULE OF THUMB</b>%s</div><div class="tip"><b>%s</b>%s</div></div>''' % (
+    eyebrow('02', 'Why it exists'), rows, e(JOBS_NOTE), eyebrow('', 'Built for vocals. Great on everything else.'), wh, e(WHERE_RULE), e(CREATE_TITLE.upper()), e(CREATE)))
 
 # 4 tour -------------------------------------------------------------------------
 HOT = [(30, 30), (835, 88), (1270, 20), (1535, 20), (1320, 170), (1720, 170), (1968, 97),
