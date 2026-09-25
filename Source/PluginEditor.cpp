@@ -2768,55 +2768,133 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
     // beide Wege gehen") - im Menue gibt es denselben Befehl weiterhin.
     const juce::String prefill = prefillCurrent ? presetDisplayName (currentPresetName) : juce::String();
 
+    // Runde 127 (User: "beim Speichern sagen, in welche Kategorie"): der
+    // Dialog hat eine Ordner-Auswahl. Oben die vier Smart-Kategorien, dann
+    // eigene Ordner, am Ende "New Folder...". Vorausgewaehlt ist, was am
+    // wahrscheinlichsten stimmt: beim Ueberschreiben der Ordner des Presets,
+    // sonst das aktive Smart-Profil, sonst der Ordner des geladenen Presets.
+    // "Ordner/Name" ins Namensfeld getippt geht weiterhin und hat Vorrang.
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    juce::StringArray folders (cats, 4);
+    {
+        juce::StringArray own;
+        for (const auto& d : presetFolder().findChildFiles (juce::File::findDirectories, false))
+        {
+            const auto n = d.getFileName();
+            if (! n.startsWithChar ('.') && ! folders.contains (n, true))
+                own.add (n);
+        }
+        own.sortNatural();
+        folders.addArray (own);
+    }
+    const auto cur = resolvePresetKey (currentPresetName);
+    juce::String def;
+    if (prefillCurrent && ! isDefaultPresetName (cur))
+        def = presetFolderOf (cur);
+    if (def.isEmpty() && mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
+        def = cats[mutateCategoryValue - 1];
+    if (def.isEmpty() && ! isDefaultPresetName (cur))
+        def = presetFolderOf (cur);
+    auto items = folders;
+    items.add ("New Folder...");
+
     presetNameDialog = std::make_unique<juce::AlertWindow> ("Save Preset",
                                                               "Preset name:",
                                                               juce::MessageBoxIconType::NoIcon);
     presetNameDialog->addTextEditor ("name", prefill, "Preset name");
     if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
+    presetNameDialog->addComboBox ("folder", items, "Folder");
+    if (auto* cb = presetNameDialog->getComboBoxComponent ("folder"))
+        cb->setSelectedItemIndex (juce::jmax (0, folders.indexOf (def, true)), juce::dontSendNotification);
     presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
 
-    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    const int newFolderIndex = folders.size();
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, newFolderIndex] (int result)
     {
-        juce::String name;
+        juce::String name, folder;
+        int folderIdx = 0;
         if (result == 1 && presetNameDialog != nullptr)
+        {
             name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
+            if (auto* cb = presetNameDialog->getComboBoxComponent ("folder"))
+            {
+                folderIdx = cb->getSelectedItemIndex();
+                folder    = cb->getText();
+            }
+        }
         presetNameDialog.reset();
 
         if (name.isEmpty())
             return;
-        name = keyForTypedName (name);   // Runde 109: in welchen Ordner?
-        if (isDefaultPresetName (name))
+        if (name.containsChar ('/') || isDefaultPresetName (name))
         {
-            // Beide Wege fuehren zum selben Ziel (User).
-            juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
-                "Overwrite Default",
-                "Overwrite the built-in Default with the current settings?",
-                nullptr,
-                juce::ModalCallbackFunction::create ([this] (int okResult)
-                {
-                    if (okResult != 0)
-                        saveCurrentStateAsDefault();
-                }));
+            saveUnderKey (name);
             return;
         }
-
-        if (presetFile (name).existsAsFile())
+        if (folderIdx == newFolderIndex)
         {
-            juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
-                "Overwrite Preset",
-                "Preset \"" + presetDisplayName (name) + "\" already exists. Overwrite it?",
-                nullptr,
-                juce::ModalCallbackFunction::create ([this, name] (int okResult)
-                {
-                    if (okResult != 0)
-                        writePreset (name);
-                }));
+            promptNewFolderThenSave (name);
             return;
         }
-        writePreset (name);
+        saveUnderKey (folder.isEmpty() ? name : folder + "/" + name);
     }), false);
+}
+
+void LCRMSAudioProcessorEditor::promptNewFolderThenSave (const juce::String& presetName)
+{
+    presetNameDialog = std::make_unique<juce::AlertWindow> ("New Folder",
+                                                              "Folder name:",
+                                                              juce::MessageBoxIconType::NoIcon);
+    presetNameDialog->addTextEditor ("name", {}, "Folder name");
+    presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    styleNameDialog (*presetNameDialog);
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, presetName] (int result)
+    {
+        juce::String folder;
+        if (result == 1 && presetNameDialog != nullptr)
+            folder = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n/\\").trim();
+        presetNameDialog.reset();
+        if (folder.isEmpty())
+            return;
+        saveUnderKey (folder + "/" + presetName);
+    }), false);
+}
+
+void LCRMSAudioProcessorEditor::saveUnderKey (const juce::String& key)
+{
+    const juce::String name = key;
+    if (isDefaultPresetName (name))
+    {
+        // Beide Wege fuehren zum selben Ziel (User).
+        juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+            "Overwrite Default",
+            "Overwrite the built-in Default with the current settings?",
+            nullptr,
+            juce::ModalCallbackFunction::create ([this] (int okResult)
+            {
+                if (okResult != 0)
+                    saveCurrentStateAsDefault();
+            }));
+        return;
+    }
+
+    if (presetFile (name).existsAsFile())
+    {
+        juce::NativeMessageBox::showOkCancelBox (juce::MessageBoxIconType::WarningIcon,
+            "Overwrite Preset",
+            "Preset \"" + presetDisplayName (name) + "\" already exists. Overwrite it?",
+            nullptr,
+            juce::ModalCallbackFunction::create ([this, name] (int okResult)
+            {
+                if (okResult != 0)
+                    writePreset (name);
+            }));
+        return;
+    }
+    writePreset (name);
 }
 
 // Umbenennen: nur der Name, nie die Einstellungen (User-Vorgabe: "wenn

@@ -2308,6 +2308,9 @@ private:
     // (Disketten-Icon = "dieses Preset sichern"); false: leeres Feld
     // ("Save as..." aus der Liste = "unter neuem Namen sichern").
     void promptAndSaveNewPreset (bool prefillCurrent = true);
+    // Runde 127: Speichern mit Ordnerwahl (Kategorien, eigene Ordner, neuer Ordner).
+    void saveUnderKey (const juce::String& key);
+    void promptNewFolderThenSave (const juce::String& presetName);
     // Schreibt den aktuellen Zustand unter diesem Namen (ohne Rueckfrage) -
     // wird sowohl direkt als auch aus der Ueberschreib-Warnung aufgerufen.
     void writePreset (const juce::String& name);
