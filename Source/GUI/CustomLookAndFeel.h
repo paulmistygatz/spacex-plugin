@@ -3780,6 +3780,10 @@ public:
     // Groesserer, klar lesbarer Text fuer die Sync-Raten-Box.
     juce::Font getComboBoxFont (juce::ComboBox& box) override
     {
+        // Runde 149: Ordnerfeld im Save-Dialog - normale Lesegroesse wie das
+        // Namensfeld daneben, keine Versalien-Knopfschrift.
+        if ((bool) box.getProperties().getWithDefault ("dialogField", false))
+            return juce::Font (juce::FontOptions (16.0f));
         // Runde 61 (User: "BARS ist immer noch fetter als Spin, Drift, Early"):
         // das Bars-Feld ist eine ComboBox und lief deshalb an der gemeinsamen
         // Knopfschrift vorbei. Jetzt dieselbe Regel wie ueberall.
@@ -3794,6 +3798,26 @@ public:
     void drawComboBox (juce::Graphics& g, int width, int height, bool,
                         int, int, int, int, juce::ComboBox& box) override
     {
+        // Runde 149: Eingabefeld-Form im Save-Dialog (wie das Namensfeld:
+        // dunkle Mulde, feiner Rand, im Hover/Offen etwas heller) + Pfeil.
+        if ((bool) box.getProperties().getWithDefault ("dialogField", false))
+        {
+            auto f = juce::Rectangle<float> (0, 0, (float) width, (float) height);
+            const bool hot = box.isMouseOver (true) || box.isPopupActive();
+            g.setColour (juce::Colour (0xff14161b));
+            g.fillRoundedRectangle (f, 8.0f);
+            g.setColour (box.isPopupActive() ? themePalette().knob.withAlpha (0.60f)
+                                             : juce::Colours::white.withAlpha (hot ? 0.18f : 0.10f));
+            g.drawRoundedRectangle (f.reduced (0.5f), 8.0f, box.isPopupActive() ? 1.3f : 1.0f);
+            const float cx = (float) width - 18.0f, cy = (float) height * 0.5f;
+            juce::Path chevron;
+            chevron.startNewSubPath (cx - 4.5f, cy - 2.2f);
+            chevron.lineTo (cx, cy + 2.6f);
+            chevron.lineTo (cx + 4.5f, cy - 2.2f);
+            g.setColour (juce::Colour (0xff9ba0aa).withAlpha (hot ? 1.0f : 0.75f));
+            g.strokePath (chevron, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            return;
+        }
         auto bounds = juce::Rectangle<float> (0, 0, (float) width, (float) height).reduced (1.0f);
         const bool glow = box.getProperties().getWithDefault ("glowActive", false)
                            && ! box.getProperties().getWithDefault ("sectionOff", false);
@@ -3863,6 +3887,14 @@ public:
     // Ohne Pfeil gehoert die ganze Breite dem Text, und er steht mittig.
     void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
     {
+        if ((bool) box.getProperties().getWithDefault ("dialogField", false))
+        {
+            label.setBounds (2, 1, box.getWidth() - 34, box.getHeight() - 2);
+            label.setBorderSize ({ 0, 10, 0, 0 });
+            label.setFont (getComboBoxFont (box));
+            label.setJustificationType (juce::Justification::centredLeft);
+            return;
+        }
         if (box.getProperties().getWithDefault ("noArrow", false))
         {
             label.setBounds (1, 1, box.getWidth() - 2, box.getHeight() - 2);

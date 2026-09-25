@@ -253,6 +253,266 @@ private:
         void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
     };
 
+    // ===== Runde 149: SAVE-PRESET-PANEL =====
+    // (User: "sieht schlecht aus") Das AlertWindow war ein fremdes Fenster mit
+    // Mini-Feldern, doppeltem "Preset name" und JUCE-Layout. Jetzt eine Karte
+    // im Plugin wie Settings und Back Panel: Name, Ordner (mit "New Folder..."
+    // direkt im Feld statt zweitem Dialog) und "Open Preset Folder" (User).
+    class SavePresetPanel : public juce::Component
+    {
+    public:
+        // TextEditor, der dem Panel Fokuswechsel meldet (fuer den Fokusrahmen).
+        struct Field : public juce::TextEditor
+        {
+            std::function<void()> onFocusChange;
+            void focusGained (FocusChangeType t) override { juce::TextEditor::focusGained (t); if (onFocusChange) onFocusChange(); }
+            void focusLost   (FocusChangeType t) override { juce::TextEditor::focusLost (t);   if (onFocusChange) onFocusChange(); }
+        };
+        // Kleines x im Neuer-Ordner-Feld: zurueck zur Ordnerliste.
+        struct CrossButton : public juce::Button
+        {
+            CrossButton() : juce::Button ("back") { setWantsKeyboardFocus (false); }
+            void paintButton (juce::Graphics& g, bool hot, bool down) override
+            {
+                auto c = getLocalBounds().toFloat().getCentre();
+                const float s = 4.5f;
+                g.setColour (juce::Colour (0xff9ba0aa).withAlpha (down ? 1.0f : hot ? 0.95f : 0.6f));
+                juce::Path p;
+                p.startNewSubPath (c.x - s, c.y - s); p.lineTo (c.x + s, c.y + s);
+                p.startNewSubPath (c.x + s, c.y - s); p.lineTo (c.x - s, c.y + s);
+                g.strokePath (p, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+        };
+
+        static constexpr int kNewFolderId = 9999;
+
+        juce::Label title, nameHead, folderHead;
+        Field nameEdit, newFolderEdit;
+        juce::ComboBox folderBox;
+        CrossButton backBtn;
+        juce::TextButton openBtn { "Open Preset Folder" }, cancelBtn { "Cancel" }, saveBtn { "Save" };
+
+        std::function<void (const juce::String& name, const juce::String& folder)> onSave;
+        std::function<void()> onCancel;
+        std::function<void (const juce::String& folder)> onOpenFolder;
+
+        SavePresetPanel()
+        {
+            setWantsKeyboardFocus (true);
+            auto head = [this] (juce::Label& l, const char* txt, float size, juce::Colour col)
+            {
+                l.setText (txt, juce::dontSendNotification);
+                l.setJustificationType (juce::Justification::centredLeft);
+                l.setFont (juce::Font (juce::FontOptions (size, juce::Font::bold)).withExtraKerningFactor (0.14f));
+                l.setColour (juce::Label::textColourId, col);
+                l.setBorderSize ({});
+                l.setInterceptsMouseClicks (false, false);
+                addAndMakeVisible (l);
+            };
+            head (title,      "SAVE PRESET", 16.0f, juce::Colour (0xffb968ff));   // wie SETTINGS
+            head (nameHead,   "NAME",        12.0f, juce::Colour (0xff8f96a4));
+            head (folderHead, "FOLDER",      12.0f, juce::Colour (0xff8f96a4));
+
+            for (auto* te : { &nameEdit, &newFolderEdit })
+            {
+                te->setFont (juce::Font (juce::FontOptions (16.0f)));
+                te->setJustification (juce::Justification::centredLeft);
+                te->setIndents (10, 0);
+                te->setBorder ({});
+                te->setColour (juce::TextEditor::backgroundColourId,     juce::Colours::transparentBlack);
+                te->setColour (juce::TextEditor::outlineColourId,        juce::Colours::transparentBlack);
+                te->setColour (juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+                te->setColour (juce::TextEditor::shadowColourId,         juce::Colours::transparentBlack);
+                te->setColour (juce::TextEditor::textColourId,           juce::Colour (0xffdfe3ea));
+                te->onFocusChange = [this] { repaint(); };
+                te->onReturnKey   = [this] { commit(); };
+                addAndMakeVisible (*te);
+            }
+            nameEdit.setTextToShowWhenEmpty      ("Preset name",     juce::Colour (0xff6d7280));
+            newFolderEdit.setTextToShowWhenEmpty ("New folder name", juce::Colour (0xff6d7280));
+            nameEdit.onEscapeKey      = [this] { if (onCancel) onCancel(); };
+            newFolderEdit.onEscapeKey = [this] { showNewFolder (false); };
+            newFolderEdit.setVisible (false);
+
+            folderBox.getProperties().set ("dialogField", true);
+            folderBox.setWantsKeyboardFocus (false);
+            folderBox.setColour (juce::ComboBox::textColourId, juce::Colour (0xffdfe3ea));
+            folderBox.onChange = [this]
+            {
+                if (folderBox.getSelectedId() == kNewFolderId)
+                    showNewFolder (true);
+                else if (folderBox.getSelectedId() > 0)
+                    lastFolderId = folderBox.getSelectedId();
+            };
+            addAndMakeVisible (folderBox);
+
+            backBtn.setTooltip ("Back to the folder list");
+            backBtn.onClick = [this] { showNewFolder (false); };
+            addChildComponent (backBtn);
+
+            for (auto* b : { &openBtn, &cancelBtn, &saveBtn })
+            {
+                b->setClickingTogglesState (false);
+                b->setWantsKeyboardFocus (false);
+                b->getProperties().set ("noGlow", true);   // Panel-Knopf wie in Settings
+                addAndMakeVisible (*b);
+            }
+            saveBtn.setToggleState (true, juce::dontSendNotification);   // Hauptaktion in Akzentfarbe
+            openBtn.setTooltip ("Open the selected folder in Finder / Explorer");
+            openBtn.onClick   = [this] { if (onOpenFolder) onOpenFolder (selectedExistingFolder()); };
+            cancelBtn.onClick = [this] { if (onCancel) onCancel(); };
+            saveBtn.onClick   = [this] { commit(); };
+        }
+
+        // Vor jedem Oeffnen: Ordnerliste, Vorauswahl, vorausgefuellter Name.
+        void open (const juce::StringArray& categories, const juce::StringArray& ownFolders,
+                   const juce::String& selected, const juce::String& prefill)
+        {
+            const auto pal = themePalette();
+            for (auto* te : { &nameEdit, &newFolderEdit })
+            {
+                te->setColour (juce::TextEditor::highlightColourId,       pal.knob.withAlpha (0.42f));
+                te->setColour (juce::TextEditor::highlightedTextColourId, juce::Colours::white);
+                te->setColour (juce::CaretComponent::caretColourId,       pal.knob);
+            }
+            folderNames.clear();
+            folderBox.clear (juce::dontSendNotification);
+            for (const auto& c : categories) { folderNames.add (c); folderBox.addItem (c, folderNames.size()); }
+            if (! ownFolders.isEmpty())
+            {
+                folderBox.addSeparator();
+                for (const auto& c : ownFolders) { folderNames.add (c); folderBox.addItem (c, folderNames.size()); }
+            }
+            folderBox.addSeparator();
+            folderBox.addItem ("New Folder...", kNewFolderId);
+            const int idx = folderNames.indexOf (selected, true);
+            lastFolderId = idx >= 0 ? idx + 1 : 1;
+            folderBox.setSelectedId (lastFolderId, juce::dontSendNotification);
+            newFolderEdit.clear();
+            showNewFolder (false);
+            nameEdit.setText (prefill, false);
+        }
+
+        void focusName()
+        {
+            nameEdit.grabKeyboardFocus();
+            nameEdit.selectAll();
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            auto b = getLocalBounds().toFloat();
+            g.setColour (juce::Colour (0xff1e2128));
+            g.fillRoundedRectangle (b, 12.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.14f));
+            g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
+
+            // Eingabefelder: dunkle, weich gerundete Mulde, im Fokus ein feiner
+            // Rahmen in der Theme-Farbe. Das Ordnerfeld zeichnet die
+            // ComboBox selbst (CustomLookAndFeel, "dialogField") - gleiche Form.
+            const auto acc = themePalette().knob;
+            auto field = [&g, acc] (juce::Rectangle<int> r, bool focused)
+            {
+                auto f = r.toFloat();
+                g.setColour (juce::Colour (0xff14161b));
+                g.fillRoundedRectangle (f, 8.0f);
+                g.setColour (focused ? acc.withAlpha (0.60f) : juce::Colours::white.withAlpha (0.10f));
+                g.drawRoundedRectangle (f.reduced (0.5f), 8.0f, focused ? 1.3f : 1.0f);
+            };
+            field (nameRow, nameEdit.hasKeyboardFocus (true));
+            if (newFolderEdit.isVisible())
+                field (folderRow, newFolderEdit.hasKeyboardFocus (true));
+
+            // feine Linie ueber der Knopfreihe
+            g.setColour (juce::Colours::white.withAlpha (0.07f));
+            g.fillRect ((float) ruleX1, (float) ruleY, (float) (ruleX2 - ruleX1), 1.0f);
+        }
+
+        void resized() override
+        {
+            auto r = getLocalBounds().reduced (24, 20);
+            title.setBounds (r.removeFromTop (24));
+            r.removeFromTop (16);
+            nameHead.setBounds (r.removeFromTop (16));
+            r.removeFromTop (6);
+            nameRow = r.removeFromTop (38);
+            nameEdit.setBounds (nameRow.reduced (2, 1));
+            r.removeFromTop (16);
+            folderHead.setBounds (r.removeFromTop (16));
+            r.removeFromTop (6);
+            folderRow = r.removeFromTop (38);
+            folderBox.setBounds (folderRow);
+            {
+                auto nf = folderRow;
+                backBtn.setBounds (nf.removeFromRight (34).reduced (4));
+                newFolderEdit.setBounds (nf.reduced (2, 1));
+            }
+            auto btnRow = r.removeFromBottom (32);
+            ruleY = btnRow.getY() - 16; ruleX1 = btnRow.getX(); ruleX2 = btnRow.getRight();
+            openBtn.setBounds (btnRow.removeFromLeft (168));
+            saveBtn.setBounds (btnRow.removeFromRight (92));
+            btnRow.removeFromRight (10);
+            cancelBtn.setBounds (btnRow.removeFromRight (92));
+        }
+
+        bool keyPressed (const juce::KeyPress& k) override
+        {
+            if (k == juce::KeyPress::escapeKey)
+            {
+                if (newFolderEdit.isVisible()) showNewFolder (false);
+                else if (onCancel) onCancel();
+                return true;
+            }
+            if (k == juce::KeyPress::returnKey) { commit(); return true; }
+            return false;
+        }
+
+    private:
+        juce::StringArray folderNames;
+        int lastFolderId = 1;
+        juce::Rectangle<int> nameRow, folderRow;
+        int ruleY = 0, ruleX1 = 0, ruleX2 = 0;
+
+        juce::String selectedExistingFolder() const
+        {
+            const int id = lastFolderId;
+            return id >= 1 && id <= folderNames.size() ? folderNames[id - 1] : juce::String();
+        }
+
+        juce::String chosenFolder() const
+        {
+            if (newFolderEdit.isVisible())
+                return newFolderEdit.getText().removeCharacters ("\r\n/\\:*?\"<>|").trim();
+            return selectedExistingFolder();
+        }
+
+        void showNewFolder (bool on)
+        {
+            folderBox.setVisible (! on);
+            newFolderEdit.setVisible (on);
+            backBtn.setVisible (on);
+            folderHead.setText (on ? "NEW FOLDER" : "FOLDER", juce::dontSendNotification);
+            if (on)
+            {
+                newFolderEdit.grabKeyboardFocus();
+            }
+            else
+            {
+                folderBox.setSelectedId (lastFolderId, juce::dontSendNotification);
+                if (isShowing()) nameEdit.grabKeyboardFocus();
+            }
+            repaint();
+        }
+
+        void commit()
+        {
+            const auto name = nameEdit.getText().removeCharacters ("\r\n").trim();
+            if (name.isEmpty()) { focusName(); return; }
+            if (newFolderEdit.isVisible() && chosenFolder().isEmpty()) { newFolderEdit.grabKeyboardFocus(); return; }
+            if (onSave) onSave (name, chosenFolder());
+        }
+    };
+
     class SettingsPanelComponent : public juce::Component
     {
     public:
@@ -2360,7 +2620,7 @@ private:
     void promptAndSaveNewPreset (bool prefillCurrent = true);
     // Runde 127: Speichern mit Ordnerwahl (Kategorien, eigene Ordner, neuer Ordner).
     void saveUnderKey (const juce::String& key);
-    void promptNewFolderThenSave (const juce::String& presetName);
+    void closeSavePanel();   // Runde 149
     // Schreibt den aktuellen Zustand unter diesem Namen (ohne Rueckfrage) -
     // wird sowohl direkt als auch aus der Ueberschreib-Warnung aufgerufen.
     void writePreset (const juce::String& name);
@@ -2438,6 +2698,7 @@ private:
     juce::Image settingsBlur;
     SettingsPanelComponent settingsPanel;
     BackPanelComponent     backPanel;
+    SavePresetPanel        savePanel;   // Runde 149: ersetzt das Save-AlertWindow
     TourOverlay            tourOverlay;
     void applyViewSettings (bool persist);
     // ===== View-Einstellungen im Plugin-Zustand =====

@@ -2942,72 +2942,50 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
         def = cats[mutateCategoryValue - 1];
     if (def.isEmpty() && ! isDefaultPresetName (cur))
         def = presetFolderOf (cur);
-    auto items = folders;
-    items.add ("New Folder...");
+    // Runde 149 (User: "sieht schlecht aus ... hier auch noch open preset
+    // folder"): statt AlertWindow die Karte im Plugin (SavePresetPanel).
+    juce::StringArray ownFolders;
+    for (int i = 4; i < folders.size(); ++i)
+        ownFolders.add (folders[i]);
 
-    presetNameDialog = std::make_unique<juce::AlertWindow> ("Save Preset",
-                                                              "Preset name:",
-                                                              juce::MessageBoxIconType::NoIcon);
-    presetNameDialog->addTextEditor ("name", prefill, "Preset name");
-    if (auto* te = presetNameDialog->getTextEditor ("name")) { te->setSelectAllWhenFocused (true); te->selectAll(); }
-    presetNameDialog->addComboBox ("folder", items, "Folder");
-    if (auto* cb = presetNameDialog->getComboBoxComponent ("folder"))
-        cb->setSelectedItemIndex (juce::jmax (0, folders.indexOf (def, true)), juce::dontSendNotification);
-    presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    styleNameDialog (*presetNameDialog);
-
-    const int newFolderIndex = folders.size();
-    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, newFolderIndex] (int result)
+    closeSettingsPanel();
+    closeBackPanel();
+    closeViewPanel();
     {
-        juce::String name, folder;
-        int folderIdx = 0;
-        if (result == 1 && presetNameDialog != nullptr)
+        constexpr int kDiv = 4;
+        auto shot = content.createComponentSnapshot (content.getLocalBounds(), false, 1.0f / (float) kDiv);
+        if (shot.isValid())
         {
-            name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
-            if (auto* cb = presetNameDialog->getComboBoxComponent ("folder"))
-            {
-                folderIdx = cb->getSelectedItemIndex();
-                folder    = cb->getText();
-            }
+            juce::ImageConvolutionKernel blur (7);
+            blur.createGaussianBlur (2.6f);
+            blur.applyToImage (shot, shot, shot.getBounds());
+            settingsBlur = shot;
         }
-        presetNameDialog.reset();
-
-        if (name.isEmpty())
-            return;
-        if (name.containsChar ('/') || isDefaultPresetName (name))
-        {
-            saveUnderKey (name);
-            return;
-        }
-        if (folderIdx == newFolderIndex)
-        {
-            promptNewFolderThenSave (name);
-            return;
-        }
-        saveUnderKey (folder.isEmpty() ? name : folder + "/" + name);
-    }), false);
+    }
+    savePanel.open (juce::StringArray (cats, 4), ownFolders, def, prefill);
+    settingsBackdrop.setVisible (true);
+    settingsBackdrop.toFront (false);
+    savePanel.setAlpha (1.0f);
+    savePanel.setVisible (true);
+    savePanel.toFront (true);
+    juce::Desktop::getInstance().getAnimator().fadeIn (&savePanel, 120);
+    content.repaint();
+    // Fokus erst nach dem Sichtbarwerden (im Host sonst manchmal ohne Wirkung).
+    juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<SavePresetPanel> (&savePanel)]
+    {
+        if (safe != nullptr && safe->isShowing())
+            safe->focusName();
+    });
 }
 
-void LCRMSAudioProcessorEditor::promptNewFolderThenSave (const juce::String& presetName)
+void LCRMSAudioProcessorEditor::closeSavePanel()
 {
-    presetNameDialog = std::make_unique<juce::AlertWindow> ("New Folder",
-                                                              "Folder name:",
-                                                              juce::MessageBoxIconType::NoIcon);
-    presetNameDialog->addTextEditor ("name", {}, "Folder name");
-    presetNameDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    styleNameDialog (*presetNameDialog);
-    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, presetName] (int result)
-    {
-        juce::String folder;
-        if (result == 1 && presetNameDialog != nullptr)
-            folder = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n/\\").trim();
-        presetNameDialog.reset();
-        if (folder.isEmpty())
-            return;
-        saveUnderKey (folder + "/" + presetName);
-    }), false);
+    if (! savePanel.isVisible())
+        return;
+    settingsBackdrop.setVisible (false);
+    settingsBlur = {};
+    juce::Desktop::getInstance().getAnimator().fadeOut (&savePanel, 120);
+    content.repaint();
 }
 
 void LCRMSAudioProcessorEditor::saveUnderKey (const juce::String& key)
@@ -4707,9 +4685,29 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (helpButton);
     content.addChildComponent (viewPanel);   // erst sichtbar per Zahnrad
     content.addChildComponent (settingsBackdrop);
-    settingsBackdrop.onClick = [this] { closeSettingsPanel(); closeBackPanel(); };
+    settingsBackdrop.onClick = [this] { closeSettingsPanel(); closeBackPanel(); closeSavePanel(); };
     content.addChildComponent (settingsPanel);
     content.addChildComponent (backPanel);
+    content.addChildComponent (savePanel);   // Runde 149
+    savePanel.onCancel = [this] { closeSavePanel(); };
+    savePanel.onSave = [this] (const juce::String& name, const juce::String& folder)
+    {
+        closeSavePanel();
+        // "Ordner/Name" ins Namensfeld getippt hat weiterhin Vorrang.
+        if (name.containsChar ('/') || isDefaultPresetName (name))
+            saveUnderKey (name);
+        else
+            saveUnderKey (folder.isEmpty() ? name : folder + "/" + name);
+    };
+    savePanel.onOpenFolder = [this] (const juce::String& folder)
+    {
+        // Oeffnet den gewaehlten Ordner (falls es ihn schon gibt), sonst den
+        // Preset-Ordner selbst. Das Panel bleibt offen.
+        auto dir = presetFolder();
+        if (folder.isNotEmpty() && dir.getChildFile (folder).isDirectory())
+            dir = dir.getChildFile (folder);
+        dir.startAsProcess();
+    };
     backPanel.onClose  = [this] { closeBackPanel(); };
     backPanel.onManual = [this] { openManual(); };
     backPanel.onTour   = [this] { closeBackPanel(); startTour(); };
@@ -7046,7 +7044,8 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
     // durch"): paintOverChildren laeuft NACH allen Kindern, die Zeile lag
     // deshalb ueber jedem Overlay. Sie gehoert zur normalen Oberflaeche, also
     // pausiert sie, solange ein Overlay offen ist.
-    const bool overlayOpen = settingsPanel.isVisible() || backPanel.isVisible() || tourOverlay.isVisible();
+    const bool overlayOpen = settingsPanel.isVisible() || backPanel.isVisible() || tourOverlay.isVisible()
+                          || savePanel.isVisible();
     if (! overlayOpen)
         drawHintBar (g);
     auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
@@ -7077,7 +7076,7 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
     // Settings-Panel: alles dahinter abdunkeln, damit das Panel klar
     // hervortritt (dasselbe Prinzip wie beim View-Panel, nur ueber die ganze
     // Flaeche, weil das Panel mittig liegt).
-    if (settingsPanel.isVisible() || backPanel.isVisible())
+    if (settingsPanel.isVisible() || backPanel.isVisible() || savePanel.isVisible())
     {
         g.saveState();
         // Bug (User Runde 71: "komische Grafik an den Ecken"): ausgespart
@@ -7087,6 +7086,7 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         // die abgerundete Form ausgespart (Even-Odd-Fuellregel = Loch).
         {
             const auto panelB = (settingsPanel.isVisible() ? settingsPanel.getBounds()
+                               : savePanel.isVisible()     ? savePanel.getBounds()
                                                            : backPanel.getBounds()).toFloat();
             juce::Path veil;
             veil.setUsingNonZeroWinding (false);
@@ -7498,6 +7498,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int bw = juce::jmin (620, kDesignW - 160);
         const int bh = juce::jmin (470, kDesignH - 90);
         backPanel.setBounds ((kDesignW - bw) / 2, (kDesignH - bh) / 2 - 8, bw, bh);
+        // Runde 149: Save-Preset-Karte, mittig.
+        savePanel.setBounds ((kDesignW - 460) / 2, (kDesignH - 276) / 2 - 8, 460, 276);
         if (tourOverlay.isVisible())
             tourOverlay.setBounds (content.getLocalBounds());
         settingsBackdrop.setBounds (0, 0, kDesignW, kDesignH);
