@@ -60,7 +60,15 @@ public:
     const juce::String getName() const override { return "SpaceX"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    // Runde 144 (User: "nach ein paar Minuten Stop eine Effekt-Explosion"):
+    // Mit Tail 0 darf Cubase die Verarbeitung sofort aussetzen, sobald Stille
+    // anliegt - die LCR-Latenz und die Delays hielten dann noch alten Klang
+    // fest. Jetzt meldet das Plugin, wie lange es nachklingen kann.
+    double getTailLengthSeconds() const override
+    {
+        const double sr = currentSampleRate > 0.0 ? currentSampleRate : 48000.0;
+        return juce::jmax (0, lastReportedLatency) / sr + 0.1;
+    }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -860,6 +868,21 @@ private:
     void clearDspTails() noexcept;
     double silentSeconds = 0.0;
     bool   silenceCleared = false;
+    // Runde 144: Zeitpunkt des letzten Blocks. Hat der Host die Verarbeitung
+    // ausgesetzt (Cubase bei Stille/Stop), werden beim Wiedereinstieg alle
+    // Zustaende geleert - sonst "entlaedt" sich alter Klang aus den Puffern.
+    juce::uint32 gapLastMs = 0;
+    void clearIfProcessingWasSuspended (int numSamples) noexcept
+    {
+        const juce::uint32 now = juce::Time::getMillisecondCounter();
+        const juce::uint32 prev = gapLastMs;
+        gapLastMs = now;
+        if (prev == 0 || currentSampleRate <= 0.0) return;
+        const double blockMs = 1000.0 * (double) numSamples / currentSampleRate;
+        const double limitMs = juce::jmax (500.0, 4.0 * blockMs);
+        if ((double) (now - prev) > limitMs)
+            clearDspTails();
+    }
 
     // One-Pole-Tiefpass fuer "Distance" (Naehe/Ferne) - Koeffizient ebenfalls
     // nur einmal pro Block neu berechnet.

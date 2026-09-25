@@ -993,6 +993,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     juce::ScopedNoDenormals noDenormals;
 
     const int numSamples = buffer.getNumSamples();
+    clearIfProcessingWasSuspended (numSamples);   // Runde 144
 
     // Input-Pegelanzeige (User-Wunsch: "Links und rechts von Volume ein
     // kleines Input und Output Meter Pegelanzeige") - reiner Anzeige-Peak,
@@ -2762,6 +2763,9 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
     std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
     lcrDryWritePos = 0;
+    // Runde 144: auch der Bypass-Latenzpuffer haelt sonst alten Klang.
+    std::fill (bypassDelayL.begin(), bypassDelayL.end(), 0.0f);
+    std::fill (bypassDelayR.begin(), bypassDelayR.end(), 0.0f);
 }
 
 void LCRMSAudioProcessor::passthroughWithLatencyCompensation (juce::AudioBuffer<float>& buffer)
@@ -2875,6 +2879,7 @@ void LCRMSAudioProcessor::updateVisualMeters (const float* leftBuf, const float*
 
 void LCRMSAudioProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    clearIfProcessingWasSuspended (buffer.getNumSamples());   // Runde 144
     passthroughWithLatencyCompensation (buffer);
 }
 
