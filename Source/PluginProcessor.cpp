@@ -125,6 +125,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     pRayFast     = apvts.getRawParameterValue (ID_RAY_FAST);
     pMsEq        = apvts.getRawParameterValue (ID_MS_EQ);
     pMsEqX2      = apvts.getRawParameterValue (ID_MS_EQ_X2);
+    pMsEqLcr     = apvts.getRawParameterValue (ID_MS_EQ_LCR);
     pPosOffset   = apvts.getRawParameterValue (ID_POS_OFFSET);
     pPosWidth    = apvts.getRawParameterValue (ID_POS_WIDTH);
     pPrismOn     = apvts.getRawParameterValue (ID_PRISM_ON);
@@ -739,6 +740,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout LCRMSAudioProcessor::createP
         juce::StringArray { "Flat", "Low Cut", "Air", "Tilt", "Soft", "Mid Soft", "Cross" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ID_MS_EQ_X2, 1 }, "Sides EQ x2", false));
+    params.push_back (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ID_MS_EQ_LCR, 1 }, "Sides EQ to LCR", false));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ID_SOLO_SECTION, 1 }, "Solo",
@@ -931,6 +934,9 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     updatePeakingCoeffs (elevateCoeffs, sampleRate, 6500.0f, 0.0f, 0.7f);
     distanceLpfL = distanceLpfR = 0.0f;
     msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
+    msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
+    msEqLcrMove.reset (sampleRate, 0.03);
+    msEqLcrMove.setCurrentAndTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
     msEqCur[0] = 0.0f; msEqCur[2] = 0.0f; msEqCur[4] = 0.0f;
     updateShelfCoeffs (msEqMidHsC,  sampleRate, 3000.0f, 0.0f, 0.6f, true);
     updateShelfCoeffs (msEqSideLsC, sampleRate,  450.0f, 0.0f, 0.6f, false);
@@ -1610,6 +1616,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         updateShelfCoeffs (msEqMidHsC,  currentSampleRate, std::exp2 (msEqCur[1]), msEqCur[0], 0.6f, true);
         updateShelfCoeffs (msEqSideLsC, currentSampleRate, std::exp2 (msEqCur[3]), msEqCur[2], 0.6f, false);
         updateShelfCoeffs (msEqSideHsC, currentSampleRate, std::exp2 (msEqCur[5]), msEqCur[4], 0.6f, true);
+        msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
+    }
+    // Runde 115: die LCR-Filter laufen nur, solange der Schalter an ist oder
+    // gerade ueberblendet wird. Danach werden sie geleert, damit beim
+    // naechsten Einschalten kein alter Zustand nachklingt.
+    const bool msEqLcrRun = pMsEqLcr->load() > 0.5f || msEqLcrMove.isSmoothing();
+    if (! msEqLcrRun)
+    {
+        msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
     }
 
     // ===== PRISM: Bandgrenzen einmal pro Block =====
@@ -1822,6 +1837,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float polSlotS[4] = { polSlotGain[0].getNextValue(), polSlotGain[1].getNextValue(),
                                     polSlotGain[2].getNextValue(), polSlotGain[3].getNextValue() };
         const float wbGain = widthBoostOnGain.getNextValue();
+        const float eqMv   = msEqLcrMove.getNextValue();
+        // Anteil des EQ, der gerade IN der LCR Matrix sitzt (0..1). Den Rest
+        // macht Mid/Side - zusammen immer genau ein EQ.
+        float eqInLcr = 0.0f;
         const float flGain = flowOnGain.getNextValue();
         const float offsetS   = offsetSmoothed.getNextValue();
         const float posWidthS = posWidthSmoothed.getNextValue();
@@ -1883,6 +1902,21 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             float lOnly = 0.0f, center = 0.0f, rOnly = 0.0f;
             if (! galaxyEnginePaused)
                 lcrExtractor.processSample (l, r, sensS, lOnly, center, rOnly);
+            const float wg = lcrWetGain.getNextValue();
+            // Runde 115 (User): "EQ -> LCR". Mitten-Band auf den Center,
+            // Seiten-Baender auf die Aussenanteile - vor dem Zurueckmischen.
+            // Haengt wie der EQ selbst am Schalter von MID-SIDE (wbGain).
+            if (msEqLcrRun)
+            {
+                const float k = eqMv * wbGain;
+                const float cEq = msEqLcrC.process (center, msEqMidHsC);
+                const float lEq = msEqLcrLHs.process (msEqLcrLLs.process (lOnly, msEqSideLsC), msEqSideHsC);
+                const float rEq = msEqLcrRHs.process (msEqLcrRLs.process (rOnly, msEqSideLsC), msEqSideHsC);
+                center += (cEq - center) * k;
+                lOnly  += (lEq - lOnly)  * k;
+                rOnly  += (rEq - rOnly)  * k;
+                eqInLcr = eqMv * wg;
+            }
             const float wetL = lOnly * gL + center * gC;
             const float wetR = rOnly * gR + center * gC;
 
@@ -1901,7 +1935,6 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 lcrDryWritePos = (lcrDryWritePos + 1) % dSize;
             }
 
-            const float wg = lcrWetGain.getNextValue();
             float gxL = lcrDryL + (wetL - lcrDryL) * wg;
             float gxR = lcrDryR + (wetR - lcrDryR) * wg;
             // Bass-Guard sitzt jetzt IM Extractor als Maske pro Bin
@@ -2057,8 +2090,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             // erst die Seiten formen, dann bewegen. Er bekommt alles, was
             // bis hierher passiert ist (LCR Matrix, Micropitch, Width/Sides),
             // und haengt am Schalter von MID-SIDE.
-            const float mEq = msEqMidHs.process (m, msEqMidHsC);
-            const float sEq = msEqSideHs.process (msEqSideLs.process (sWet, msEqSideLsC), msEqSideHsC);
+            // Runde 115: sitzt der EQ in LCR, wird er hier ausgeblendet.
+            const float msK = 1.0f - eqInLcr;
+            const float mEq = m    + (msEqMidHs.process (m, msEqMidHsC) - m) * msK;
+            const float sEq = sWet + (msEqSideHs.process (msEqSideLs.process (sWet, msEqSideLsC), msEqSideHsC) - sWet) * msK;
             const float lWet = mEq + sEq;
             const float rWet = mEq - sEq;
             l = l + (lWet - l) * wbGain;
@@ -2677,6 +2712,7 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     bendR.reset();
     elevateStateL = {}; elevateStateR = {};
     msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
+    msEqLcrC = {}; msEqLcrLLs = {}; msEqLcrLHs = {}; msEqLcrRLs = {}; msEqLcrRHs = {};
     prismGalHpL = {}; prismGalLpL = {}; prismGalHpR = {}; prismGalLpR = {};
     prismDimHp = {}; prismDimLp = {};
     prismPosHp = {}; prismPosLp = {};

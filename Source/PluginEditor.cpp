@@ -4234,6 +4234,20 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (msEqX2Button);
     msEqX2Attachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_X2, msEqX2Button);
 
+    // Runde 115 (User): der EQ aus MID-SIDE kann in die LCR Matrix wandern.
+    // Nur Text wie FAST/LINK; an = blau (gekoppelt), und das EQ-Feld unten
+    // wird ebenfalls blau, damit man sieht, wo er gerade wirkt.
+    lcrEqButton.setButtonText (juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR"));
+    lcrEqButton.setClickingTogglesState (true);
+    lcrEqButton.setWantsKeyboardFocus (false);
+    lcrEqButton.getProperties().set ("headerPill", true);
+    lcrEqButton.getProperties().set ("headerPillW", 86);
+    lcrEqButton.getProperties().set ("softChip", true);
+    lcrEqButton.getProperties().set ("hdrIcon", 2);           // nur der Name
+    lcrEqButton.setTooltip ("EQ to LCR: the Mid-Side EQ works on Center and Sides of the LCR Matrix instead of Mid and Side");
+    content.addAndMakeVisible (lcrEqButton);
+    lcrEqAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_LCR, lcrEqButton);
+
     styleRotary (elevateSlider, false);
     content.addAndMakeVisible (elevateSlider);
     styleLabel (elevateLabel, "Elevate");
@@ -4942,6 +4956,23 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (distanceSlider, isWidthBoostOn);
     setSectionOff (msEqButton,   isWidthBoostOn);
     setSectionOff (msEqX2Button, isWidthBoostOn);
+    // Runde 115: EQ -> LCR tut nur etwas, wenn LCR UND Mid-Side laufen.
+    setSectionOff (lcrEqButton, isLcrOn && isWidthBoostOn);
+    {
+        const bool eqMoved = isLcrOn && isWidthBoostOn && lcrEqButton.getToggleState();
+        if ((bool) lcrEqButton.getProperties().getWithDefault ("pairedGold", false) != eqMoved)
+        {
+            lcrEqButton.getProperties().set ("pairedGold", eqMoved);
+            lcrEqButton.repaint();
+        }
+        const int want = (int) (eqMoved ? pairAccentColour() : themePalette().frameRaye).getARGB();
+        if ((int) msEqButton.getProperties().getWithDefault ("pillColour", 0) != want)
+        {
+            msEqButton.getProperties().set ("pillColour", want);
+            msEqButton.repaint();
+        }
+        if (msEqDots.paired != eqMoved) { msEqDots.paired = eqMoved; msEqDots.repaint(); }
+    }
     {
         const bool dotsOff = uiBypassed || ! isWidthBoostOn;
         if (msEqDots.off != dotsOff) { msEqDots.off = dotsOff; msEqDots.repaint(); }
@@ -5404,14 +5435,8 @@ void LCRMSAudioProcessorEditor::timerCallback()
             msEqButton.getProperties().set ("eqDiagram", e);
             msEqButton.repaint();
         }
-        // Dieselbe Farbe wie die anderen Icon-Felder - alle drei sollen
-        // gleich aussehen (User).
-        const int want = (int) themePalette().frameRaye.getARGB();
-        if ((int) msEqButton.getProperties().getWithDefault ("pillColour", 0) != want)
-        {
-            msEqButton.getProperties().set ("pillColour", want);
-            msEqButton.repaint();
-        }
+        // Farbe: siehe Runde 115 bei setSectionOff (msEqButton) - Gold wie die
+        // anderen Icon-Felder, blau wenn der EQ in LCR sitzt.
         if (msEqDots.index != e) { msEqDots.index = e; msEqDots.repaint(); }
     }
     }
@@ -5706,13 +5731,8 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // Profil die Sprache der Kopfzeile - ein feiner senkrechter Trennstrich
     // wie zwischen den Knopf-Gruppen, ueber beide Zeilen. Damit ist es eine
     // eigene Gruppe, ohne Kasten.
-    if (categoryButton.isVisible() && ! isComicTheme())
-    {
-        const auto cb = categoryButton.getBounds().toFloat();
-        const float sx = cb.getRight() + 11.0f;
-        g.setColour (juce::Colours::white.withAlpha (0.14f));
-        g.drawLine (sx, cb.getY() + 4.0f, sx, cb.getBottom() - 4.0f, 1.0f);
-    }
+    // Runde 115 (User): der Strich ist wieder weg - das Profil steht jetzt
+    // mittig zwischen Wortmarke und Kopfzeile und braucht ihn nicht.
 
     // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
     // Claim-Untertitel wirkte "amateurhaft" (User-Feedback) und wurde
@@ -6749,7 +6769,15 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // weg, und das Feld bekommt deren Hoehe zurueck.
         {
             const int cw = 176, cbH = 30;   // Runde 113: etwas breiter (User: "etwas groesser")
-            auto catCol = titleBar.removeFromRight (cw + 22).withTrimmedRight (22);
+            // Runde 115 (User: "nicht ganz mittig"): mittig zwischen dem
+            // Ende des Slogans (breiteste Zeile der Wortmarke) und dem
+            // ersten Icon der Kopfzeile (Power, ~6 px eingerueckt).
+            const juce::Font sloganFont = juce::Font (juce::FontOptions (13.8f, juce::Font::bold))
+                                              .withExtraKerningFactor (0.16f);
+            const int wordRight = titleBar.getX() + kTitleBarH + 18
+                                + juce::roundToInt (juce::GlyphArrangement::getStringWidth (sloganFont, "SPATIAL INTELLIGENCE"));
+            const int midX = (wordRight + titleBar.getRight() + 6) / 2;
+            auto catCol = juce::Rectangle<int> (midX - cw / 2, titleBar.getY(), cw, titleBar.getHeight());
             // Runde 110 (User): das Profil nimmt die Hoehe beider Kopfzeilen -
             // Icon oben, Name darunter, Punkte ganz unten, wie Velvet.
             juce::ignoreUnused (cbH);
@@ -7228,7 +7256,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
             {
                 // Runde 105: Text-Pille im Kopf (x2 in MID-SIDE) - dieselbe
                 // Groesse wie FAST und PAIR beim Phaser.
-                const int pw = 62, ph = juce::jmin (24, headerH);   // x2 mit Kurve
+                const int pw = (int) filterBtn->getProperties().getWithDefault ("headerPillW", 62);   // x2 mit Kurve
+                const int ph = juce::jmin (24, headerH);
                 auto fArea = header.removeFromRight (pw);
                 header.removeFromRight (6);
                 filterBtn->setBounds (fArea.withSizeKeepingCentre (pw, ph));
@@ -7368,7 +7397,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
     // -- LCR: Gravity (Knob) + Dimension (Kegel) - beide dynamisch an die
     //    tatsaechlich verfuegbare Hoehe/Breite des Rahmens angepasst, statt
     //    fester Pixelwerte, damit die vorher leere rechte Haelfte genutzt wird.
-    auto lcrInner = layoutHeader (lcrFrame.reduced (10), lcrPowerButton, lcrSoloButton, lcrTitleLabel, &galaxyModButton, &galaxyModDepthSlider, &lcrLockButton);
+    auto lcrInner = layoutHeader (lcrFrame.reduced (10), lcrPowerButton, lcrSoloButton, lcrTitleLabel, &galaxyModButton, &galaxyModDepthSlider, &lcrLockButton, &lcrEqButton);
     {
         // Reihenfolge nach Wichtigkeit (User): ohne ORBIT passiert in Galaxy
         // ueberhaupt nichts, HORIZON bestimmt, worauf Orbit wirken kann, und

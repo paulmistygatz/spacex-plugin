@@ -1934,6 +1934,7 @@ private:
     {
         int count = 5, index = 0;
         bool off = false;
+        bool paired = false;   // Runde 115: EQ sitzt in LCR -> aktiver Punkt blau
         std::function<void (int)> onPick;
         // Feste Teilung statt "Breite / Anzahl" - sonst stehen die Punkte in
         // Parallax (6) und RAYE (4) unterschiedlich weit auseinander
@@ -1972,7 +1973,7 @@ private:
             {
                 const float cx = centreOf (i);
                 const float cy = (float) getHeight() * 0.5f;
-                g.setColour (i == index ? themePalette().knob.withAlpha (off ? 0.35f : 1.0f)
+                g.setColour (i == index ? (paired && ! off ? pairAccentColour() : themePalette().knob).withAlpha (off ? 0.35f : 1.0f)
                                         : juce::Colours::white.withAlpha (0.16f));
                 g.fillEllipse (cx - d * 0.5f, cy - d * 0.5f, d, d);
             }
@@ -1988,6 +1989,8 @@ private:
     juce::Label  rayAmountLabel;
     juce::TextButton rayCharButton;
     juce::TextButton msEqButton, msEqX2Button;   // Runde 105: Seiten-EQ + x2 im MID-SIDE-Kopf
+    juce::TextButton lcrEqButton;   // Runde 115: "EQ -> LCR" im LCR-Kopf
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> lcrEqAttachment;
     // Runde 49: kleiner FAST-Knopf im RAYE-Kopf (+30 % Tempo) - Ersatz fuer
     // den entfallenen Speed-Regler.
     juce::TextButton rayFastButton { "FAST" };

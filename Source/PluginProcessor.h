@@ -443,6 +443,10 @@ public:
     // feste Kurven, x2 verdoppelt die dB. Siehe kMsEqTable in processBlock.
     static constexpr auto ID_MS_EQ        = "msEq";
     static constexpr auto ID_MS_EQ_X2     = "msEqX2";
+    // Runde 115 (User): "EQ -> LCR" - derselbe EQ wandert in die LCR Matrix
+    // und wirkt dort auf Center (Mitten-Band) und die Aussenanteile
+    // (Seiten-Baender) statt auf Mid/Side. Nie beide gleichzeitig.
+    static constexpr auto ID_MS_EQ_LCR    = "msEqLcr";
     static constexpr int  kMsEqModes      = 7;
     static constexpr auto ID_RAY_AMOUNT   = "rayAmount";   // SpaceXraye
     static constexpr auto ID_RAY_CHAR     = "rayCharacter"; // SpaceXraye
@@ -626,6 +630,7 @@ private:
     std::atomic<float>* pDepth = nullptr;
     std::atomic<float>* pMsEq   = nullptr;
     std::atomic<float>* pMsEqX2 = nullptr;
+    std::atomic<float>* pMsEqLcr = nullptr;
     std::atomic<float>* pPrismLo = nullptr;
     std::atomic<float>* pPrismHi = nullptr;
     std::atomic<float>* pPosDistance = nullptr;
@@ -724,6 +729,9 @@ private:
     // Werte gleiten pro Block (msEqCur), damit Umschalten nicht knackt.
     BiquadCoeffs msEqMidHsC, msEqSideLsC, msEqSideHsC;
     BiquadState  msEqMidHs, msEqSideLs, msEqSideHs;
+    // Runde 115: dieselben Kurven auf den LCR-Anteilen (Center / L / R).
+    BiquadState  msEqLcrC, msEqLcrLLs, msEqLcrLHs, msEqLcrRLs, msEqLcrRHs;
+    juce::SmoothedValue<float> msEqLcrMove;   // 0 = EQ auf Mid/Side, 1 = in LCR
     float msEqCur[6] = { 0.0f, 11.55f, 0.0f, 8.81f, 0.0f, 10.55f };   // dB, log2(Hz) je Filter
     static void updateShelfCoeffs (BiquadCoeffs& c, double sampleRate, float freqHz, float gainDb,
                                    float slope, bool highShelf) noexcept;
