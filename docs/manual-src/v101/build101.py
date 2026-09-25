@@ -92,7 +92,7 @@ dl.kv dd{ color:#c9ced8 }
 .cover .veil{ display:none }
 .cover .top{ position:absolute; top:20mm; left:18mm; right:18mm; display:flex; justify-content:space-between; font-family:Sora; font-size:7pt; letter-spacing:.34em; color:var(--mut) }
 .cover .logo{ position:absolute; top:40mm; left:0; right:0; text-align:center }
-.cover .logo img{ width:118mm }
+.cover .logo img{ width:92mm }
 .cover .claim{ position:absolute; left:18mm; right:18mm; bottom:66mm }
 .cpil{ position:absolute !important; left:18mm; right:18mm; bottom:30mm; display:grid; grid-template-columns:repeat(4,1fr); gap:5mm }
 .cpil i{ display:block; width:7mm; height:.7mm; background:var(--gold); border-radius:1mm; margin-bottom:2.5mm }
