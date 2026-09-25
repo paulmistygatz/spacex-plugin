@@ -1323,6 +1323,11 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
                 sp->setValueNotifyingHost (sp->convertTo0to1 ((float) LCRMSAudioProcessor::SOLO_NONE));
             return;
         }
+        // Runde 123 (User): waehrend eine ANDERE Sektion solo ist, schaltet
+        // der Klick auf den Namen nichts um - man saehe es nicht, und nach
+        // dem Solo waeren ploetzlich Sektionen an. Cmd-Klick verlegt das Solo.
+        if (current != LCRMSAudioProcessor::SOLO_NONE)
+            return;
     }
 
     if (auto* param = processor.apvts.getParameter (paramId))
