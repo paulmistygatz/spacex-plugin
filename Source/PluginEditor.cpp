@@ -6990,22 +6990,7 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
         autoGainReadoutArea = {};
     }
 
-    // Runde 139 (User: "aus Spass das kleine Katzenlogo unten rechts, ganz
-    // klein"): Mistycat-Katze am rechten Ende der Hinweiszeile, gedimmt.
-    {
-        static const juce::Image cat = juce::ImageCache::getFromMemory (SpaceXManualData::mistycat_head_png,
-                                                                        SpaceXManualData::mistycat_head_pngSize);
-        if (cat.isValid())
-        {
-            const float h = juce::jmin (16.0f, r.getHeight() - 4.0f);
-            const float w = h * (float) cat.getWidth() / (float) cat.getHeight();
-            const juce::Rectangle<float> dst (r.getRight() - w - 2.0f, r.getCentreY() - h * 0.5f, w, h);
-            g.setOpacity (0.55f);
-            g.drawImage (cat, dst, juce::RectanglePlacement::centred);
-            g.setOpacity (1.0f);
-            r = r.withTrimmedRight (w + 12.0f);
-        }
-    }
+    // (Runde 140: Katzenlogo unten rechts wieder entfernt - User: "sieht nicht gut aus".)
 
     if (currentHint.isEmpty())
         return;   // Platzhaltertext entfallen (User: "weiss jeder")
