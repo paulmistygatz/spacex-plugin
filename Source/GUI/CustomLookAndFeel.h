@@ -1036,12 +1036,15 @@ public:
         const float cornerSize = bounds.getHeight() * 0.5f;
         // RAYE-Pair: Gold statt Violett fuer den Pair-Knopf selbst und fuer
         // Sync in Hyperdrive, solange die Kopplung aktiv ist.
+        // Runde 122: "pairTint" faerbt nur blau, ohne den Schalter als "an"
+        // zu zeichnen (x2, wenn der EQ in LCR sitzt).
         const bool gold = button.getProperties().getWithDefault ("pairedGold", false);
+        const bool tint = button.getProperties().getWithDefault ("pairTint", false);
         // "altAccent" (Runde 61): FAST traegt in den hellen Themes das Gold,
         // das frueher PAIR hatte - siehe pairAccentColour(). In Sci-Fi bleibt
         // alles wie es war.
         const bool altAcc = button.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
-        const juce::Colour btnAccent = gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
+        const juce::Colour btnAccent = (gold || tint) ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
 
         // Runde 110 (User: "die letzten Kaesten weg"): Icon-Schalter ohne
         // Flaeche. ØL/ØR: Icon oben, Buchstabe darunter. FAST/PAIR/x2: Icon
@@ -1911,7 +1914,8 @@ public:
     // drawButtonBackground: Gold = an (altAccent), Blau = gekoppelt.
     juce::Colour softChipAccent (juce::Button& b) const
     {
-        const bool gold   = b.getProperties().getWithDefault ("pairedGold", false);
+        const bool gold   = b.getProperties().getWithDefault ("pairedGold", false)
+                         || (bool) b.getProperties().getWithDefault ("pairTint", false);
         const bool altAcc = b.getProperties().getWithDefault ("altAccent", false) && ! isSciFiTheme();
         return gold ? pairAccentColour() : altAcc ? altAccentColour() : glowAccent;
     }

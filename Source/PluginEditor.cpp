@@ -5002,6 +5002,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
             msEqButton.repaint();
         }
         if (msEqDots.paired != eqMoved) { msEqDots.paired = eqMoved; msEqDots.repaint(); }
+        // Runde 122 (User): x2 gehoert zum EQ und wird mit blau.
+        if ((bool) msEqX2Button.getProperties().getWithDefault ("pairTint", false) != eqMoved)
+        {
+            msEqX2Button.getProperties().set ("pairTint", eqMoved);
+            msEqX2Button.repaint();
+        }
     }
     {
         const bool dotsOff = uiBypassed || ! (isWidthBoostOn || eqInLcrLive);
