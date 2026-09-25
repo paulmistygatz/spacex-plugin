@@ -1088,8 +1088,13 @@ public:
                 const auto  c = iconR.getCentre();
                 const float s = juce::jmin (iconR.getWidth(), iconR.getHeight());
                 juce::ignoreUnused (hot);
-                const juce::Colour col = iconToggleColour (btnAccent, lit, secOff,
-                                                           shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown);
+                juce::Colour col = iconToggleColour (btnAccent, lit, secOff,
+                                                     shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown);
+                // Runde 165 (User: "L/R aus ist schon sehr praegnant - an oder
+                // nicht?"): seit sie groesser sind, braucht AUS mehr Abstand
+                // zu AN - deutlich zurueckgenommen, beim Hover etwas heller.
+                if (phase && ! lit && ! secOff)
+                    col = phaseOffColour (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown);
                 g.setColour (col);
                 const juce::PathStrokeType st (juce::jmax (1.3f, s * (phase ? 0.13f : 0.095f)),
                                                juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
@@ -1896,6 +1901,11 @@ public:
 
     // Runde 112 (User: "Ø und L/R sollen dieselbe Farbe haben"): EINE Farbe
     // fuer Icon und Schrift eines Icon-Schalters.
+    static juce::Colour phaseOffColour (bool hot)
+    {
+        return hot ? juce::Colour (0xff9aa0ab) : juce::Colour (0xff5f6470);
+    }
+
     static juce::Colour iconToggleColour (juce::Colour acc, bool lit, bool secOff, bool hot)
     {
         // Runde 116 (User): Sektion aus -> dieselbe Farbe wie VELVET/FLAT und
@@ -2148,6 +2158,8 @@ public:
                 juce::Rectangle<float> iconR, textR;
                 if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
                 {
+                    if (! litT && ! secOffT)   // Runde 165: aus = zurueckgenommen (wie das Ø)
+                        g.setColour (phaseOffColour (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown));
                     g.setFont (phaseFontFor (button));
                     phaseLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
                     g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
