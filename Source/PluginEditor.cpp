@@ -1299,6 +1299,28 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
     const juce::String paramId = comp->getProperties()["titlePowerParam"].toString();
     const int soloValue = (int) comp->getProperties()["titleSoloValue"];
 
+    // Runde 128 (User): Cmd + Shift + Klick auf den Sektionsnamen setzt die
+    // ganze Sektion auf ihre Standardwerte zurueck. An/Aus bleibt, wie es
+    // ist - Reset heisst "Einstellungen zurueck", nicht "ausschalten".
+    if (e.mods.isCommandDown() && e.mods.isShiftDown())
+    {
+        using P = LCRMSAudioProcessor;
+        juce::StringArray ids = sectionParamIds (soloValue);
+        switch (soloValue)
+        {
+            case P::SOLO_GALAXY:    ids.add (P::ID_MS_EQ_LCR); break;
+            case P::SOLO_DIMENSION: ids.addArray ({ P::ID_MS_EQ, P::ID_MS_EQ_ON, P::ID_MS_EQ_AMT }); break;
+            case P::SOLO_RAY:       ids.addArray ({ P::ID_RAY_AMOUNT, P::ID_RAY_CHAR, P::ID_RAY_FAST }); break;
+            default: break;
+        }
+        ids.removeString (paramId);   // der An/Aus-Schalter der Sektion
+        for (const auto& id : ids)
+            if (auto* prm = processor.apvts.getParameter (id))
+                if (std::abs (prm->getValue() - prm->getDefaultValue()) > 1.0e-6f)
+                    prm->setValueNotifyingHost (prm->getDefaultValue());
+        return;
+    }
+
     // Runde 48 (User): Cmd + Klick auf den Sektionsnamen schaltet Solo statt
     // an/aus - dieselbe Wirkung wie das (ausgeblendete) Solo-Icon.
     if (e.mods.isCommandDown())
