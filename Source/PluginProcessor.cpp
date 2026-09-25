@@ -2047,8 +2047,14 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             {
                 sWet = s + sGuard * (sFactor - 1.0f);
             }
-            const float lWet = m + sWet;
-            const float rWet = m - sWet;
+            // Runde 106 (User): der Seiten-EQ gehoert VOR Autopan und Phaser -
+            // erst die Seiten formen, dann bewegen. Er bekommt alles, was
+            // bis hierher passiert ist (LCR Matrix, Micropitch, Width/Sides),
+            // und haengt am Schalter von MID-SIDE.
+            const float mEq = msEqMidHs.process (m, msEqMidHsC);
+            const float sEq = msEqSideHs.process (msEqSideLs.process (sWet, msEqSideLsC), msEqSideHsC);
+            const float lWet = mEq + sEq;
+            const float rWet = mEq - sEq;
             l = l + (lWet - l) * wbGain;
             r = r + (rWet - r) * wbGain;
         }
@@ -2171,17 +2177,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 rPos = m - sWet;
             }
 
-            // Runde 105 (User): DEPTH (Distance/Elevate) ist raus. An seiner
-            // Stelle der Seiten-EQ - ein High Shelf auf der Mitte, Low und
-            // High Shelf auf den Seiten, Kurve je nach Stellung.
-            {
-                const float m = 0.5f * (lPos + rPos);
-                const float sd = 0.5f * (lPos - rPos);
-                const float mEq = msEqMidHs.process (m, msEqMidHsC);
-                const float sEq = msEqSideHs.process (msEqSideLs.process (sd, msEqSideLsC), msEqSideHsC);
-                lPos = mEq + sEq;
-                rPos = mEq - sEq;
-            }
+            // Runde 105: DEPTH (Distance/Elevate) ist raus. Der Seiten-EQ, der
+            // ihn ersetzt, sitzt seit Runde 106 direkt in der Mid/Side-Stufe.
 
             // Der Rest der alten Vision-Stufe ist DEPTH, und das gehoert zu
             // DIMENSION - also dessen Schalter. posGain wird nicht mehr
