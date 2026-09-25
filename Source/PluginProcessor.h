@@ -326,6 +326,26 @@ public:
     // PluginEditor::showPresetMenu()). EINE gemeinsame Stelle fuer Processor
     // UND Editor, damit beide garantiert dieselbe Datei referenzieren.
     static juce::PropertiesFile::Options appPropertiesOptions();
+    // Runde 159 (User): der EQ-An/Aus-Schalter ist weg - "aus" heisst jetzt
+    // Modus FLAT. Alte Zustaende mit msEqOn = 0 werden beim Laden auf
+    // FLAT + an umgeschrieben, damit sie genauso klingen wie vorher.
+    static void migrateMsEqOn (juce::ValueTree& state)
+    {
+        juce::ValueTree onP, modeP;
+        for (auto c : state)
+        {
+            if (! c.hasType ("PARAM")) continue;
+            const auto id = c.getProperty ("id").toString();
+            if (id == ID_MS_EQ_ON) onP = c;
+            else if (id == ID_MS_EQ) modeP = c;
+        }
+        if (onP.isValid() && (double) onP.getProperty ("value", 1.0) < 0.5)
+        {
+            onP.setProperty ("value", 1.0, nullptr);
+            if (modeP.isValid())
+                modeP.setProperty ("value", 3.0, nullptr);   // sideeq::kFlat
+        }
+    }
 
     // --- Position (neue Sektion, ganz am Ende der Kette) --------------------
     // Offset = finales Pan, Width = nochmalige, globale Verschmaelerung/

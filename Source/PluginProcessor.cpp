@@ -392,7 +392,10 @@ void LCRMSAudioProcessor::updateShelfCoeffs (BiquadCoeffs& c, double sampleRate,
 void LCRMSAudioProcessor::updateMsEqCoeffs (bool snap, int numSamples) noexcept
 {
     const int  mode = juce::jlimit (0, kMsEqModes - 1, (int) std::round (pMsEq->load()));
-    const bool on   = pMsEqOn->load() > 0.5f;
+    // Runde 159: kein An/Aus-Schalter mehr ("aus" = FLAT). msEqOn bleibt als
+    // Parameter fuer alte Sessions stehen, wird beim Laden umgeschrieben
+    // (migrateMsEqOn) und hier nicht mehr ausgewertet.
+    const bool on   = true;
     const auto t    = sideeq::evaluate (mode, pMsEqAmt->load() * 0.01f, on);
     const float tgt[10] = { std::log2 (t.s1Hz), t.s1Q, std::log2 (t.s2Hz), t.s2Q,
                             std::log2 (t.sHsHz), t.sHsDb, t.sHsQ,
@@ -1639,7 +1642,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
     // Ist der EQ aus und ausgeklungen, laeuft gar nichts (Null-Test sauber).
     // Runde 133: FLAT ist "aus" wie der Schalter - die Filter duerfen ruhen.
-    if (pMsEqOn->load() > 0.5f && ! sideeq::isFlat ((int) std::round (pMsEq->load())))
+    if (! sideeq::isFlat ((int) std::round (pMsEq->load())))
         msEqHoldSamples = (int) (currentSampleRate * 0.4);
     else
         msEqHoldSamples = juce::jmax (0, msEqHoldSamples - numSamples);
@@ -2940,11 +2943,17 @@ void LCRMSAudioProcessor::setStateInformation (const void* data, int sizeInBytes
         xml->removeChildElement (ab, true);
     }
 
-    apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    {
+        auto st = juce::ValueTree::fromXml (*xml);
+        migrateMsEqOn (st);   // Runde 159
+        apvts.replaceState (st);
+    }
     // Runde 107: die Latenz sofort melden - nicht erst im ersten Audio-Block,
     // sonst uebernimmt die DAW sie erst nach dem ersten Stop (User-Bug).
     reportLatencyForCurrentState();
 
+    if (newA.isValid()) migrateMsEqOn (newA);
+    if (newB.isValid()) migrateMsEqOn (newB);
     if (found && newA.isValid() && newB.isValid())
     {
         abSlotA      = newA;

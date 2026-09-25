@@ -432,7 +432,8 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
     {
         auto* rp = dynamic_cast<juce::RangedAudioParameter*> (param);
         if (rp == nullptr || excluded.contains (rp) || sectionOnParams.contains (rp)
-            || param == processor.getBypassParameter())
+            || param == processor.getBypassParameter()
+            || rp->getParameterID() == LCRMSAudioProcessor::ID_MS_EQ_ON)   // Runde 159: ohne Schalter nie wuerfeln
             continue;
         pool.add (rp);
     }
@@ -3292,7 +3293,11 @@ void LCRMSAudioProcessorEditor::loadPreset (const juce::String& name)
     const float volBefore = volParam != nullptr ? volParam->getValue() : 0.5f;
     const bool  keepVol   = isVolLocked();
 
-    processor.apvts.replaceState (tree);
+    {
+        auto migrated = tree.createCopy();
+        LCRMSAudioProcessor::migrateMsEqOn (migrated);   // Runde 159
+        processor.apvts.replaceState (migrated);
+    }
     if (keepMix && mixParam != nullptr)
         mixParam->setValueNotifyingHost (mixBefore);
     if (keepVol && volParam != nullptr)
@@ -5379,10 +5384,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (distanceSlider, isWidthBoostOn);
     // Runde 125: EQ aus -> Feld, Punkte und Fader gedimmt wie eine Sektion;
     // der An/Aus-Schalter selbst dimmt nur mit der Sektion.
-    const bool msEqOnNow = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_ON)->load() > 0.5f;
+    const bool msEqOnNow = true;   // Runde 159: kein An/Aus mehr - "aus" ist FLAT
     const bool msEqLive  = (isWidthBoostOn || eqInLcrLive) && msEqOnNow;
     setSectionOff (msEqButton,      msEqLive);
-    setSectionOff (msEqAmtSlider,   msEqLive);
+    // Runde 159 (User): bei FLAT tut der Fader nichts - dann grau und
+    // nicht bedienbar, so sieht man sofort "hier passiert nichts".
+    const bool msEqFlatNow = sideeq::isFlat ((int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
+    setSectionOff (msEqAmtSlider,   msEqLive && ! msEqFlatNow);
+    msEqAmtSlider.setEnabled (! msEqFlatNow);
     setSectionOff (msEqPowerButton, isWidthBoostOn || eqInLcrLive);
     // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
     setSectionOff (lcrEqButton, isLcrOn);
@@ -8495,8 +8504,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // im Kopf reserviert hat.
         auto hb = msEqX2Button.getBounds();
         msEqX2Button.setVisible (false);
-        msEqPowerButton.setBounds (hb.removeFromLeft (22).withSizeKeepingCentre (20, 20));
-        hb.removeFromLeft (4);
+        // Runde 159 (User): kein eigener An/Aus-Schalter mehr - "aus" ist
+        // FLAT. Der Fader bleibt an seinem Platz, Power-Platz bleibt frei.
+        hb.removeFromLeft (26);
+        msEqPowerButton.setVisible (false);
+        msEqPowerButton.setBounds ({});
         msEqAmtSlider.setBounds (hb.withSizeKeepingCentre (hb.getWidth(), 18));
     }
     {
