@@ -2437,6 +2437,10 @@ private:
     juce::TextButton helpButton;            // dezentes "?" ganz unten links
     juce::TextButton autoGainButton;        // Runde 110: Soft-Chip im Footer (Wert / OFF)
     juce::Label      autoGainLabel;
+    // Runde 150: Footer-Gruppen - x der beiden Trennlinien und ihre Hoehe.
+    int footerSepX[2] { 0, 0 };
+    int footerSepTop = 0, footerSepBottom = 0;
+    void updateFooterValueLabels();
     juce::Rectangle<int> hintBarArea;       // Textbereich rechts daneben
     juce::Rectangle<int> profileStarsArea;  // Runde 143: funkelnde Sterne ums Smart-Profil (Repaint-Bereich)
     juce::String currentHint;               // was gerade angezeigt wird

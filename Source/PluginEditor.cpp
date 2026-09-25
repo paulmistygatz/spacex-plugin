@@ -1294,6 +1294,7 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
     // (User: "Klick Bereich erweitern -> auch auf SCHRIFT soll on off machen").
     if (comp == &monoCheckLabel) { monoCheckButton.triggerClick(); return; }
     if (comp == &monoDryLabel)   { if (monoDryButton.isEnabled()) monoDryButton.triggerClick(); return; }
+    if (comp == &autoGainLabel)  { autoGainButton.triggerClick(); return; }   // Runde 150 (User)
 
     if (! comp->getProperties().contains ("titlePowerParam"))
         return;
@@ -5090,11 +5091,63 @@ void LCRMSAudioProcessorEditor::updateUndoRedoButtonStates()
 juce::Font LCRMSAudioProcessorEditor::sectionTitleFont() { return titleFont(); }
 juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
 
+// Runde 150 (Footer-Variante 3, User): unter Mix, Pan und Vol steht beim
+// Ueberfahren oder Drehen der Wert in der Akzentfarbe statt des Namens.
+// Nur Text und Farbe tauschen - kein Layout, keine eigene Komponente.
+void LCRMSAudioProcessorEditor::updateFooterValueLabels()
+{
+    struct Item { juce::Slider* s; juce::Label* l; int kind; };
+    const Item items[] = { { &mixSlider, &mixLabel, 0 }, { &panSlider, &panLabel, 1 }, { &volSlider, &volLabel, 2 } };
+    for (const auto& it : items)
+    {
+        auto& props = it.l->getProperties();
+        const bool active = it.s->isShowing() && it.s->isEnabled() && it.s->isMouseOverOrDragging();
+        const bool wasActive = props.getWithDefault ("showsValue", false);
+        if (active)
+        {
+            if (! wasActive)
+            {
+                props.set ("restText", it.l->getText());
+                props.set ("restColour", (int) it.l->findColour (juce::Label::textColourId).getARGB());
+                props.set ("showsValue", true);
+                it.l->setColour (juce::Label::textColourId, themePalette().knob);
+            }
+            const double v = it.s->getValue();
+            juce::String txt;
+            if (it.kind == 0)
+                txt = juce::String (juce::roundToInt (v)) + " %";
+            else if (it.kind == 1)
+            {
+                const int pv = juce::roundToInt (v);
+                txt = pv < 0 ? "L " + juce::String (-pv) : pv > 0 ? "R " + juce::String (pv) : juce::String ("C");
+            }
+            else
+            {
+                const double d = std::abs (v) < 0.05 ? 0.0 : v;
+                txt = (d > 0.0 ? "+" : "") + juce::String (d, 1) + " dB";
+            }
+            if (it.l->getText() != txt)
+                it.l->setText (txt, juce::dontSendNotification);
+        }
+        else if (wasActive)
+        {
+            it.l->setText (props.getWithDefault ("restText", it.l->getText()).toString(), juce::dontSendNotification);
+            it.l->setColour (juce::Label::textColourId,
+                             juce::Colour ((juce::uint32) (int) props.getWithDefault ("restColour", (int) 0xffa9aeb8)));
+            props.set ("showsValue", false);
+        }
+    }
+}
+
 void LCRMSAudioProcessorEditor::timerCallback()
 {
     // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
     if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
         content.repaint (profileStarsArea);
+    // Runde 150: der Wuerfel atmet, solange ein Smart-Profil gewaehlt ist.
+    if (mutateCategoryValue > 0 && globalChaosButton.isShowing())
+        globalChaosButton.repaint();
+    updateFooterValueLabels();
     updateHintBar();
     bool needsRepaint = false;
 
@@ -7048,6 +7101,19 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
                           || savePanel.isVisible();
     if (! overlayOpen)
         drawHintBar (g);
+
+    // Runde 150: feine senkrechte Trennlinien zwischen den Footer-Gruppen,
+    // oben und unten ausgeblendet (wie im Header).
+    for (int sx : footerSepX)
+    {
+        if (sx <= 0 || footerSepBottom <= footerSepTop) continue;
+        const float x = (float) sx + 0.5f, y1 = (float) footerSepTop, y2 = (float) footerSepBottom;
+        juce::ColourGradient grad (juce::Colours::white.withAlpha (0.0f), x, y1,
+                                   juce::Colours::white.withAlpha (0.0f), x, y2, false);
+        grad.addColour (0.5, juce::Colours::white.withAlpha (0.13f));
+        g.setGradientFill (grad);
+        g.fillRect (x - 0.5f, y1, 1.0f, y2 - y1);
+    }
     auto bounds = juce::Rectangle<float> (0, 0, (float) kDesignW, (float) kDesignH);
 
     // View-Panel offen: die Sektionsspalte rechts abdunkeln, damit das Panel
@@ -7384,8 +7450,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int hintH = 22;
         auto strip = area.removeFromBottom (hintH);
         area.removeFromBottom (6);
-        helpButton.setBounds (strip.removeFromLeft (hintH));
-        strip.removeFromLeft (8);
+        // Runde 150: das "?" sitzt jetzt vorne in der Footer-Reihe; die
+        // Hinweiszeile bekommt die ganze Breite.
         hintBarArea = strip;
         // Auto-Gain-Anzeige rechts in derselben Zeile, samt Klickflaeche.
         {
@@ -7561,17 +7627,28 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // die PRISM-Kachel sass. Die ist weg - deshalb ueberlappten IN/OUT und
         // MONO. Jetzt beginnt die Reihe an der rechten Kante.
         juce::ignoreUnused (rowMid);
-        const int prismLeft = controlRow.getRight();
-        constexpr int kGap  = 16;
+        // ===== Runde 150 (User: "1 find ich am besten" + Variante 3) =====
+        // Drei Gruppen wie im Header, durch feine Linien getrennt:
+        //   ?  IN/OUT-Meter  |  Mono  Dry  |  Mix  Pan  Vol  AG
+        // Die Reihe fuellt die ganze Breite: feste Abstaende in den Gruppen,
+        // die Luft an den Trennlinien waechst mit, der Rest geht an die Meter.
+        const int rowRight = controlRow.getRight();
+        constexpr int kGap  = 20;            // innerhalb einer Gruppe
+        constexpr int kAgW = 44, kAgH = 22;
+        constexpr int kHelpS = 22;           // "?" rueckt in die Reihe
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
 
-        // Runde 111 (User): Mix, Pan, Vol, AG - die Pegel-Elemente stehen
-        // zusammen am Ende, AG als Ausgangsanzeige ganz rechts.
+        const int groupA = iconSize * 2 + kGap;                   // Mono, Dry
+        const int groupB = iconSize * 3 + kAgW + kGap * 3;        // Mix, Pan, Vol, AG
+        const int meterLabelW = 30;
+        const int meterIdeal  = 150;
+        const int freeForPads = controlRow.getWidth() - (kHelpS + 12) - meterLabelW - meterIdeal - groupA - groupB;
+        const int pad = juce::jlimit (14, 34, freeForPads / 4);  // Luft links+rechts je Trennlinie
+
         juce::Component* elems[6]  = { &monoCheckButton, &monoDryButton, &mixSlider, &panSlider, &volSlider, &autoGainButton };
         juce::Label*     labels[6] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &panLabel,  &volLabel,  &autoGainLabel  };
-        constexpr int kAgW = 44, kAgH = 22;
-        int right = prismLeft - kGap;   // rechte Kante von PAN = PRISM-Kachel minus Luecke
+        int right = rowRight;
         for (int i = 5; i >= 0; --i)
         {
             const bool isAg = elems[i] == &autoGainButton;
@@ -7585,32 +7662,46 @@ void LCRMSAudioProcessorEditor::layoutContent()
                 elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
             else
                 elems[i]->setBounds (x, blockTop, iconSize, iconSize);
-            labels[i]->setBounds (x - 8, blockTop + iconSize + labelGap, w + 16, labelH);
+            labels[i]->setBounds (x - 12, blockTop + iconSize + labelGap, w + 24, labelH);
             right = x - kGap;
+            if (i == 2)                       // zwischen Mix und Dry: Trennlinie
+            {
+                right = x - pad;
+                footerSepX[1] = right;
+                right -= pad;
+            }
         }
-        const int iconsLeft = right + kGap;   // linke Kante von MONO
+        footerSepX[0] = right + kGap - pad;   // links von Mono
+        footerSepTop  = blockTop - 2;
+        footerSepBottom = blockTop + blockH + 2;
 
+        // "?" ganz links, mittig zur Reihe.
+        helpButton.setBounds (rowLeft, blockTop + iconSize / 2 - kHelpS / 2, kHelpS, kHelpS);
 
-        // Meter-Block: zwei Zeilen, Label links (knapp bemessen, damit der
-        // Balken direkt neben der Schrift beginnt), Balken rechts. Der Block
-        // endet mit Luft (kGap + 6) vor MONO.
+        // Meter-Block: IN oben, OUT darunter, unter OUT eine feine dB-Skala.
         {
-            const int meterLabelW = 30;
-            const int meterBarH   = 7;
-            const int meterVGap   = 4;
-            const int meterRight  = iconsLeft - (kGap + 6);
-            const int stackH = labelH * 2 + meterVGap;
-            auto stack = juce::Rectangle<int> (rowLeft, rowTop + (rowH - stackH) / 2, juce::jmax (60, meterRight - rowLeft), stackH);
+            const int meterRowH  = 14;
+            const int meterVGap  = 3;
+            const int scaleH     = 11;
+            const int meterLeft  = rowLeft + kHelpS + 12;
+            const int meterRight = footerSepX[0] - pad;
+            const int stackH = meterRowH * 2 + meterVGap + scaleH;
+            // Die beiden Balken stehen mittig zu den Icons, die Skala haengt
+            // darunter auf Hoehe der Beschriftungen (Mono, Mix, ...).
+            const int barsH = meterRowH * 2 + meterVGap;
+            auto stack = juce::Rectangle<int> (meterLeft, blockTop + iconSize / 2 - barsH / 2,
+                                               juce::jmax (60, meterRight - meterLeft), stackH);
 
-            auto inRow = stack.removeFromTop (labelH);
+            auto inRow = stack.removeFromTop (meterRowH);
             inputMeterLabel.setBounds (inRow.removeFromLeft (meterLabelW));
-            volInputMeter.setBounds (inRow.withSizeKeepingCentre (inRow.getWidth(), meterBarH));
+            volInputMeter.setBounds (inRow);
 
             stack.removeFromTop (meterVGap);
 
             auto outRow = stack;
-            outputMeterLabel.setBounds (outRow.removeFromLeft (meterLabelW));
-            volOutputMeter.setBounds (outRow.withSizeKeepingCentre (outRow.getWidth(), meterBarH));
+            outputMeterLabel.setBounds (outRow.removeFromLeft (meterLabelW).withHeight (meterRowH));
+            volOutputMeter.setBounds (outRow);   // Balken oben, Skala darunter
+            volOutputMeter.showScale = true;
         }
 
         // ===== PRISM in der rechten Footer-Haelfte =====

@@ -21,45 +21,64 @@ public:
 
     ~LevelMeterComponent() override { stopTimer(); }
 
+    // Runde 150 (Footer-Variante 1): unter dem OUT-Meter eine feine dB-Skala.
+    bool showScale = false;
+
     void paint (juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds().toFloat();
+        // Runde 150: schmaler Balken (5 px) mittig in einer 14-px-Zone, damit
+        // der Schein an der Spitze Platz hat; rechts 6 px Luft fuer den Schein.
+        auto full = getLocalBounds().toFloat();
+        auto zone = full.withHeight (juce::jmin (full.getHeight(), 14.0f));
+        auto track = zone.withTrimmedRight (6.0f).withSizeKeepingCentre (zone.getWidth() - 6.0f, 5.0f);
+        track.setX (zone.getX());
+        const float cr = track.getHeight() * 0.5f;
+        const auto acc = themePalette().knob;
 
-        // Runde 110 (User): runde Enden wie die Chips, kein Rahmen mehr.
-        const float capR = bounds.getHeight() * 0.5f;
-        g.setColour (juce::Colour (0xff14161a));
-        g.fillRoundedRectangle (bounds, capR);
-
-        // Bug-Fix/Korrektur (User-Feedback: die Meter waren praktisch nicht
-        // zu sehen) - eine immer sichtbare, schwache "Leerspur" ueber die
-        // volle Breite, damit man den Meter-Schlitz auch OHNE Signal klar
-        // erkennt (vorher gab es ohne Pegel nur den fast unsichtbaren
-        // Rahmen zu sehen).
-        auto trackArea = bounds.reduced (1.5f);
         g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.fillRoundedRectangle (trackArea, trackArea.getHeight() * 0.5f);
+        g.fillRoundedRectangle (track, cr);
 
         const float lvl = juce::jlimit (0.0f, 1.0f, displayLevel);
         if (lvl > 0.01f)
         {
-            auto fillArea = trackArea;
-            fillArea = fillArea.removeFromLeft (fillArea.getWidth() * lvl);
-
-            // Immer dieselbe Farbe (User: "in / out meter sollen immer nur die
-            // Standardfarbe haben; keine Farbaenderung bei hoeherem Pegel").
-            // Die Rot/Gelb-Stufen waren Clipping-Warnungen - aber die Skala
-            // ist ohnehin dB-basiert mit -48 dB als Nullpunkt, ein voller
-            // Balken heisst hier 0 dBFS und nicht "zu laut". Warnfarben
-            // waeren also falsche Alarme.
-            g.setColour (themePalette().knob);   // Meterfarbe je Theme (User)
-            g.fillRoundedRectangle (fillArea, fillArea.getHeight() * 0.5f);
+            auto fillArea = track.withWidth (juce::jmax (track.getHeight(), track.getWidth() * lvl));
+            // Immer dieselbe Farbe (User) - nur von blass zur leuchtenden Spitze.
+            juce::ColourGradient grad (acc.withAlpha (0.35f), fillArea.getX(), 0.0f,
+                                       acc, fillArea.getRight(), 0.0f, false);
+            g.setGradientFill (grad);
+            g.fillRoundedRectangle (fillArea, cr);
+            // Leuchtende Spitze
+            const juce::Point<float> tip (fillArea.getRight() - cr, fillArea.getCentreY());
+            const float gr = 7.0f;
+            juce::ColourGradient glow (acc.withAlpha (0.18f + 0.30f * lvl), tip.x, tip.y,
+                                       acc.withAlpha (0.0f), tip.x + gr, tip.y, true);
+            g.setGradientFill (glow);
+            g.fillEllipse (tip.x - gr, tip.y - gr, gr * 2.0f, gr * 2.0f);
         }
         // Runde 110: duenne Spitzenmarke (haelt kurz, sinkt dann langsam).
         if (peakHold > 0.02f)
         {
-            const float px = trackArea.getX() + trackArea.getWidth() * juce::jlimit (0.0f, 1.0f, peakHold);
-            g.setColour (themePalette().knob.interpolatedWith (juce::Colours::white, 0.35f).withAlpha (0.85f));
-            g.fillRoundedRectangle (px - 1.0f, trackArea.getY(), 2.0f, trackArea.getHeight(), 1.0f);
+            const float px = track.getX() + track.getWidth() * juce::jlimit (0.0f, 1.0f, peakHold);
+            g.setColour (acc.interpolatedWith (juce::Colours::white, 0.35f).withAlpha (0.85f));
+            g.fillRoundedRectangle (px - 1.0f, track.getY() - 1.0f, 2.0f, track.getHeight() + 2.0f, 1.0f);
+        }
+
+        if (showScale && full.getHeight() > zone.getHeight() + 6.0f)
+        {
+            // Skala in dB (Nullpunkt -48, siehe timerCallback): -24, -12, -6, 0.
+            static constexpr float marks[] = { -24.0f, -12.0f, -6.0f, 0.0f };
+            const float ty = zone.getBottom() - 2.0f;
+            g.setFont (juce::Font (juce::FontOptions (8.5f, juce::Font::bold)));
+            for (float db : marks)
+            {
+                const float x = track.getX() + track.getWidth() * (db + 48.0f) / 48.0f;
+                g.setColour (juce::Colours::white.withAlpha (0.16f));
+                g.fillRect (x - 0.5f, ty, 1.0f, 3.0f);
+                if (db == -6.0f) continue;   // zu eng neben der 0 - nur Strich
+                g.setColour (juce::Colour (0xff6d7280));
+                g.drawText (juce::String ((int) db), juce::Rectangle<float> (x - 12.0f, ty + 3.0f, 24.0f, 9.0f),
+                            juce::Justification::centred, false);
+            }
         }
     }
 
