@@ -2081,77 +2081,73 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
             tourOverlay.steps.push_back ({ target, eyebrow, head, text });
     };
 
-    add ({}, "Welcome", "Depth without reverb.",
-         "SpaceX makes a sound wider, deeper and fuller - without a reverb tail. "
+    // Runde 173 (User: "kurz und knapp, keine Doktorarbeit - aber ein bisschen
+    // mehr darf es sein; ab und zu erwaehnen, dass die Modi sorgfaeltig
+    // ausgesucht sind"). Wuerfel heisst ueberall "Smart dice".
+    add ({}, "Welcome", "Welcome to SpaceX",
          "Six sections, top-left to bottom-right, in the order the audio flows. "
-         "This takes about a minute. Arrow keys work too.", true);
+         "Simple on the surface - a lot of fine-tuning underneath. This takes a minute.", true);
 
     add (area ({ &categoryButton, &catDots }), "Smart", "Pick your source",
-         "Tell SpaceX what you are working on: Lead Vocal, Backings, Adlibs or Send FX. "
-         "Click for the next one, or hit a dot. The line under the logo says what the profile does.");
+         "Lead Vocal, Backings, Adlibs or Send FX. Each profile knows what suits that source "
+         "and steers the Smart dice. Click for the next one, or hit a dot.");
 
-    add (area ({ &globalChaosButton }), "Smart", "Roll the die",
-         "Builds a complete setting for your profile and switches on only the sections that belong in it. "
-         "The face shows how many are active. Roll until something surprises you - Undo is always there.");
+    add (area ({ &globalChaosButton }), "Smart", "The Smart dice",
+         "Rolls a complete setting for your profile and switches on only the sections that belong in it. "
+         "Every range it can reach was tuned by ear - roll until something surprises you. Undo takes it back.");
 
     add (area ({ &globalBypassButton, &lifeSlider, &globalModBypassButton }), "Header", "Power, Life, Mod",
-         "Power bypasses the whole plugin - while it is off, the button glows. "
-         "Life is how much everything moves: one knob for all modulation, at zero nothing moves. "
+         "Power bypasses the plugin. Life sets how much everything moves - one knob for all modulation. "
          "Mod switches the modulation off without losing it.");
 
-    add (area ({ &globalGalaxyActivateButton }), "Engine", L ("The LCR engine", "The Galaxy engine"),
-         "Arms the real L / C / R split - a true centre instead of plain mid-side. "
-         "It adds latency while it runs. Switched off, SpaceX runs with zero latency.");
+    add (area ({ &globalGalaxyActivateButton }), "Engine", L ("LCR", "Galaxy"),
+         "Switches on the real L / C / R split - a true centre, not just mid-side. "
+         "It adds latency while it runs. Off, SpaceX has zero latency.");
 
     add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and padlock",
-         "Click a section name to switch it on or off - an off section goes dark. "
-         "Cmd-click solos it, Cmd+Shift-click resets it. The padlock keeps the die away from it.");
+         "Click a section name to switch it on or off. Cmd-click solos it. "
+         "The padlock keeps the Smart dice away from that section.");
 
     add (groupLcrArea, "Section 1", L ("LCR Matrix", "Galaxy"),
-         L ("L/R", "Orbit") + " sets how much of the left and right parts you keep - all the way down leaves the centre only. "
-         + L ("C-Weight", "Gravity") + " decides how strictly the centre is held, " + L ("HF Regain", "Regain")
-         + " brings back the highs. EQ " + juce::String::fromUTF8 ("\xe2\x86\x92") + " LCR puts the Sides EQ on this split.");
+         L ("L/R", "Orbit") + " sets how much of the sides you keep, " + L ("C-Weight", "Gravity")
+         + " how firmly the centre is held, " + L ("HF Regain", "Regain") + " brings back the highs the split takes away.");
 
     add (groupPolArea, "Section 2", L ("Polarity", "Eclipse"),
-         juce::String::fromUTF8 ("\xc3\x98L and \xc3\x98R flip the phase of one side, the link flips both. ")
-         + "PRE / POST decides whether that happens before or after " + L ("Micropitch", "Parallax") + " and "
-         + L ("Mid-Side", "Dimension") + ". The biggest single change in the plugin - check Mono.");
+         "Flips the phase of L, R or both - PRE or POST decides where in the chain. "
+         "The biggest single change in the plugin, so check Mono.");
 
     add (groupDriftArea, "Section 3", L ("Micropitch", "Parallax"),
-         "Makes a mono sound wide with tiny offsets in time and pitch. "
-         "Pick a style - Velvet, Halo, Illusion or Double - then Amount is your one dial.");
+         "Makes a mono sound wide. The four styles look simple, but each is its own hand-tuned mix "
+         "of time and pitch tricks. Pick one, turn Amount.");
 
     add (groupWidthBoostArea, "Section 4", L ("Mid-Side", "Dimension"),
-         L ("Width", "Size") + " opens or narrows the image, " + L ("Sides", "Boost")
-         + " lifts the sides without touching the centre. The curve is the Sides EQ: Tight cleans the lows, "
-           "Clear adds air, Focus calms and brightens. The small fader sets how strong it is.");
+         L ("Width", "Size") + " and " + L ("Sides", "Boost") + " open the image. The Sides EQ curves look plain, "
+         "but each was picked by ear to solve a real mix problem. The small fader sets how strong.");
 
     add (groupFlowArea.getUnion (groupRayArea), "Sections 5 + 6", L ("Autopan and Phaser", "Hyperdrive and Raye"),
-         L ("Autopan", "Hyperdrive") + " moves the sound between left and right - the note syncs it to the song. "
-         "The phaser moves the image, not the tone: pick a character, set Amount. LINK makes it follow "
-         + L ("Autopan", "Hyperdrive") + ".");
+         L ("Autopan", "Hyperdrive") + " moves the sound left and right - the note syncs it to the song. "
+         "The phaser moves the image, not the tone. LINK ties it to the " + L ("Autopan", "Hyperdrive") + ".");
 
     add (area ({ &goniometer }), "Look", "The starfield",
-         "Your stereo image, live - it reacts to everything SpaceX does. Click it for the goniometer. "
-         "The bar at the bottom is correlation: right of centre is mono-safe.");
+         "Your stereo image, live - it reacts to what SpaceX does. Click it for the goniometer. "
+         "The bar at the bottom shows how mono-safe you are.");
 
     add (area ({ &volInputMeter, &volOutputMeter, &monoCheckButton, &monoDryButton, &mixSlider,
                  &panSlider, &volSlider, &autoGainButton }), "Listen", "Output",
-         "Mono and Dry to check, Mix to blend, Pan and Vol at the very end. "
-         "AG matches output to input, so bypass is an honest comparison. Right-click Mix or Vol to lock them.");
+         "Mono to check, Mix to blend, Vol at the very end. "
+         "AG matches the level, so bypass is a fair comparison.");
 
-    add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "35 starting points",
-         "Presets live in folders - Lead Vocal, Backings, Adlibs, Send FX, Vocals, Drums, Bass, Music and your own. "
-         "The arrows step through the current folder, a star means you changed something. Save picks the folder.");
+    add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "Presets",
+         "35 presets, set by ear on real sessions, sorted in folders. "
+         "The arrows step through the current folder, Save lets you pick one.");
 
     add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
          "Compare", "Undo, A / B, Settings",
-         "Undo and Redo cover everything, the die included. A / B holds two versions, the arrow copies across. "
-         "Reset goes back to Default. Settings has themes, labels and this tour.");
+         "Undo covers everything, the Smart dice included. A / B compares two versions. "
+         "Settings has themes, labels and this tour.");
 
-    add (area ({ &helpButton }).getUnion (hintBarArea), "Help", "Lost? Hit the ?",
-         "Switch on the info line and hover anything - it tells you what it is and the clicks worth knowing. "
-         "That's it. Have fun.");
+    add (area ({ &helpButton }).getUnion (hintBarArea), "Help", "Need help?",
+         "Click the ? and hover anything - a short hint appears down here. Have fun.");
 
     tourOverlay.index = 0;
     tourOverlay.dontShowBtn.setVisible (firstRun);
