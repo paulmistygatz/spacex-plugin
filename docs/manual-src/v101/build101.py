@@ -141,6 +141,13 @@ table.jobs td.x{ width:8mm; color:var(--gold); font-family:Sora }
 .short div{ display:flex; justify-content:space-between; gap:6mm; padding:2.1mm 0; border-bottom:1px solid var(--line) }
 .short div span:first-child{ font-family:Sora; font-weight:600; font-size:7.6pt; letter-spacing:.06em; color:var(--text) }
 .short div span:last-child{ color:var(--mut); text-align:right }
+.sec{ padding:4.4mm 0 4.6mm; border-top:1px solid var(--line) }
+.sec h2{ font-size:9.6pt; color:var(--gold); letter-spacing:.22em; margin:0 0 1.8mm }
+.sec p{ font-size:10.2pt; line-height:1.62; color:#c3c8d2; margin:0; max-width:160mm }
+.sec p b{ color:#eef0f4; font-weight:600 }
+.endlogo{ position:absolute !important; left:18mm; right:18mm; bottom:24mm; text-align:center }
+.endlogo img{ width:70mm; display:block; margin:0 auto 4mm }
+.endlogo p{ font-family:Sora; font-size:7.4pt; letter-spacing:.14em; color:var(--gold2); margin:0 }
 .big-quote{ font-family:Sora; font-weight:300; font-size:15pt; line-height:1.45; color:var(--text) }
 .big-quote em{ font-style:normal; color:var(--gold) }
 """
@@ -153,7 +160,7 @@ def page(inner, cls='', seed=None, foot=True):
 
 def kv(rows, wide=False):
     return '<dl class="kv%s">%s</dl>' % (' w' if wide else '', ''.join('<dt>%s</dt><dd>%s</dd>' % (e(k), e(v)) for k, v in rows))
-def eyebrow(num, name): return '<div class="eyebrow"><i>%s</i>%s</div>' % (num, name)
+def eyebrow(num, name): return '<div class="eyebrow">%s</div>' % name
 
 # 1 cover --------------------------------------------------------------------
 page('''
@@ -168,27 +175,6 @@ page('''
 ''' % (jpg('cover_bg'), VERSION, img('logo_a'),
        ''.join('<div><i></i><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in COVER_PILLARS), VERSION), cls='cover', foot=False)
 
-# 2 intro ----------------------------------------------------------------------
-pill = ''.join('<div class="card pillar"><div class="ic"></div><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in PILLARS)
-page('''%s<h1>Space is the<br><em>last free room</em><br>in your mix.</h1>
-<p class="lead">%s</p>%s
-<div class="sp"></div>
-<div class="card"><h3>Who built this</h3>%s</div>''' % (
-    eyebrow('01', 'What it is'), e(INTRO_LEAD), ''.join('<p>%s</p>' % e(x) for x in INTRO),
-    ''.join('<p>%s</p>' % e(x) for x in BIO)))
-
-# 3 jobs + where ---------------------------------------------------------------
-rows = ''.join('<tr><td class="x">%02d</td><td>%s</td><td>instead of %s</td></tr>' % (i + 1, e(a), e(b)) for i, (a, b) in enumerate(JOBS))
-wh = ''.join('<div class="card"><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in WHERE)
-wh += '<div class="card" style="border-color:#dabd7644;background:linear-gradient(180deg,#221e14,#15130e)"><h3>Presets</h3><p>Sorted in folders, from vocals to drums.</p></div>'
-page('''%s<h1>One plugin.<br><em>Up to five jobs.</em></h1>
-<table class="jobs">%s</table><div class="sp2"></div>
-<p class="big-quote" style="margin-top:4mm">%s</p>
-<div class="sp"></div>%s<h1 style="font-size:17pt">Where it belongs</h1>
-<div class="where">%s</div><div class="sp"></div>
-<div class="grid2"><div class="tip"><b>RULE OF THUMB</b>%s</div><div class="tip"><b>%s</b>%s</div></div>''' % (
-    eyebrow('02', 'Why it exists'), rows, e(JOBS_NOTE), eyebrow('', 'Built for vocals. Great on everything else.'), wh, e(WHERE_RULE), e(CREATE_TITLE.upper()), e(CREATE)))
-
 # 4 tour -------------------------------------------------------------------------
 HOT = [(30, 30), (835, 88), (1270, 20), (1535, 20), (1320, 170), (1720, 170), (1968, 97),
        (600, 201), (115, 480), (400, 1105), (1150, 798)]
@@ -199,111 +185,28 @@ page('''%s<h1>The one-minute <em>tour.</em></h1>
 <div class="legend">%s</div><div class="sp"></div>
 <div class="card"><h3>First result in one minute</h3><ol class="steps">%s</ol>
 <p class="mut" style="margin:3mm 0 0">That is the whole workflow. The knobs are there for when you already know what you want.</p></div>''' % (
-    eyebrow('03', 'Overview'), img('full'), hs, lg, ''.join('<li>%s</li>' % e(x) for x in QUICK)))
+    eyebrow('', 'Overview'), img('full'), hs, lg, ''.join('<li>%s</li>' % e(x) for x in QUICK)))
 
-# 5 smart ----------------------------------------------------------------------------
-prof = ''.join('<div style="display:flex;gap:3mm;padding:1.5mm 0;border-bottom:1px solid #ffffff0d"><span style="font-family:Sora;font-weight:600;font-size:7.4pt;letter-spacing:.14em;text-transform:uppercase;color:var(--gold2);width:27mm;flex:none">%s</span><span class="mut">%s</span></div>' % (e(a), e(b)) for a, b in PROFILES)
-page('''%s<h1>The Smart <em>engine.</em></h1>
-<p class="lead">Tell it what you are working on. Roll the Smart dice. Everything else is taste.</p>
-<div class="grid2" style="grid-template-columns:62mm 1fr;align-items:center">
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm"><img class="shot" src="%s"><img class="shot" src="%s"></div>
- <div><h3>Smart profile</h3>%s<p class="mut" style="margin-top:2mm;font-size:8.4pt">Click for the next one, Cmd-click for the previous one, or hit a dot to jump straight there. The line above the starfield says what the profile does.</p></div>
-</div><div class="sp"></div>
-<img class="shot" src="%s" style="width:72mm;margin-bottom:4mm">
-%s<div class="sp"></div>
-<div class="card"><h3>The dice knows what is on</h3><p style="margin:0">Each face is the number of active sections - Polarity, Micropitch, Mid-Side, Autopan, Phaser, and the LCR Matrix while its engine is armed. Click it and it rolls for a moment before it lands.</p></div>
-<div class="sp"></div><div class="tip"><b>NOT A RANDOMISER</b>%s</div>''' % (
-    eyebrow('04', 'Header'), img('profile_lead'), img('profile_backings'), prof, img('liverow'), kv(HEADER), e(SMART_NOTE)))
 
-# 6 path ---------------------------------------------------------------------------
-ch = []
-for i, c in enumerate(CHAIN):
-    cls = 'pill b' if c in ('IN', 'OUT') else ('pill x' if 'MIX' in c else 'pill')
-    ch.append('<span class="%s">%s</span>' % (cls, e(c)))
-    if i < len(CHAIN) - 1: ch.append('<span class="arr">→</span>')
-page('''%s<h1>The signal <em>path.</em></h1>
-<div class="card"><div class="chain">%s</div></div><div class="sp2"></div>
-<p>%s</p><div class="sp"></div>
-<div class="grid2"><div><h2>On every section</h2><p class="mut">Six sections, one set of rules.</p>%s</div>
-<div><h2>Mid-side vs. L / C / R</h2><p>%s</p></div></div>
-<div class="sp2"></div><img class="shot" src="%s" style="width:148mm;margin:0 auto">
-<p class="mut" style="margin-top:3mm;font-size:8.4pt;text-align:center">Backings profile: sections the dice left out go dark - you always see what the roll actually did.</p>''' % (
-    eyebrow('05', 'Architecture'), ''.join(ch), e(CHAIN_NOTE), kv(COMMON, True), e(MS_VS_LCR), img('full_backings')))
+# short manual: text pages -----------------------------------------------------------
+import re as _re
+from text_short import *
+def rich(t):
+    return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', e(t))
+def secs(rows):
+    return ''.join('<div class="sec"><h2>%s</h2><p>%s</p></div>' % (e(a), rich(b)) for a, b in rows)
 
-# 7 LCR + Polarity ------------------------------------------------------------------
-page('''%s<h1>LCR Matrix</h1>
-<div class="grid2" style="grid-template-columns:96mm 1fr;align-items:start"><img class="shot" src="%s">
-<div><p>Pulls the centre out of the stereo image and treats left, centre and right as three parts. It only runs while the engine is armed - the LCR button in the header.</p></div></div>
-<div class="sp2"></div>%s<div class="sp2"></div><div class="tip"><b>TIP</b>%s</div>
-<div class="sp"></div><div class="sp"></div>
-%s<h1>Polarity</h1>
-<div class="grid2" style="grid-template-columns:62mm 1fr;align-items:start"><img class="shot" src="%s">
-<div><p>Flips the phase of one channel. The most drastic thing in the plugin - and the one that makes the biggest difference.</p>%s</div></div>
-<div class="sp"></div><div class="warn"><b>MONO</b>%s</div>''' % (
-    eyebrow('06', 'Section 1'), img('lcr'), kv(LCR), e(LCR_TIP), eyebrow('07', 'Section 2'), img('polarity'), kv(POL), e(POL_WARN)))
+page('''%s<h1>The <em>sections.</em></h1><p class="lead">%s</p>%s''' % (
+    eyebrow('', 'Signal path, top-left to bottom-right'), e(SECTIONS_INTRO), secs(SECTIONS)))
 
-# 8 Micropitch + Mid-Side ------------------------------------------------------------
-page('''%s<h1>Micropitch</h1><p>%s</p>
-<div class="grid2"><img class="shot" src="%s"><img class="shot" src="%s"></div><div class="sp2"></div>%s
-<div class="sp"></div>
-%s<h1>Mid-Side</h1><p>%s</p>
-<div class="grid2"><img class="shot" src="%s"><img class="shot" src="%s"></div><div class="sp2"></div>%s
-<div class="sp2"></div><div class="tip"><b>TIP</b>%s</div>''' % (
-    eyebrow('08', 'Section 3'), e(MP_TEXT), img('micropitch'), img('micropitch_double'), kv(MP),
-    eyebrow('09', 'Section 4'), e(MS_TEXT), img('midside'), img('midside_focus'), kv(MS), e(MS_TIP)))
+page('''%s<h1>Header, output, <em>presets.</em></h1>%s''' % (eyebrow('', 'Everything else'), secs(CONTROL)))
 
-# 9 Autopan + Phaser ---------------------------------------------------------------
-page('''%s<h1>Autopan</h1>
-<div class="grid2" style="grid-template-columns:92mm 1fr;align-items:start"><img class="shot" src="%s"><p>%s</p></div>
-<div class="sp2"></div>%s<div class="sp"></div><div class="sp"></div>
-%s<h1>Phaser</h1>
-<div class="grid2" style="grid-template-columns:62mm 1fr;align-items:start"><img class="shot" src="%s"><p>%s</p></div>
-<div class="sp2"></div>%s''' % (
-    eyebrow('10', 'Section 5'), img('autopan'), e(AP_TEXT), kv(AP), eyebrow('11', 'Section 6'), img('phaser'), e(PH_TEXT), kv(PH)))
-
-# 10 Output + starfield --------------------------------------------------------------
-page('''%s<h1>Output</h1><img class="shot" src="%s"><div class="sp2"></div>%s
-<div class="sp"></div>
-%s<div class="grid2" style="grid-template-columns:70mm 1fr;align-items:start"><img class="shot" src="%s">
-<div><h1 style="font-size:19pt">The starfield</h1><p>%s</p>%s</div></div>
-<div class="sp"></div><img class="shot" src="%s" style="width:100mm;margin-bottom:3mm"><p class="mut">%s</p>''' % (
-    eyebrow('12', 'Bottom left'), img('footer'), kv(OUT), eyebrow('13', 'Goniometer'), img('starfield'), e(STAR_NOTE),
-    kv(STAR), img('infoline'), e(HELP)))
-
-# 11 presets -----------------------------------------------------------------------------
-page('''%s<h1>Presets.</h1>
-<p>Smart categories first, then instrument folders, then your own. Every preset was set by ear on real sessions - start there, then make it yours.</p>
-<div class="sp2"></div><img class="shot" src="%s" style="margin-bottom:5mm">%s<div class="sp2"></div><p class="mut">%s</p>''' % (
-    eyebrow('14', 'Library'), img('header'), kv(PRESETS, True), e(PRESET_NOTE)))
-
-# 12 settings + licence ---------------------------------------------------------------
-lab = ''.join('<div>%s<b>%s</b></div>' % (e(a), e(b)) for a, b in LABELS)
-page('''%s<h1>Settings.</h1><p>The icon with the three sliders, top right. Changes apply live. Save keeps them, Cancel takes them back, Reset returns to the factory settings.</p>
-<div class="sp2"></div>%s<div class="sp"></div>
-<div class="sp"></div><div class="sp"></div>%s<h1 style="font-size:19pt">Demo and activation</h1>%s''' % (
-    eyebrow('15', 'Preferences'), kv(SETTINGS, True), eyebrow('16', 'Licence'), ''.join('<p>%s</p>' % e(x) for x in DEMO)))
-
-# 13 recipes ---------------------------------------------------------------------------------
-rc = ''.join('<div class="card recipe" style="padding:6mm 6mm"><h3 style="font-size:8.4pt">%s</h3><div class="from">Start from · %s</div><p style="margin:0;font-size:10pt;line-height:1.55">%s</p></div>' % (e(a), e(b), e(c)) for a, b, c in RECIPES)
-page('''%s<h1>Six settings<br><em>that work.</em></h1><p class="lead">Load the preset, or build it by hand - both roads end in the same place.</p>
-<div class="grid2" style="gap:6mm">%s</div><div class="sp"></div><div class="sp"></div>
-<p class="big-quote">The more room already sits in front of SpaceX, <em>the further you can push it.</em></p>''' % (eyebrow('17', 'Recipes'), rc))
-
-# 14 shortcuts -------------------------------------------------------------------------------
-sh = ''.join('<div><span>%s</span><span>%s</span></div>' % (e(a), e(b)) for a, b in SHORT)
-page('''%s<h1>Clicks worth <em>knowing.</em></h1><p class="lead">The basics you will guess. These you will not.</p>
-<div class="short" style="font-size:10pt">%s</div><div class="sp"></div><div class="sp"></div>
-<div class="grid3"><div class="card pillar"><div class="ic"></div><h3>Take the Tour</h3><p>A short guided walk through every section. In the settings - and on first launch.</p></div>
-<div class="card pillar"><div class="ic"></div><h3>Info line</h3><p>The ? at the bottom left. Hover anything and it says what it is.</p></div>
-<div class="card pillar"><div class="ic"></div><h3>Back panel</h3><p>Click the logo. Who built this, how to reach him, which copy this is.</p></div></div>''' % (
-    eyebrow('18', 'Shortcuts'), sh))
-
-# 15 credits ---------------------------------------------------------------------------------
-page('''<div class="bg" style="background-image:url(%s)"></div>
-<div style="position:absolute;left:18mm;right:18mm;top:34mm">%s<h1 style="font-size:30pt">Made by <em>listening.</em></h1>%s</div>
-<div style="position:absolute;left:18mm;right:18mm;bottom:28mm;text-align:center"><img src="%s" style="width:92mm;display:block;margin:0 auto 6mm">
-<p style="font-family:Sora;font-size:7.6pt;letter-spacing:.16em;color:var(--gold2);margin:0">%s</p></div>''' % (
-    jpg('credits_bg'), eyebrow('19', 'Credits'), ''.join('<p class="lead" style="font-size:11pt">%s</p>' % e(x) for x in CREDITS), img('logo_a'), e(CONTACT)), cls='cover')
+page('''%s<h1>Good to <em>know.</em></h1>
+<div class="sec"><h2>Rule of thumb</h2><p>%s</p></div>
+<div class="sec"><h2>Making space</h2><p>%s</p></div>
+<div class="sec"><h2>Demo and activation</h2><p>%s</p></div>
+<div class="endlogo"><img src="%s"><p>%s</p></div>''' % (
+    eyebrow('', 'Tips'), e(RULE), e(CREATE), e(LICENCE), img('logo_a'), e(CONTACT)))
 
 HTML = '<!doctype html><html><head><meta charset="utf-8"><title>SpaceX Manual %s</title><style>%s</style></head><body>%s</body></html>' % (
     VERSION, CSS, '\n'.join(PAGES))
