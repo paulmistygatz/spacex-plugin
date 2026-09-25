@@ -4918,6 +4918,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
         }
     };
     setSectionOff (gravitySlider, isLcrOn);
+    // Runde 117: Schloesser dimmen mit ihrer Sektion (auch bei Solo).
+    setSectionOff (lcrLockButton,        isLcrOn);
+    setSectionOff (polLockButton,        isPolOn);
+    setSectionOff (driftLockButton,      isDriftOn);
+    setSectionOff (widthBoostLockButton, isWidthBoostOn);
+    setSectionOff (flowLockButton,       isFlowOn);
+    setSectionOff (posLockButton,        isPosOn);
+    setSectionOff (rayLockButton,        isRayOn);
     setSectionOff (orbitSlider, isLcrOn);
     setSectionOff (horizonSlider, isLcrOn);
     setSectionOff (driftSlider, isDriftOn);

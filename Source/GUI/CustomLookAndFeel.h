@@ -2330,7 +2330,13 @@ public:
 
         static const juce::Colour lockOnColour (0xffffb648);
         auto col = locked ? lockOnColour : iconOffColour();
-        g.setColour (col.withAlpha (locked ? 1.0f : 0.7f));
+        // Runde 117 (User): Sektion aus oder durch Solo stumm -> das Schloss
+        // dimmt wie alles andere. Lock hebt Solo nicht auf, ein volles Orange
+        // wuerde "diese Sektion laeuft" suggerieren. Gesperrt bleibt als
+        // schwaches Orange erkennbar.
+        const bool secOff = button.getProperties().getWithDefault ("sectionOff", false);
+        g.setColour (col.withAlpha (secOff ? (locked ? 0.35f : 0.40f)
+                                           : (locked ? 1.0f  : 0.7f)));
 
         const float bodyW = s * 0.58f;
         const float bodyH = s * 0.46f;
