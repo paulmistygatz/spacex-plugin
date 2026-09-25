@@ -763,7 +763,9 @@ private:
                 // Unterstuetzer-Knopf (User Runde 60).
                 auto a = r.removeFromTop (juce::jmin (30, r.getHeight()));
                 const bool lic = activateBtn.getToggleState();
-                supportBtn.setBounds (a.removeFromRight (juce::jmin (156, a.getWidth() / 2)));
+                // Runde 132 (User): "Buy me a coffee" etwas groesser - breiter
+                // und ein paar Pixel hoeher als die Knoepfe links daneben.
+                supportBtn.setBounds (a.removeFromRight (juce::jmin (184, (a.getWidth() * 11) / 20)).expanded (0, 3));
                 activateBtn.setBounds (a.removeFromLeft (juce::jmin (126, a.getWidth())));
                 a.removeFromLeft (8);
                 buyBtn.setVisible (! lic);
