@@ -6139,51 +6139,37 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             g.setGradientFill (halo);
             g.fillEllipse (cx - hw, iy - hw, hw * 2.0f, hw * 2.0f);
         }
-        // (2) Runde 143 (User: Variante F "Sternchen"): vier winzige Sterne um
-        // das Profil, die sehr langsam und gegeneinander versetzt funkeln -
-        // greift das Sternenfeld auf. Der Timer zeichnet nur diesen kleinen
-        // Bereich neu (profileStarsArea), das kostet praktisch nichts.
+        // (2) Runde 146 (User: Variante B "Orbit" testen): eine feine, leicht
+        // gekippte Umlaufbahn um das Icon, auf der ein kleiner Planet in ~14 s
+        // kreist - vorne hell, hinten gedimmt, dadurch raeumlich. Der Timer
+        // zeichnet nur diesen Bereich neu (profileStarsArea).
         {
-            struct Star { float dx, dy, size; bool cross; float period, phase; };
-            static const Star stars[] = {
-                { -68.0f, -10.0f, 6.0f, true,  5.3f, 0.0f },
-                {  72.0f, -20.0f, 1.8f, false, 7.1f, 1.7f },
-                {  78.0f,  36.0f, 4.2f, true,  6.2f, 3.1f },
-                { -56.0f,  42.0f, 1.4f, false, 8.4f, 4.6f },
-            };
-            // Rechts nie in den Kopf mit Bypass & Co. hineinragen.
-            const float xScale = juce::jlimit (0.6f, 1.0f, (reach - 14.0f) / 78.0f);
+            const float iconH = cb.getHeight() * 0.64f;
+            const float iconW = juce::jmin (cb.getWidth(), iconH * 1.5f);
+            const float rx = iconW * 0.66f, ry = iconH * 0.24f;
+            const float tilt = juce::degreesToRadians (-10.0f);
+            const auto  rot  = juce::AffineTransform::rotation (tilt, cx, iy);
+
+            juce::Path orbit;
+            orbit.addEllipse (cx - rx, iy - ry, rx * 2.0f, ry * 2.0f);
+            orbit.applyTransform (rot);
+            g.setColour (col.withAlpha (armed ? 0.28f : 0.11f));
+            g.strokePath (orbit, juce::PathStrokeType (1.1f));
+
             const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
-            juce::Rectangle<float> area;
-            for (const auto& st : stars)
-            {
-                const float px = cx + st.dx * xScale, py = iy + st.dy;
-                const float tw = 0.55f + 0.45f * (float) std::sin (juce::MathConstants<double>::twoPi * tSec / st.period + st.phase);
-                const float a  = (armed ? 0.85f : 0.30f) * tw;
-                const float s  = st.size;
-                // weicher Schein
-                juce::ColourGradient glow (col.withAlpha (a * 0.35f), px, py, col.withAlpha (0.0f), px + s * 2.4f, py, true);
-                g.setGradientFill (glow);
-                g.fillEllipse (px - s * 2.4f, py - s * 2.4f, s * 4.8f, s * 4.8f);
-                g.setColour (col.withAlpha (a));
-                if (st.cross)
-                {
-                    const float k = s * 0.26f;
-                    juce::Path p;
-                    p.startNewSubPath (px, py - s);
-                    p.lineTo (px + k, py - k); p.lineTo (px + s, py); p.lineTo (px + k, py + k);
-                    p.lineTo (px, py + s);     p.lineTo (px - k, py + k); p.lineTo (px - s, py); p.lineTo (px - k, py - k);
-                    p.closeSubPath();
-                    g.fillPath (p);
-                }
-                else
-                {
-                    g.fillEllipse (px - s, py - s, s * 2.0f, s * 2.0f);
-                }
-                area = area.isEmpty() ? juce::Rectangle<float> (px - s * 2.6f, py - s * 2.6f, s * 5.2f, s * 5.2f)
-                                      : area.getUnion (juce::Rectangle<float> (px - s * 2.6f, py - s * 2.6f, s * 5.2f, s * 5.2f));
-            }
-            profileStarsArea = area.getSmallestIntegerContainer().expanded (2);
+            const float th = (float) (juce::MathConstants<double>::twoPi * std::fmod (tSec, 14.0) / 14.0);
+            juce::Point<float> pl (cx + rx * std::cos (th), iy + ry * std::sin (th));
+            pl.applyTransform (rot);
+            const float front = 0.5f + 0.5f * std::sin (th);            // unten = vorne
+            const float a  = (armed ? 1.0f : 0.35f) * (0.35f + 0.65f * front);
+            const float pr = 2.0f + 0.6f * front;
+            juce::ColourGradient pg (col.withAlpha (a * 0.45f), pl.x, pl.y, col.withAlpha (0.0f), pl.x + pr * 3.2f, pl.y, true);
+            g.setGradientFill (pg);
+            g.fillEllipse (pl.x - pr * 3.2f, pl.y - pr * 3.2f, pr * 6.4f, pr * 6.4f);
+            g.setColour (col.withAlpha (a));
+            g.fillEllipse (pl.x - pr, pl.y - pr, pr * 2.0f, pr * 2.0f);
+
+            profileStarsArea = orbit.getBounds().expanded (10.0f).getSmallestIntegerContainer();
         }
     }
     else
