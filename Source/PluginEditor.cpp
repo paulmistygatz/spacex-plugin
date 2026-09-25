@@ -7147,21 +7147,45 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
     // dieselbe, in der aktive Bezeichnungen oben stehen. Der Rest bleibt grau.
     const auto hintFont = juce::Font (juce::FontOptions (14.5f));
     g.setFont (hintFont);
+    // Runde 162 (User): Tastenbefehle ("Cmd-click: solo") leicht heller als
+    // die Erklaerung - man findet sie auf einen Blick. Die Zeile wird dafuer
+    // in Stuecke zerlegt und hintereinander gesetzt.
+    const juce::Colour bodyCol (0xff8f96a4), cmdCol (0xffc9cdd6);
+    auto isCommand = [] (const juce::String& seg)
+    {
+        return seg.containsIgnoreCase ("click") || seg.startsWith ("Cmd") || seg.startsWith ("Shift")
+            || seg.startsWith ("Alt") || seg.startsWith ("Right");
+    };
+    float x = r.getX();
+    auto put = [&] (const juce::String& txt, juce::Colour col)
+    {
+        if (txt.isEmpty() || x >= r.getRight()) return;
+        g.setColour (col);
+        const float w = juce::GlyphArrangement::getStringWidth (hintFont, txt);
+        g.drawText (txt, juce::Rectangle<float> (x, r.getY(), r.getRight() - x, r.getHeight()),
+                    juce::Justification::centredLeft, true);
+        x += w;
+    };
+    juce::String rest = currentHint;
     const int colon = currentHint.indexOf (": ");
     if (colon > 0 && colon <= 28)
     {
-        const auto head = currentHint.substring (0, colon);
-        const auto rest = currentHint.substring (colon);   // ab ":" im Grau
-        const float headW = juce::GlyphArrangement::getStringWidth (hintFont, head);
-        g.setColour (themePalette().knob);
-        g.drawText (head, r, juce::Justification::centredLeft, false);
-        g.setColour (juce::Colour (0xff8f96a4));
-        g.drawText (rest, r.withTrimmedLeft (headW), juce::Justification::centredLeft, true);
+        put (currentHint.substring (0, colon), themePalette().knob);   // Name in der Theme-Farbe (Runde 153)
+        rest = currentHint.substring (colon);
     }
-    else
+    const juce::String sep = juce::String::fromUTF8 (" \xc2\xb7 ");
+    juce::StringArray parts;   // an " · " zerlegen (fromTokens trennt nur an Einzelzeichen)
+    for (juce::String left = rest;;)
     {
-        g.setColour (juce::Colour (0xff8f96a4));
-        g.drawText (currentHint, r, juce::Justification::centredLeft, true);
+        const int at = left.indexOf (sep);
+        if (at < 0) { parts.add (left); break; }
+        parts.add (left.substring (0, at));
+        left = left.substring (at + sep.length());
+    }
+    for (int i = 0; i < parts.size(); ++i)
+    {
+        if (i > 0) put (sep, bodyCol);
+        put (parts[i], (i > 0 && isCommand (parts[i])) ? cmdCol : bodyCol);
     }
 }
 
