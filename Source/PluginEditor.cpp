@@ -799,7 +799,7 @@ juce::String LCRMSAudioProcessorEditor::smartInfoTextFor (int cat)
     {
         case 1: return "Lead vocal - wide, centre stays put.";
         case 2: return "Stacks, busses and mono doubles - wide, but tidy.";
-        case 3: return "Ad-libs - space, movement, clear sides.";
+        case 3: return "Adlibs - space, movement, clear sides.";
         // Runde 84 (User): "anything goes" stimmte nicht - eine Parallel-
         // kompression ist auch ein Send, und dort will man SpaceX gerade nicht.
         // Gemeint sind Spuren, die nur aus Effekt bestehen.
@@ -820,7 +820,7 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     for (int i = 0; i < kNumCategories; ++i)
         categoryBtn[i].setToggleState (mutateCategoryValue == i + 1, juce::dontSendNotification);
 
-    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "LEAD VOCAL", "BACKINGS", "AD-LIBS", "SEND FX" };
+    static const char* const pillNames[kNumCategories + 1] = { "NO PROFILE", "LEAD VOCAL", "BACKINGS", "ADLIBS", "SEND FX" };
     categoryButton.setButtonText (pillNames[juce::jlimit (0, kNumCategories, mutateCategoryValue)]);
     const bool profileArmed = mutateCategoryValue > 0;
     categoryButton.getProperties().set ("pillStrong", true);
@@ -1642,7 +1642,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (globalABButton,             "A/B: switch between two settings to compare");
     tip (abCopyButton,               "Copy: copy the active side to the other one");
     tip (globalResetButton,          "Reset: back to the default setting");
-    tip (categoryButton,             "Smart profile: Lead Vocal, Backings, Ad-Libs, Send FX - guides the Smart dice" + cycle);
+    tip (categoryButton,             "Smart profile: Lead Vocal, Backings, Adlibs, Send FX - guides the Smart dice" + cycle);
     tip (catDots,                    "Smart profile: pick one directly");
 
     // Sektionen
@@ -2452,7 +2452,7 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
     // wurden, in dessen Ordner; alle anderen bleiben, wo sie sind.
     if (! props.getBoolValue ("presetCategoryFolders", false))
     {
-        static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+        static const char* const cats[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
         for (auto* c : cats)
             folder.getChildFile (c).createDirectory();
         for (const auto& f : folder.findChildFiles (juce::File::findFiles, false, "*" + juce::String (kPresetExt)))
@@ -2473,6 +2473,35 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
     // im Plugin selbst - das funktioniert mit dem .pkg genauso wie mit einem
     // von Hand kopierten VST3. Einmal pro Werks-Version; vorhandene Dateien
     // bleiben unangetastet, geloeschte kommen erst mit einer neuen Version.
+    // Runde 158 (User: "Adlibs zusammen schreiben"): einmalig den alten Ordner
+    // "Ad-Libs" nach "Adlibs" umziehen, samt der Werks-Presets "Ad-Lib ...".
+    // Nichts wird ueberschrieben - existiert das Ziel schon, bleibt die
+    // Quelle liegen.
+    if (! props.getBoolValue ("adlibsRenamed", false))
+    {
+        const auto oldDir = folder.getChildFile ("Ad-Libs");
+        const auto newDir = folder.getChildFile ("Adlibs");
+        if (oldDir.isDirectory())
+        {
+            if (! newDir.exists())
+                oldDir.moveFileTo (newDir);
+            else
+                for (const auto& f : oldDir.findChildFiles (juce::File::findFiles, false))
+                {
+                    const auto t = newDir.getChildFile (f.getFileName());
+                    if (! t.exists()) f.moveFileTo (t);
+                }
+        }
+        if (newDir.isDirectory())
+            for (const auto& f : newDir.findChildFiles (juce::File::findFiles, false))
+                if (f.getFileName().contains ("Ad-Lib"))
+                {
+                    const auto t = newDir.getChildFile (f.getFileName().replace ("Ad-Lib", "Adlib"));
+                    if (! t.exists()) f.moveFileTo (t);
+                }
+        props.setValue ("adlibsRenamed", true);
+        props.saveIfNeeded();
+    }
     constexpr int kFactoryPresetsVersion = 1;
     if (props.getIntValue ("factoryPresetsVersion", 0) < kFactoryPresetsVersion)
     {
@@ -2503,7 +2532,7 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
 // Reihenfolge), dann eigene Ordner alphabetisch.
 juce::StringArray LCRMSAudioProcessorEditor::presetFolderOrder() const
 {
-    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
     const auto root = presetFolder();
     juce::StringArray order;
     for (auto* c : cats)
@@ -2541,8 +2570,13 @@ static juce::String legalPresetPath (const juce::String& key)
 
 // Alte Namen ohne Ordner (A/B, Sessions, eben verschobene Presets) auf den
 // echten Ort umschreiben.
-juce::String LCRMSAudioProcessorEditor::resolvePresetKey (const juce::String& key) const
+juce::String LCRMSAudioProcessorEditor::resolvePresetKey (const juce::String& keyIn) const
 {
+    // Runde 158 (User): "Ad-Libs" heisst jetzt "Adlibs" - alte Sessions
+    // merken sich noch den alten Pfad.
+    juce::String key = keyIn;
+    if (key.startsWith ("Ad-Libs/"))
+        key = "Adlibs/" + key.fromFirstOccurrenceOf ("/", false, false).replace ("Ad-Lib", "Adlib");
     if (key.isEmpty() || isDefaultPresetName (key) || key.containsChar ('/'))
         return key;
     const auto f = presetFile (key);
@@ -2564,7 +2598,7 @@ juce::String LCRMSAudioProcessorEditor::keyForTypedName (const juce::String& typ
     const auto cur = resolvePresetKey (currentPresetName);
     if (cur.isNotEmpty() && ! isDefaultPresetName (cur) && typed.equalsIgnoreCase (presetDisplayName (cur)))
         return cur;
-    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
     juce::String folder;
     if (mutateCategoryValue >= 1 && mutateCategoryValue <= 4)
         folder = cats[mutateCategoryValue - 1];
@@ -2736,7 +2770,7 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     constexpr int kOpenFolderId = 100010;   // Ordner-Eintrag, nie ein Ergebnis
     int openFolderPos = -1;                 // Position des aktuellen Presets im Untermenue (nur waehlbare)
     const auto folders = presetFolderOrder();
-    static const char* const catFolders[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    static const char* const catFolders[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
     bool ownSeparatorDone = false;
     for (const auto& folder : folders)
     {
@@ -2965,7 +2999,7 @@ void LCRMSAudioProcessorEditor::promptAndSaveNewPreset (bool prefillCurrent)
     // wahrscheinlichsten stimmt: beim Ueberschreiben der Ordner des Presets,
     // sonst das aktive Smart-Profil, sonst der Ordner des geladenen Presets.
     // "Ordner/Name" ins Namensfeld getippt geht weiterhin und hat Vorrang.
-    static const char* const cats[4] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+    static const char* const cats[4] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
     juce::StringArray folders (cats, 4);
     {
         juce::StringArray own;
@@ -4812,13 +4846,13 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     {
         // Runde 37 (User): vier einfache Kategorien, geordnet danach, wie viel
         // veraendert werden darf.
-        static const char* const catNames[kNumCategories] = { "Lead Vocal", "Backings", "Ad-Libs", "Send FX" };
+        static const char* const catNames[kNumCategories] = { "Lead Vocal", "Backings", "Adlibs", "Send FX" };
         // Die Hinweise sagen, WAS unter die Kategorie faellt - "Plucked" allein
         // beantwortet die Frage nicht (User).
         static const char* const catHints[kNumCategories] = {
             "Vocal: lead or mono vocals made wide - the centre stays intact",
             "Backing: backing stacks and busses - wide, but still tidy",
-            "Adlib: ad-libs - space, movement and clear sides",
+            "Adlib: adlibs - space, movement and clear sides",
             "FX: throws, wet tracks and FX returns - anything goes"
         };
         for (int i = 0; i < kNumCategories; ++i)

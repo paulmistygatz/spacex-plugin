@@ -51,7 +51,7 @@ t('p_instead2',
 
 t('h_where', 'Where to put it')
 t('p_where1',
-  "It works best on anything that is already wet: backing vocals, ad-libs, a stack of harmonies, a "
+  "It works best on anything that is already wet: backing vocals, adlibs, a stack of harmonies, a "
   "reverb or a delay return. Throw tracks belong here too - those are usually single tracks rather "
   "than buses. A dry source is not off limits either: a lead vocal that is meant to be doubled "
   "works, and so do drums. The rule of thumb is simple - the more room effects sit in front of "
@@ -312,7 +312,7 @@ t('recipes', [
   ['Reverb return with depth',
    "Depth to the left, Size around 130 %, Boost a touch. The reverb moves behind the dry signal "
    "instead of sitting on top of it."],
-  ['Ad-libs that appear and disappear',
+  ['Adlibs that appear and disappear',
    "Hyperdrive Flow around 40 %, Sync on, 4 bars. Slow enough that nobody notices the movement, "
    "fast enough that the part never sits still."],
   ['The forbidden one',

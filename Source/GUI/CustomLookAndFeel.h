@@ -1434,7 +1434,7 @@ public:
                                 stroke (mid, 2.0f, 1.0f);
                                 break;
                             }
-                            case 3:   // AD-LIBS: verstreut, in Bewegung
+                            case 3:   // ADLIBS: verstreut, in Bewegung
                             {
                                 dot (9.0f, 10.0f, 3.0f, 1.0f);
                                 dot (37.0f, 21.0f, 3.0f, 1.0f);
