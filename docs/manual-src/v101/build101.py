@@ -147,6 +147,7 @@ table.jobs td.x{ width:8mm; color:var(--gold); font-family:Sora }
 .sec p b{ color:#eef0f4; font-weight:600 }
 .endlogo{ position:absolute !important; left:18mm; right:18mm; bottom:24mm; text-align:center }
 .endlogo img{ width:70mm; display:block; margin:0 auto 4mm }
+.endlogo p.thanks{ font-family:Inter; font-style:italic; font-size:9.4pt; letter-spacing:0; color:#9aa1ae; margin:0 0 9mm }
 .endlogo p{ font-family:Sora; font-size:7.4pt; letter-spacing:.14em; color:var(--gold2); margin:0 }
 .big-quote{ font-family:Sora; font-weight:300; font-size:15pt; line-height:1.45; color:var(--text) }
 .big-quote em{ font-style:normal; color:var(--gold) }
@@ -205,8 +206,8 @@ page('''%s<h1>Good to <em>know.</em></h1>
 <div class="sec"><h2>Rule of thumb</h2><p>%s</p></div>
 <div class="sec"><h2>Making space</h2><p>%s</p></div>
 <div class="sec"><h2>Demo and activation</h2><p>%s</p></div>
-<div class="endlogo"><img src="%s"><p>%s</p></div>''' % (
-    eyebrow('', 'Tips'), e(RULE), e(CREATE), e(LICENCE), img('logo_a'), e(CONTACT)))
+<div class="endlogo"><p class="thanks">%s</p><img src="%s"><p>%s</p></div>''' % (
+    eyebrow('', 'Tips'), e(RULE), e(CREATE), e(LICENCE), e(THANKS), img('logo_a'), e(CONTACT)))
 
 HTML = '<!doctype html><html><head><meta charset="utf-8"><title>SpaceX Manual %s</title><style>%s</style></head><body>%s</body></html>' % (
     VERSION, CSS, '\n'.join(PAGES))

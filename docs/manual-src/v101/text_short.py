@@ -55,4 +55,5 @@ CREATE = ("And where there is no room, it makes some. Width, depth and a real th
           "depth and weight. Space without reverb - more depth, more 3D.")
 LICENCE = ("Without a serial SpaceX runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a "
            "moment. To activate, click the logo and enter your name and serial - the name exactly as in your order.")
+THANKS = "Thanks to Jeff Ellis, whose words for the forbidden zone and the fourth dimension gave the idea a name."
 CONTACT = "Paul Misty · Mistycat Studios · info@paulmisty.com · paulmisty.com · @paulmisty.studio"
