@@ -5076,6 +5076,9 @@ juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
 
 void LCRMSAudioProcessorEditor::timerCallback()
 {
+    // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
+    if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
+        content.repaint (profileStarsArea);
     updateHintBar();
     bool needsRepaint = false;
 
@@ -6136,37 +6139,56 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             g.setGradientFill (halo);
             g.fillEllipse (cx - hw, iy - hw, hw * 2.0f, hw * 2.0f);
         }
-        // (2) Runde 135 (User: "Linien passen nicht - eher eine Art Klammer,
-        // nur als Glow"): links und rechts ein weicher Lichtbogen wie eine
-        // Klammer um Icon und Namen. Nur Schein, keine harte Linie: mehrere
-        // breite, sehr transparente Striche uebereinander ergeben den Glow,
-        // innen ein ganz feiner hellerer Kern.
+        // (2) Runde 143 (User: Variante F "Sternchen"): vier winzige Sterne um
+        // das Profil, die sehr langsam und gegeneinander versetzt funkeln -
+        // greift das Sternenfeld auf. Der Timer zeichnet nur diesen kleinen
+        // Bereich neu (profileStarsArea), das kostet praktisch nichts.
         {
-            const float my  = cb.getY() + cb.getHeight() * 0.50f;           // Mitte von Icon + Name
-            const float rad = cb.getHeight() * 0.62f;
-            const float span = 0.62f;                                       // halber Oeffnungswinkel (rad)
-            // Runde 137 (User): nah am Profil, rechts kommt gleich der Kopf mit
-            // Bypass & Co. - knapp ausserhalb des laengsten Namens.
-            const float off  = juce::jmax (54.0f, juce::jmin (62.0f, reach - 14.0f));
-            for (float side : { -1.0f, 1.0f })
+            struct Star { float dx, dy, size; bool cross; float period, phase; };
+            static const Star stars[] = {
+                { -68.0f, -10.0f, 6.0f, true,  5.3f, 0.0f },
+                {  72.0f, -20.0f, 1.8f, false, 7.1f, 1.7f },
+                {  78.0f,  36.0f, 4.2f, true,  6.2f, 3.1f },
+                { -56.0f,  42.0f, 1.4f, false, 8.4f, 4.6f },
+            };
+            // Rechts nie in den Kopf mit Bypass & Co. hineinragen.
+            const float xScale = juce::jlimit (0.6f, 1.0f, (reach - 14.0f) / 78.0f);
+            const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            juce::Rectangle<float> area;
+            for (const auto& st : stars)
             {
-                // Bogen um einen Mittelpunkt, der zur Profilmitte hin versetzt
-                // ist - so woelbt er sich nach aussen wie ")(" gespiegelt: "( )".
-                const float ccx = cx + side * (off - rad);
-                const float a0  = side < 0.0f ? juce::MathConstants<float>::pi * 1.5f
-                                              : juce::MathConstants<float>::halfPi;
-                juce::Path arc;
-                arc.addCentredArc (ccx, my, rad, rad, 0.0f, a0 - span, a0 + span, true);
-                const float base = armed ? 0.075f : 0.04f;
-                for (int k = 5; k >= 0; --k)
+                const float px = cx + st.dx * xScale, py = iy + st.dy;
+                const float tw = 0.55f + 0.45f * (float) std::sin (juce::MathConstants<double>::twoPi * tSec / st.period + st.phase);
+                const float a  = (armed ? 0.85f : 0.30f) * tw;
+                const float s  = st.size;
+                // weicher Schein
+                juce::ColourGradient glow (col.withAlpha (a * 0.35f), px, py, col.withAlpha (0.0f), px + s * 2.4f, py, true);
+                g.setGradientFill (glow);
+                g.fillEllipse (px - s * 2.4f, py - s * 2.4f, s * 4.8f, s * 4.8f);
+                g.setColour (col.withAlpha (a));
+                if (st.cross)
                 {
-                    const float wdt = 1.2f + (float) k * 2.6f;
-                    const float t   = 1.0f - (float) k / 6.0f;
-                    g.setColour (col.withAlpha (base * t * t + (k == 0 ? (armed ? 0.16f : 0.08f) : 0.0f)));
-                    g.strokePath (arc, juce::PathStrokeType (wdt, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                    const float k = s * 0.26f;
+                    juce::Path p;
+                    p.startNewSubPath (px, py - s);
+                    p.lineTo (px + k, py - k); p.lineTo (px + s, py); p.lineTo (px + k, py + k);
+                    p.lineTo (px, py + s);     p.lineTo (px - k, py + k); p.lineTo (px - s, py); p.lineTo (px - k, py - k);
+                    p.closeSubPath();
+                    g.fillPath (p);
                 }
+                else
+                {
+                    g.fillEllipse (px - s, py - s, s * 2.0f, s * 2.0f);
+                }
+                area = area.isEmpty() ? juce::Rectangle<float> (px - s * 2.6f, py - s * 2.6f, s * 5.2f, s * 5.2f)
+                                      : area.getUnion (juce::Rectangle<float> (px - s * 2.6f, py - s * 2.6f, s * 5.2f, s * 5.2f));
             }
+            profileStarsArea = area.getSmallestIntegerContainer().expanded (2);
         }
+    }
+    else
+    {
+        profileStarsArea = {};
     }
 
     // Nur noch der reine Wortmark, vertikal zentriert im Titelbalken - der
