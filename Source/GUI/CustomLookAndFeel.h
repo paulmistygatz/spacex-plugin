@@ -598,6 +598,13 @@ public:
         // Mono-Icon, nur bedienbar/aktivierbar waehrend Mono-Check an ist.
         if (button.getProperties().getWithDefault ("bypassIcon", false))
         {
+            // Runde 110: an = Schimmer wie die anderen Icons.
+            if (button.getToggleState() && ! (bool) button.getProperties().getWithDefault ("sectionOff", false))
+            {
+                const auto lb = button.getLocalBounds().toFloat();
+                softIconGlow (g, lb.getCentre(), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f,
+                              themePalette().frameRaye, 1.0f);
+            }
             drawBypassIcon (g, button);
             return;
         }
@@ -1295,7 +1302,10 @@ public:
                 if (pdia >= 0 || ppdia >= 0)
                 {
                     juce::Rectangle<float> iconR, textR;
-                    inlineIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
+                    if ((bool) button.getProperties().getWithDefault ("iconAbove", false))
+                        iconR = button.getLocalBounds().toFloat().withHeight ((float) button.getHeight() * 0.64f);   // Runde 110
+                    else
+                        inlineIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
                     // PRE/POST leuchtet nur, wenn ueberhaupt umgepolt wird (User,
                     // Runde 62) - sonst sieht es aus, als passiere etwas.
                     // "Kein Profil" leuchtet nie.
@@ -2010,6 +2020,15 @@ public:
             if ((int) button.getProperties().getWithDefault ("profileDiagram", -1) >= 0
              || (int) button.getProperties().getWithDefault ("ppDiagram", -1) >= 0)
             {
+                if ((bool) button.getProperties().getWithDefault ("iconAbove", false))
+                {
+                    // Runde 110: Smart-Profil wie die Icon-Felder - Name unter dem Icon.
+                    auto lbT = button.getLocalBounds();
+                    g.drawText (button.getButtonText(),
+                                lbT.withTrimmedTop (juce::roundToInt ((float) lbT.getHeight() * 0.64f)).translated (0, textShiftY),
+                                juce::Justification::centred, false);
+                    return;
+                }
                 juce::Rectangle<float> iconR, textR;
                 inlineIconLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
                 g.drawText (button.getButtonText(), textR.translated (0.0f, (float) textShiftY),
@@ -2170,11 +2189,13 @@ public:
         // deutlich signalisieren "nur temporaer gedacht, nicht vergessen").
         static const juce::Colour monoOnColour (0xffff5b5b);
         auto col = (isOn ? monoOnColour : iconOffColour()).withAlpha (isOn ? alpha : 1.0f);
+        // Runde 110 (User: "die letzten Kaesten"): kein Gehaeuse-Rechteck
+        // mehr - nur die Membran, und an leuchtet sie (Rot bleibt: "nur zum
+        // Abhoeren, nicht vergessen").
+        if (isOn)
+            softIconGlow (g, centre, s * 0.5f, monoOnColour, 0.8f + 0.6f * alpha);
         g.setColour (col);
-
-        juce::Rectangle<float> cabinet (centre.x - s * 0.28f, centre.y - s * 0.34f, s * 0.56f, s * 0.68f);
-        g.drawRoundedRectangle (cabinet, 2.0f, 1.4f);
-
+        g.drawEllipse (centre.x - s * 0.30f, centre.y - s * 0.30f, s * 0.60f, s * 0.60f, 1.4f);
         g.drawEllipse (centre.x - s * 0.14f, centre.y - s * 0.14f, s * 0.28f, s * 0.28f, 1.4f);
         g.fillEllipse (centre.x - s * 0.035f, centre.y - s * 0.035f, s * 0.07f, s * 0.07f);
     }

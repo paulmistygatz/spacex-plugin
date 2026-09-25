@@ -2099,7 +2099,8 @@ private:
     void updateHintBar();
     void drawHintBar (juce::Graphics& g);
     juce::TextButton helpButton;            // dezentes "?" ganz unten links
-    juce::TextButton autoGainButton;        // unsichtbare Klickflaeche ueber der AG-Anzeige
+    juce::TextButton autoGainButton;        // Runde 110: Soft-Chip im Footer (Wert / OFF)
+    juce::Label      autoGainLabel;
     juce::Rectangle<int> hintBarArea;       // Textbereich rechts daneben
     juce::String currentHint;               // was gerade angezeigt wird
     // Runde 99 (User): woher der aktuelle Hinweis stammt. Waehrend ein Regler

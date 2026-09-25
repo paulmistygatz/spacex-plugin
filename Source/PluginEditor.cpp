@@ -822,6 +822,7 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     // Runde 108 (User): Icon links vom Namen, kein Rahmen - das Icon zeigt,
     // wo die Quelle im Stereobild sitzt.
     categoryButton.getProperties().set ("profileDiagram", juce::jlimit (0, kNumCategories, mutateCategoryValue));
+    categoryButton.getProperties().set ("iconAbove", true);   // Runde 110: Icon ueber dem Namen
     categoryButton.getProperties().set ("pillColour",
         (int) (profileArmed ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
     categoryButton.repaint();
@@ -4324,7 +4325,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     // Eintrag bleibt trotzdem, damit beides denselben Schalter bedient.
     // Auto Gain ist per Klick auf seine Anzeige schaltbar (User) - die Zahl
     // steht ohnehin dort, ein zweites Bedienelement waere Verschwendung.
-    autoGainButton.getProperties().set ("invisibleHit", true);
+    // Runde 110 (User): AG sitzt jetzt im Footer zwischen Mix und Vol - dort,
+    // wo es im Signalweg auch wirkt. Soft-Chip mit dem Wert, "AG" darunter.
+    autoGainButton.getProperties().set ("softChip", true);
+    autoGainButton.getProperties().set ("altAccent", true);
+    autoGainButton.setClickingTogglesState (false);
+    styleLabel (autoGainLabel, "AG");
+    autoGainLabel.setColour (juce::Label::textColourId, juce::Colour (0xffa9aeb8));
+    content.addAndMakeVisible (autoGainLabel);
     autoGainButton.setWantsKeyboardFocus (false);
     autoGainButton.setTooltip ("Auto Gain: matches the output level to the input so bypass is an honest comparison. Click to switch it off");
     content.addAndMakeVisible (autoGainButton);
@@ -4750,6 +4758,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
             lastAutoGainDb = db;
             content.repaint (autoGainReadoutArea.expanded (4));
         }
+        // Runde 110: der Chip im Footer zeigt Wert bzw. OFF.
+        const bool agOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
+        const juce::String agTxt = ! agOn ? juce::String ("OFF")
+                                 : (std::abs (lastAutoGainDb) < 0.05f) ? juce::String ("0.0")
+                                 : (lastAutoGainDb > 0.0f ? "+" : "") + juce::String (lastAutoGainDb, 1);
+        if (autoGainButton.getButtonText() != agTxt)
+            autoGainButton.setButtonText (agTxt);
+        if (autoGainButton.getToggleState() != agOn)
+            autoGainButton.setToggleState (agOn, juce::dontSendNotification);
     }
 
     // Demo-Absenkung: nur neu zeichnen, wenn sich wirklich etwas bewegt.
@@ -6033,7 +6050,9 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     drawGroup (groupWidthBoostArea, groupColour (LCRMSAudioProcessor::SOLO_DIMENSION,  cGreen),          widthBoostFrameOn, soloState == LCRMSAudioProcessor::SOLO_DIMENSION);
     drawGroup (groupFlowArea,       groupColour (LCRMSAudioProcessor::SOLO_HYPERDRIVE, cPurple),         flowFrameOn,       soloState == LCRMSAudioProcessor::SOLO_HYPERDRIVE);
     drawGroup (groupPosArea,        groupColour (LCRMSAudioProcessor::SOLO_POSITION,   cGreen),          posFrameOn,        soloState == LCRMSAudioProcessor::SOLO_POSITION);
-    drawGroup (groupRayArea,        groupColour (LCRMSAudioProcessor::SOLO_RAY,        pal.frameRaye),   rayFrameOn,        soloState == LCRMSAudioProcessor::SOLO_RAY);
+    // Runde 110 (User): ein Rahmenstil fuer alle - Phaser hatte als einzige
+    // Sektion einen goldenen Rahmen. Pop behaelt seine bunten Rahmen.
+    drawGroup (groupRayArea,        groupColour (LCRMSAudioProcessor::SOLO_RAY,        perSection ? pal.frameRaye : cPurple), rayFrameOn, soloState == LCRMSAudioProcessor::SOLO_RAY);
 
     // Pop: Footer in zwei Kaesten wie die Sektionen (Meter..Vol, PRISM) -
     // sonst wirkt er "draufgesetzt" (User).
@@ -6100,17 +6119,14 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Marker dezent in der Theme-Familie (User) - Pop behaelt sein Lila.
         const juce::Colour polCol = isComicTheme() ? juce::Colour (0xffb968ff)
                                                    : themePalette().frameMain.interpolatedWith (themePalette().knob, 0.30f);
-        for (int i = 3; i >= 1; --i)
-        {
-            const float r = 4.0f + (float) i * 3.0f;
-            g.setColour (polCol.withAlpha (0.06f * (float) (4 - i)));
-            g.fillEllipse (m.x - r, m.y - r, r * 2.0f, r * 2.0f);
-        }
+        // Runde 110 (User): sah aus wie ein verirrter Knopf. Jetzt ein Punkt
+        // auf einer feinen Linie - liest sich als "hier in der Kette".
+        g.setColour (polCol.withAlpha (0.35f));
+        g.fillRect (m.x - 12.0f, m.y - 0.5f, 24.0f, 1.0f);
+        g.setColour (polCol.withAlpha (0.18f));
+        g.fillEllipse (m.x - 6.0f, m.y - 6.0f, 12.0f, 12.0f);
         g.setColour (polCol);
-        g.fillEllipse (m.x - 3.5f, m.y - 3.5f, 7.0f, 7.0f);
-        // kleines "+/-" als Flip-Zeichen
-        g.setColour (juce::Colour (0xff17191f));
-        g.fillRect (m.x - 2.0f, m.y - 0.6f, 4.0f, 1.2f);
+        g.fillEllipse (m.x - 3.0f, m.y - 3.0f, 6.0f, 6.0f);
     }
 
     // Galaxy visuell deutlicher abgesetzt (User-Wunsch: "Galaxy muss visuell
@@ -6127,7 +6143,10 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // leuchten, wenn die Galaxy-Sektion selbst aus ist (User: "beim
         // allen Themes: Glow bei Galaxy wenn off muss aus sein -
         // irrefuehrend").
-        const bool galaxyEngineOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f
+        // Runde 110 (User): kein Extra-Schein mehr um LCR - die Latenz meldet
+        // der blaue LCR-Chip oben. Hervorhebung nur noch bei Solo.
+        const bool galaxyEngineOn = false
+                                 && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f
                                  && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_ENABLED)->load() > 0.5f
                                  && ! processor.uiBypassed.load()
                                  && ! layoutFrameless();   // ohne Sektionskasten haette der Glow nichts, worum er liegen koennte
@@ -6686,9 +6705,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         {
             const int cw = 156, cbH = 30;   // Runde 108: Platz fuer das Icon links vom Namen
             auto catCol = titleBar.removeFromRight (cw + 22).withTrimmedRight (22);
-            categoryButton.setBounds (catCol.getX(), row1.getY(), cw, cbH);
+            // Runde 110 (User): das Profil nimmt die Hoehe beider Kopfzeilen -
+            // Icon oben, Name darunter, Punkte ganz unten, wie Velvet.
+            juce::ignoreUnused (cbH);
+            categoryButton.setBounds (catCol.getX(), row1.getY(), cw, kRowH * 2 + kRowGap);
             const int dotsW = (kNumCategories + 1) * 10 + 6;
-            catDots.setBounds (catCol.getX() + (cw - dotsW) / 2, categoryButton.getBottom() + 5, dotsW, 12);
+            catDots.setBounds (catCol.getX() + (cw - dotsW) / 2, categoryButton.getBottom() - 1, dotsW, 12);
             categoryButton.setVisible (showMutateCategories);
             catDots.setVisible (showMutateCategories);
         }
@@ -6783,9 +6805,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
         hintBarArea = strip;
         // Auto-Gain-Anzeige rechts in derselben Zeile, samt Klickflaeche.
         {
-            const int agW = juce::jmin (96, hintBarArea.getWidth() / 2);
-            autoGainReadoutArea = hintBarArea.withLeft (hintBarArea.getRight() - agW);
-            autoGainButton.setBounds (autoGainReadoutArea.expanded (3, 5));
+            // Runde 110: die Anzeige ist in den Footer umgezogen.
+            autoGainReadoutArea = {};
         }
     }
 
@@ -6947,21 +6968,29 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int blockH    = iconSize + labelGap + labelH;
         const int blockTop  = rowTop + (rowH - blockH) / 2;
 
-        juce::Component* elems[5]  = { &monoCheckButton, &monoDryButton, &mixSlider, &volSlider, &panSlider };
-        juce::Label*     labels[5] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &volLabel,  &panLabel  };
-        int x = prismLeft - kGap - iconSize;   // rechte Kante von PAN = PRISM-Kachel minus Luecke
-        for (int i = 4; i >= 0; --i)
+        // Runde 110 (User): Reihenfolge nach dem Signalweg - Mix, dann Auto
+        // Gain (gleicht den Pegel an), dann Vol und Pan als letzte Stufe.
+        juce::Component* elems[6]  = { &monoCheckButton, &monoDryButton, &mixSlider, &autoGainButton, &volSlider, &panSlider };
+        juce::Label*     labels[6] = { &monoCheckLabel,  &monoDryLabel,  &mixLabel,  &autoGainLabel,  &volLabel,  &panLabel  };
+        constexpr int kAgW = 48, kAgH = 22;
+        int right = prismLeft - kGap;   // rechte Kante von PAN = PRISM-Kachel minus Luecke
+        for (int i = 5; i >= 0; --i)
         {
+            const bool isAg = elems[i] == &autoGainButton;
+            const int w = isAg ? kAgW : iconSize;
+            const int x = right - w;
             // MIX, VOL und PAN 3px groesser als die beiden Icons (User) -
             // wachsen um ihre Mitte, die Luecken bleiben gleich.
-            if (elems[i] == &volSlider || elems[i] == &mixSlider || elems[i] == &panSlider)
+            if (isAg)
+                elems[i]->setBounds (x, blockTop + (iconSize - kAgH) / 2, kAgW, kAgH);
+            else if (elems[i] == &volSlider || elems[i] == &mixSlider || elems[i] == &panSlider)
                 elems[i]->setBounds (juce::Rectangle<int> (x, blockTop, iconSize, iconSize).expanded (3));
             else
                 elems[i]->setBounds (x, blockTop, iconSize, iconSize);
-            labels[i]->setBounds (x - 8, blockTop + iconSize + labelGap, iconSize + 16, labelH);
-            x -= iconSize + kGap;
+            labels[i]->setBounds (x - 8, blockTop + iconSize + labelGap, w + 16, labelH);
+            right = x - kGap;
         }
-        const int iconsLeft = x + iconSize + kGap;   // linke Kante von MONO
+        const int iconsLeft = right + kGap;   // linke Kante von MONO
 
 
         // Meter-Block: zwei Zeilen, Label links (knapp bemessen, damit der
