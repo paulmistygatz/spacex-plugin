@@ -887,7 +887,9 @@ void GoniometerComponent::timerCallback()
         // wir loswerden wollen.
         if (brightness <= 0.002f)
             return;   // bei Speed nahe Minimum: Linie bewegt sich noch, ist aber unsichtbar
-        g.setColour (colour.withAlpha (brightness));
+        // Runde 110 (User): Sternlinien 20 % leiser - die Wolke in der Mitte
+        // soll der Star bleiben.
+        g.setColour (colour.withAlpha (brightness * 0.8f));
         g.drawLine (tx, ty, hx, hy, coreThickness);
     };
 
@@ -2908,6 +2910,10 @@ void GoniometerComponent::paint (juce::Graphics& g)
 
     // Dickerer Rahmen als vorher (1.0 -> 1.8px, User-Feedback: "Rahmen um
     // das Feld mit den Sternen dicker").
-    g.setColour (juce::Colours::white.withAlpha (0.32f));
-    g.drawRoundedRectangle (bounds.reduced (0.9f), 8.0f, 1.8f);
+    // Runde 110 (User): derselbe Rahmen wie die Sektionen - vorher war er
+    // heller als alle anderen und wirkte wie ein Bilderrahmen um etwas
+    // Fremdes. Die Farbe setzt der Editor (Theme), siehe "frameColour".
+    const auto frameCol = juce::Colour ((juce::uint32) (int) getProperties().getWithDefault ("frameColour", (int) 0xff8a90a0));
+    g.setColour (frameCol.withAlpha (0.38f));
+    g.drawRoundedRectangle (bounds.reduced (0.7f), 8.0f, 1.4f);
 }

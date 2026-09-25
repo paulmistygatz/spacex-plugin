@@ -25,8 +25,10 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
+        // Runde 110 (User): runde Enden wie die Chips, kein Rahmen mehr.
+        const float capR = bounds.getHeight() * 0.5f;
         g.setColour (juce::Colour (0xff14161a));
-        g.fillRoundedRectangle (bounds, 3.0f);
+        g.fillRoundedRectangle (bounds, capR);
 
         // Bug-Fix/Korrektur (User-Feedback: die Meter waren praktisch nicht
         // zu sehen) - eine immer sichtbare, schwache "Leerspur" ueber die
@@ -35,7 +37,7 @@ public:
         // Rahmen zu sehen).
         auto trackArea = bounds.reduced (1.5f);
         g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.fillRoundedRectangle (trackArea, 2.0f);
+        g.fillRoundedRectangle (trackArea, trackArea.getHeight() * 0.5f);
 
         const float lvl = juce::jlimit (0.0f, 1.0f, displayLevel);
         if (lvl > 0.01f)
@@ -50,14 +52,15 @@ public:
             // Balken heisst hier 0 dBFS und nicht "zu laut". Warnfarben
             // waeren also falsche Alarme.
             g.setColour (themePalette().knob);   // Meterfarbe je Theme (User)
-            g.fillRoundedRectangle (fillArea, 2.0f);
+            g.fillRoundedRectangle (fillArea, fillArea.getHeight() * 0.5f);
         }
-
-        // Etwas kraeftigerer Rahmen als der vorherige, fast unsichtbare
-        // Versuch (0.12 -> 0.22), damit die Meter-Kontur klar erkennbar
-        // bleibt, aber immer noch dezenter als die urspruengliche Version.
-        g.setColour (juce::Colours::white.withAlpha (0.22f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.0f);
+        // Runde 110: duenne Spitzenmarke (haelt kurz, sinkt dann langsam).
+        if (peakHold > 0.02f)
+        {
+            const float px = trackArea.getX() + trackArea.getWidth() * juce::jlimit (0.0f, 1.0f, peakHold);
+            g.setColour (themePalette().knob.interpolatedWith (juce::Colours::white, 0.35f).withAlpha (0.85f));
+            g.fillRoundedRectangle (px - 1.0f, trackArea.getY(), 2.0f, trackArea.getHeight(), 1.0f);
+        }
     }
 
 private:
@@ -91,12 +94,24 @@ private:
             displayLevel += (raw - displayLevel) * 0.12f;
         else
             displayLevel *= 0.965f;
+        // Spitzenmarke: ~1,5 s halten, dann sanft nachsinken.
+        if (displayLevel >= peakHold)
+        {
+            peakHold = displayLevel;
+            peakHoldFrames = 45;
+        }
+        else if (peakHoldFrames > 0)
+            --peakHoldFrames;
+        else
+            peakHold *= 0.97f;
 
         repaint();
     }
 
     std::atomic<float>& level;
     float displayLevel = 0.0f;
+    float peakHold = 0.0f;       // Runde 110
+    int   peakHoldFrames = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeterComponent)
 };

@@ -346,7 +346,8 @@ public:
         // technischen isEnabled()-Status.
         const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
 
-        float trackThickness = radius * 0.18f;
+        // Runde 110 (User): die Spur eine Spur duenner (Pop behaelt seine).
+        float trackThickness = radius * (isComicTheme() ? 0.18f : 0.16f);
 
         // Comic: Scheibe mit Kontur und Versatz-Schatten unter dem Ring.
         if (isComicTheme())
@@ -452,8 +453,20 @@ public:
                 default: break;
             }
         }
+        // Runde 110 (User): PAIR zeigt sich am Speed-Regler nicht mehr als
+        // voller Ring, sondern nur als blauer Wertebogen (blau = gekoppelt).
+        if (! offVisual && ! isComicTheme() && (bool) slider.getProperties().getWithDefault ("pairedGold", false))
+            col = pairAccentColour();
         g.setColour (col);
         g.strokePath (value, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        // Runde 110: ein winziger Schimmer an der Spitze des Wertebogens -
+        // dieselbe Sprache wie die Icon-Felder, ganz leise.
+        if (! offVisual && ! isComicTheme() && ! value.isEmpty())
+        {
+            const float tipR = radius - trackThickness;
+            const juce::Point<float> tip (centre.x + tipR * std::sin (angle), centre.y - tipR * std::cos (angle));
+            softIconGlow (g, tip, trackThickness * 2.2f, col, 0.9f);
+        }
 
         float pointerLength = radius * 0.55f;
         juce::Path pointer;
@@ -522,7 +535,7 @@ public:
             g.strokePath (shackle, juce::PathStrokeType (juce::jmax (1.1f, ls * 0.14f)));
         }
 
-        if (slider.getProperties().getWithDefault ("pairedGold", false))
+        if (slider.getProperties().getWithDefault ("pairedGold", false) && isComicTheme())
         {
             // DIE eigentliche Ursache (User: "wird ja immer schlimmer, bei Pop
             // oben und unten abgeschnitten - der Bereich ist einfach zu Ende"):

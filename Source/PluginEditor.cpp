@@ -4758,6 +4758,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
             lastAutoGainDb = db;
             content.repaint (autoGainReadoutArea.expanded (4));
         }
+        // Runde 110: Rahmen des Sternenfelds in der Sektions-Rahmenfarbe.
+        {
+            const int fc = (int) themePalette().frameMain.getARGB();
+            if ((int) goniometer.getProperties().getWithDefault ("frameColour", 0) != fc)
+            {
+                goniometer.getProperties().set ("frameColour", fc);
+                goniometer.repaint();
+            }
+        }
         // Runde 110: der Chip im Footer zeigt Wert bzw. OFF.
         const bool agOn = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
         const juce::String agTxt = ! agOn ? juce::String ("OFF")
@@ -5611,7 +5620,7 @@ void LCRMSAudioProcessorEditor::drawLogo (juce::Graphics& g, juce::Rectangle<flo
     {
         for (int layer = 3; layer >= 1; --layer)
         {
-            float rr = r * (1.0f + 0.35f * (float) layer);
+            float rr = r * (1.0f + 0.22f * (float) layer);   // Runde 110: Hof ~30 % kleiner
             g.setColour (glowCol.withAlpha (0.05f * (float) (4 - layer)));
             g.fillEllipse (centre.x - rr, centre.y - rr, rr * 2.0f, rr * 2.0f);
         }
@@ -5739,8 +5748,11 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // nicht der zweite Teil eines Wortes. expanded() gibt der grossen
         // Type die Hoehe, die die Titelzeile allein nicht hergibt.
         auto xLine = markLine.withTrimmedLeft (spaceW + 1).expanded (0, 14);
-        juce::ColourGradient xGrad (juce::Colour (0xff7ef0ff), 0.0f, (float) xLine.getY(),
-                                     juce::Colour (0xff9a7bff), 0.0f, (float) xLine.getBottom(), false);
+        // Runde 110 (User): das X haengt an der Theme-Farbe - vorher war sein
+        // Violett die einzige Stelle mit dieser Farbe im ganzen Theme.
+        const auto xBase = pairAccentColour();
+        juce::ColourGradient xGrad (xBase.interpolatedWith (juce::Colours::white, 0.40f), 0.0f, (float) xLine.getY(),
+                                     xBase, 0.0f, (float) xLine.getBottom(), false);
         g.setGradientFill (xGrad);
         g.drawText (wordX, xLine, juce::Justification::centredLeft);
     }
@@ -5766,10 +5778,13 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Die Breite dafuer ist jetzt da: die globale Button-Zeile rechts ist
         // durch den Auszug der Preset-Bedienung (siehe Preset-Leiste) von rund
         // 690px auf rund 410px geschrumpft.
+        // Runde 110 (User): der Slogan begleitet, statt zu rufen - das Cyan
+        // kam sonst nirgends vor. Theme-Farbe gedaempft, Sperrung etwas enger.
+        juce::ignoreUnused (sloganGrad);
         const juce::Font sloganFont = juce::Font (juce::FontOptions (13.8f, juce::Font::bold))
-                                          .withExtraKerningFactor (0.20f);
+                                          .withExtraKerningFactor (0.16f);
         g.setFont (sloganFont);
-        g.setGradientFill (sloganGrad);
+        g.setColour (themePalette().knob.withAlpha (0.72f));
         // Slogan aus Pauls Auswahl. "Spatial Intelligence" transportiert das
         // "smart" ohne das Wort selbst zu benutzen - damit kollidiert es nicht
         // mit den Smart-Knoepfen im Header, und es kollidiert auch nicht mit
