@@ -2506,7 +2506,9 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
         props.setValue ("adlibsRenamed", true);
         props.saveIfNeeded();
     }
-    constexpr int kFactoryPresetsVersion = 1;
+    // Runde 171: Version 2 bringt die neuen Werks-Ordner Vocals, Drums,
+    // Bass, Music und die Send-FX-Presets - vorhandene Dateien bleiben.
+    constexpr int kFactoryPresetsVersion = 2;
     if (props.getIntValue ("factoryPresetsVersion", 0) < kFactoryPresetsVersion)
     {
         for (int i = 0; i < SpaceXPresetData::namedResourceListSize; ++i)
@@ -2540,6 +2542,12 @@ juce::StringArray LCRMSAudioProcessorEditor::presetFolderOrder() const
     const auto root = presetFolder();
     juce::StringArray order;
     for (auto* c : cats)
+        if (root.getChildFile (c).isDirectory())
+            order.add (c);
+    // Runde 171: danach die Werks-Ordner in sinnvoller Reihenfolge,
+    // erst dann eigene Ordner alphabetisch.
+    static const char* const factoryFolders[4] = { "Vocals", "Drums", "Bass", "Music" };
+    for (auto* c : factoryFolders)
         if (root.getChildFile (c).isDirectory())
             order.add (c);
     juce::StringArray others;
