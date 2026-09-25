@@ -1886,15 +1886,23 @@ public:
     {
         return juce::Font (juce::FontOptions (14.5f, juce::Font::bold)).withExtraKerningFactor (0.08f);
     }
+    // Runde 154 (User: "ØL und ØR 50 % groesser"): Faktor pro Knopf ueber die
+    // Property "phaseScale" - Ø und Buchstabe wachsen gemeinsam.
+    static juce::Font phaseFontFor (juce::Button& b)
+    {
+        const auto f = phaseFont();
+        const float k = (float) (double) b.getProperties().getWithDefault ("phaseScale", 1.0);
+        return f.withHeight (f.getHeight() * k);
+    }
 
     // Runde 112: Ø und Buchstabe NEBENEINANDER und gleich gross (User: "das
     // Icon soll nicht groesser sein als L - L und R sind nicht unwichtiger").
     static void phaseLayout (juce::Button& b, juce::Rectangle<float> area,
                              juce::Rectangle<float>& iconR, juce::Rectangle<float>& textR)
     {
-        const auto f    = phaseFont();   // Runde 113: etwas groesser
+        const auto f    = phaseFontFor (b);   // Runde 113/154
         const float cap = f.getHeight() * 0.74f;
-        const float iw  = cap * 1.2f, gap = 3.0f;
+        const float iw  = cap * 1.2f, gap = 3.0f * f.getHeight() / 14.5f;
         const float tw  = juce::GlyphArrangement::getStringWidth (f, b.getButtonText()) + 1.0f;
         const float x0  = area.getCentreX() - (iw + gap + tw) * 0.5f;
         iconR = { x0, area.getCentreY() - cap * 0.5f, iw, cap };
@@ -2115,7 +2123,7 @@ public:
                 juce::Rectangle<float> iconR, textR;
                 if ((bool) button.getProperties().getWithDefault ("phaseIcon", false))
                 {
-                    g.setFont (phaseFont());
+                    g.setFont (phaseFontFor (button));
                     phaseLayout (button, button.getLocalBounds().toFloat(), iconR, textR);
                     g.drawText (button.getButtonText(), textR, juce::Justification::centredLeft, false);
                 }

@@ -8113,17 +8113,30 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
         auto lrCentered = juce::Rectangle<int> (polInner.getX(), lrTop, polInner.getWidth(), lrBtnH)
                              .withSizeKeepingCentre (lrBtnW * 2 + lrGap, lrBtnH);
-        polLButton.setBounds (lrCentered.removeFromLeft (lrBtnW));
+        const auto oldL = lrCentered.removeFromLeft (lrBtnW);
         lrCentered.removeFromLeft (lrGap);
-        polRButton.setBounds (lrCentered);
+        const auto oldR = lrCentered;
 
         {
             // Mittig zwischen den beiden Ø, auf Hoehe der Icons (ohne die
-            // Buchstaben darunter).
+            // Buchstaben darunter). Runde 154: Link bleibt exakt, wo er war.
             const int linkS = juce::jmin (lrGap - 8, linkAreaH);
             const int iconMidY = lrTop + lrBtnH / 2;
-            polLinkButton.setBounds (polLButton.getRight() + (lrGap - linkS) / 2, iconMidY - linkS / 2, linkS, linkS);
+            polLinkButton.setBounds (oldL.getRight() + (lrGap - linkS) / 2, iconMidY - linkS / 2, linkS, linkS);
             juce::ignoreUnused (linkGapV);
+
+            // Runde 154 (User): ØL und ØR 50 % groesser, mittig zum Link-Icon.
+            // Die Innenkanten bleiben, wo sie waren (Abstand zum Link gleich),
+            // die Knoepfe wachsen nach aussen und gleichmaessig nach oben/unten.
+            // Alles andere (Link, PRE/POST) bleibt unveraendert.
+            constexpr float kPolScale = 1.5f;
+            const int bigW = juce::roundToInt ((float) lrBtnW * 1.3f);
+            const int bigH = juce::roundToInt ((float) lrBtnH * kPolScale);
+            const int midY = polLinkButton.getBounds().getCentreY();
+            polLButton.setBounds (oldL.getRight() - bigW, midY - bigH / 2, bigW, bigH);
+            polRButton.setBounds (oldR.getX(),            midY - bigH / 2, bigW, bigH);
+            for (auto* b : { &polLButton, &polRButton })
+                b->getProperties().set ("phaseScale", (double) kPolScale);
         }
 
         auto posRow = juce::Rectangle<int> (polInner.getX(), lateTop, polInner.getWidth(), posBtnH);
