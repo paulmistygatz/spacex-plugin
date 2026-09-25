@@ -829,6 +829,9 @@ void LCRMSAudioProcessorEditor::setMutateCategory (int cat)
     catDots.index = mutateCategoryValue;
     catDots.repaint();
     smartInfoLabel.setText (smartInfoTextFor (mutateCategoryValue), juce::dontSendNotification);
+    // Runde 114: ohne Profil gibt es nichts zu erklaeren - (i) und Zeile weg.
+    smartInfoToggle.setVisible (showMutateCategories && mutateCategoryValue > 0);
+    smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible && mutateCategoryValue > 0);
 
     // Widerspruch aufgeloest (User): mit gewaehlter Kategorie schaltet auch
     // Smart 1 Sektionen aus, obwohl Smart 1 eigentlich "alle bleiben an"
@@ -2087,8 +2090,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     showMutateCategories = writeProps.getBoolValue ("showMutateCategories", true);
                     categoryButton.setVisible (showMutateCategories);
                     catDots.setVisible (showMutateCategories);
-                    smartInfoToggle.setVisible (showMutateCategories);
-                    smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
+                    smartInfoToggle.setVisible (showMutateCategories && mutateCategoryValue > 0);   // Runde 114: ohne Profil kein (i)
+                    smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible && mutateCategoryValue > 0);
                     break;
                 case idTechnicalLabels:
                     technicalLabels = ! technicalLabels;
@@ -4504,7 +4507,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
             juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());
             wp.setValue ("smartInfoVisible", smartInfoVisible);
             wp.saveIfNeeded();
-            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
+            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible && mutateCategoryValue > 0);
         };
 
         setMutateCategory ((int) processor.apvts.state.getProperty ("mutateCategory", 0));
@@ -6915,10 +6918,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
             const int ih = juce::jmin (16, chipRow.getHeight());
             auto iconArea = chipRow.removeFromLeft (18);
             smartInfoToggle.setBounds (iconArea.withSizeKeepingCentre (ih, ih));
-            smartInfoToggle.setVisible (showMutateCategories);
+            smartInfoToggle.setVisible (showMutateCategories && mutateCategoryValue > 0);   // Runde 114: ohne Profil kein (i)
             chipRow.removeFromLeft (6);
             smartInfoLabel.setBounds (chipRow);
-            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible);
+            smartInfoLabel.setVisible (showMutateCategories && smartInfoVisible && mutateCategoryValue > 0);
         }
         // Panel NICHT ueber dem Sternenfeld (User: "man sieht zu wenig"),
         // sondern rechts ueber der Sektionsspalte; die wird waehrenddessen
