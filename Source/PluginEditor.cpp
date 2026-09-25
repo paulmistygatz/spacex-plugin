@@ -2821,12 +2821,20 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     {
         const bool ownPreset = currentPresetName.isNotEmpty() && ! isDefaultPresetName (currentPresetName);
         menu.addSeparator();
-        menu.addItem (kRenameId, "Rename...", ownPreset);
-        // Runde 156 (User): Loeschen gehoert zu den Presets.
-        menu.addItem (kRenameId + 2, "Delete...", ownPreset);
-        // Runde 57 (User): der Ordner gehoert zu den Presets, nicht in die
-        // Einstellungen.
-        menu.addItem (kRenameId + 1, "Preset Folder...");
+        // Runde 161 (User): die drei Befehle dezenter als die Presets - sie
+        // bekommen eine eigene (graue) Farbe, das LookAndFeel setzt sie
+        // daran erkennbar kleiner und leiser.
+        auto cmd = [&menu] (int id, const char* txt, bool enabled)
+        {
+            juce::PopupMenu::Item it (txt);
+            it.itemID = id;
+            it.isEnabled = enabled;
+            it.colour = juce::Colour (0xff8f96a4);
+            menu.addItem (it);
+        };
+        cmd (kRenameId,     "Rename...",        ownPreset);
+        cmd (kRenameId + 2, "Delete...",        ownPreset);      // Runde 156
+        cmd (kRenameId + 1, "Preset Folder..."  , true);
     }
 
     // Runde 157 (User: "klappt nach oben auf, geht an den Bildschirmrand"):
@@ -2882,7 +2890,9 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
     // "Pfeil runter" fuehrt die Markierung auf das geladene Preset.
     if (autoOpen)
     {
-        juce::MessageManager::callAsync ([openFolderPos]
+        // Runde 161: mit kleiner Verzoegerung - das Menuefenster ist dann
+        // sicher sichtbar und im Vordergrund.
+        juce::Timer::callAfterDelay (60, [openFolderPos]
         {
             auto* m = juce::Component::getCurrentlyModalComponent();
             if (m == nullptr || m->getName() != "menu")
@@ -4359,6 +4369,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayPairButton.setClickingTogglesState (true);
     rayPairButton.getProperties().set ("softChip", true);    // Runde 108: blau = gekoppelt
     rayPairButton.getProperties().set ("hdrIcon", 2);        // Runde 110: Kettenglieder
+    rayPairButton.getProperties().set ("hdrTextSize", 11.5); // Runde 161
     rayPairButton.setWantsKeyboardFocus (false);
     content.addAndMakeVisible (rayPairButton);
     rayPairAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_PAIR, rayPairButton);
@@ -4370,6 +4381,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     rayFastButton.getProperties().set ("altAccent", true);   // Gold, PAIR bekommt den Hauptakzent
     rayFastButton.getProperties().set ("softChip", true);    // Runde 108: moderne Form
     rayFastButton.getProperties().set ("hdrIcon", 1);        // Runde 110: Doppelpfeil
+    rayFastButton.getProperties().set ("hdrTextSize", 11.5); // Runde 161
     rayFastButton.setTooltip ("Fast: runs the current character 30% quicker");
     content.addAndMakeVisible (rayFastButton);
     rayFastAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_RAY_FAST, rayFastButton);
@@ -4621,6 +4633,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     lcrEqButton.getProperties().set ("headerPillW", 86);
     lcrEqButton.getProperties().set ("softChip", true);
     lcrEqButton.getProperties().set ("hdrIcon", 2);           // nur der Name
+    lcrEqButton.getProperties().set ("hdrTextSize", 11.5);    // Runde 161 (User): Schrift war zu klein
     lcrEqButton.setTooltip ("EQ to LCR: the Mid-Side EQ works on Center and Sides of the LCR Matrix instead of Mid and Side");
     content.addAndMakeVisible (lcrEqButton);
     lcrEqAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_LCR, lcrEqButton);
@@ -5391,7 +5404,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // nicht bedienbar, so sieht man sofort "hier passiert nichts".
     const bool msEqFlatNow = sideeq::isFlat ((int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
     setSectionOff (msEqAmtSlider,   msEqLive && ! msEqFlatNow);
-    msEqAmtSlider.setEnabled (! msEqFlatNow);
+    // Runde 161 (User): bei FLAT grau, aber weiter bewegbar (vorwaehlen).
     setSectionOff (msEqPowerButton, isWidthBoostOn || eqInLcrLive);
     // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
     setSectionOff (lcrEqButton, isLcrOn);
@@ -7368,8 +7381,10 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Runde 103 (User): Breathe ist weg, die Zeile heisst jetzt
         // Bypass - Wuerfel - Life - Mod. Der Wuerfel darf etwas groesser sein,
         // LIFE genauso gross wie die frueheren Mod-Regler in den Sektionen.
-        constexpr int kDiceW   = 48;   // Runde 153: Wuerfel so gross wie LIFE (+ Platz fuer die Umlaufbahn)
-        constexpr int kLifeW   = 36;
+        // Runde 161 (User: "oben wirkt alles zu gross"): Wuerfel wieder so
+        // breit wie die Icon-Knoepfe, LIFE etwas kleiner.
+        constexpr int kDiceW   = 36;
+        constexpr int kLifeW   = 32;
         constexpr int kLiveW   = kIconBtnW + kGap + kDiceW + kGap + kLifeW + kGap + kIconBtnW;
         constexpr int kGalaxyGap = 12;
         constexpr int kGalaxyW = 62;
@@ -7402,7 +7417,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Parallax und RAYE. Dafuer sind die vier Chips ueber dem Sternenfeld
         // weg, und das Feld bekommt deren Hoehe zurueck.
         {
-            const int cw = 176, cbH = 30;   // Runde 113: etwas breiter (User: "etwas groesser")
+            const int cw = 128, cbH = 30;   // Runde 161 (User): Klickzone reichte fast bis zum Preset-Pfeil - nur so breit wie Icon/Name
             // Vorlaeufige Lage - Runde 119 zentriert das Profil unten in
             // layoutContent() neu (nach dem Sternenfeld). Runde 115: mittig zwischen dem
             // Ende des Slogans (breiteste Zeile der Wortmarke) und dem
@@ -8506,7 +8521,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         msEqX2Button.setVisible (false);
         // Runde 159 (User): kein eigener An/Aus-Schalter mehr - "aus" ist
         // FLAT. Der Fader bleibt an seinem Platz, Power-Platz bleibt frei.
-        hb.removeFromLeft (26);
+        hb.removeFromLeft (4);   // Runde 161 (User): Fader darf breiter sein
         msEqPowerButton.setVisible (false);
         msEqPowerButton.setBounds ({});
         msEqAmtSlider.setBounds (hb.withSizeKeepingCentre (hb.getWidth(), 18));

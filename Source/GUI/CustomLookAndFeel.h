@@ -721,7 +721,7 @@ public:
             }
             else if (! button.getProperties().getWithDefault ("noPlate", false))
                 drawSmallIconPlate (g, b, ! off, off);
-            b = b.reduced (s2 * 0.24f);
+            b = b.reduced (s2 * 0.18f);   // Runde 161 (User): Icon etwas groesser (0.24 -> 0.18)
             auto box = b.withSizeKeepingCentre (b.getWidth(), b.getHeight() * 0.62f);
             juce::Colour col = glowStyle ? (off ? iconOffColour().withAlpha (0.55f)
                                                 : themePalette().frameRaye.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f))
@@ -782,7 +782,7 @@ public:
             }
             else if (! button.getProperties().getWithDefault ("noPlate", false))
                 drawSmallIconPlate (g, b, on && ! off, off);
-            b = b.reduced (s2 * 0.26f);
+            b = b.reduced (s2 * 0.20f);   // Runde 161 (User): Icon etwas groesser (0.26 -> 0.20)
             juce::Colour col = glowStyle ? ((on && ! off) ? pairAccentColour().interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f)
                                                           : iconOffColour().withAlpha (0.60f))
                                          : smallIconColour (on && ! off);
@@ -1066,7 +1066,9 @@ public:
                 // an (Runde 111) - fuer Text-Schalter und Ø gleich.
                 if (! secOff && (lit || hot))
                 {
-                    const float a0 = lit ? (shouldDrawButtonAsDown ? 0.075f : hot ? 0.062f : 0.05f) : 0.022f;
+                    // Runde 161 (User): OeL/OeR minimal weniger Schein.
+                    const float a0 = (lit ? (shouldDrawButtonAsDown ? 0.075f : hot ? 0.062f : 0.05f) : 0.022f)
+                                     * (phase ? 0.72f : 1.0f);
                     for (int k = 0; k < 4; ++k)
                     {
                         auto rr = lb.reduced (2.0f + 2.2f * (float) k, 1.0f + 1.2f * (float) k);
@@ -1723,8 +1725,11 @@ public:
                             const juce::String& shortcutKeyText, const juce::Drawable* icon,
                             const juce::Colour* textColourToUse) override
     {
-        juce::ignoreUnused (shortcutKeyText, icon, textColourToUse);
+        juce::ignoreUnused (shortcutKeyText, icon);
         const auto pal = themePalette();
+        // Runde 161 (User): Eintraege mit eigener Farbe (Rename, Delete,
+        // Preset Folder) sind Befehle, keine Presets - kleiner und leiser.
+        const bool subtle = textColourToUse != nullptr && textColourToUse->getAlpha() > 0;
         auto r = area.toFloat().reduced (5.0f, 1.0f);
 
         if (isSeparator)
@@ -1741,9 +1746,12 @@ public:
         }
 
         juce::Colour col = isActive ? juce::Colour (0xffdfe3ea) : juce::Colour (0xff6d7280);
+        if (subtle)
+            col = ! isActive ? juce::Colour (0xff4e535d)
+                : isHighlighted ? juce::Colour (0xffc3c8d2) : *textColourToUse;
         if (isTicked) col = pal.knob;
         g.setColour (col);
-        g.setFont (getPopupMenuFont());
+        g.setFont (subtle ? getPopupMenuFont().withHeight (13.5f) : getPopupMenuFont());
         auto textArea = r.withTrimmedLeft (24.0f).withTrimmedRight (hasSubMenu ? 20.0f : 6.0f);
         g.drawText (text, textArea, juce::Justification::centredLeft, true);
 
@@ -2152,6 +2160,11 @@ public:
                 else
                 {
                     // Runde 111: nur der Name, mittig.
+                    // Runde 161 (User: "EQ -> LCR, FAST, LINK zu klein"):
+                    // eigene Schriftgroesse per Property.
+                    if (button.getProperties().contains ("hdrTextSize"))
+                        g.setFont (juce::Font (juce::FontOptions ((float) (double) button.getProperties()["hdrTextSize"],
+                                                                  juce::Font::bold)).withExtraKerningFactor (0.10f));
                     g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
                 }
                 return;
@@ -3320,51 +3333,56 @@ public:
 
     void drawMutateContent (juce::Graphics& g, juce::Button& button)
     {
-        // Runde 157 (User: Wuerfel "D1"): Linienstil wie Power, Life und Mod
-        // daneben. Vier Felder als Umriss; mit Smart-Profil fuellen sich zwei
-        // davon in der Profilfarbe. Welche zwei, wechselt mit jedem Wurf
-        // (mutateColorState) - der Klick bleibt sichtbar. Kein Glow, keine
-        // Umlaufbahn mehr (die gehoert dem Profil-Icon).
-        const bool bigCube = button.getProperties().getWithDefault ("mutateBig", false);
-        auto bounds = button.getLocalBounds().toFloat().reduced (bigCube ? 16.0f : 10.0f, bigCube ? 2.0f : 6.0f);
-        const int colorState = (int) button.getProperties().getWithDefault ("mutateColorState", 0b0101);
+        // Runde 161 (User: D1 "gefaellt mir gar nicht", "probier deinen"):
+        // ein echter Wuerfel (D2) - abgerundetes Quadrat mit Augen, im
+        // Linienstil der Nachbar-Icons und etwa so gross wie Power. Jeder Wurf
+        // zeigt eine andere Augenzahl (mutateColorState). Mit Smart-Profil
+        // leuchtet er in der Profilfarbe, leicht gefuellt und mit Schein;
+        // ohne Profil steht er gedaempft in derselben Farbe.
+        const auto lb = button.getLocalBounds().toFloat();
+        const int colorState = (int) button.getProperties().getWithDefault ("mutateColorState", 4);
         const bool armed = button.getProperties().getWithDefault ("categoryArmed", false);
         const bool hot   = button.isOver() || button.isDown();
+        const auto acc   = themePalette().knob;
 
-        const float cell = juce::jmin (bounds.getWidth() * 0.42f, bounds.getHeight() * (bigCube ? 0.60f : 0.42f));
-        const float gap = cell * 0.30f;
-        const float gridW = cell * 2.0f + gap;
-        const float gridH = cell * 2.0f + gap;
-        const float x0 = bounds.getCentreX() - gridW * 0.5f;
-        const float y0 = bounds.getCentreY() - gridH * 0.5f;
-        const float stroke = juce::jmax (1.4f, cell * 0.17f);
-        const float corner = cell * 0.24f;
+        const float side = juce::jmin (21.0f, juce::jmin (lb.getWidth(), lb.getHeight()) * 0.64f);
+        const auto  c    = lb.getCentre();
+        const juce::Rectangle<float> die (c.x - side * 0.5f, c.y - side * 0.5f, side, side);
+        const float corner = side * 0.26f;
+        const float stroke = juce::jmax (1.3f, side * 0.075f);
 
-        // Die sechs Muster mit genau zwei Feldern (Diagonalen zuerst).
-        static constexpr int kPairs[6] = { 0b1001, 0b0110, 0b0011, 0b1100, 0b0101, 0b1010 };
-        const int filled = kPairs[((colorState % 6) + 6) % 6];
+        if (armed)
+            softIconGlow (g, c, juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f, acc, hot ? 1.2f : 0.85f);
 
-        const juce::Colour prof = themePalette().knob;
-        const juce::Colour line = armed ? (hot ? prof.brighter (0.15f) : prof)
-                                        : (hot ? juce::Colour (0xffc3c8d2) : juce::Colour (0xff8f96a4));
-        const bool sectionsVariant = button.getProperties().getWithDefault ("mutateSectionsIcon", false);
-
-        for (int bit = 0; bit < 4; ++bit)
+        const juce::Colour col = armed ? acc.interpolatedWith (juce::Colour (0xfff2f4f8), hot ? 0.28f : 0.14f)
+                                       : acc.withAlpha (hot ? 0.95f : 0.70f);
+        if (armed)
         {
-            const int row = bit / 2, col = bit % 2;
-            juce::Rectangle<float> r (x0 + (float) col * (cell + gap), y0 + (float) row * (cell + gap), cell, cell);
-            const bool greyed = sectionsVariant && (bit == 1 || bit == 2);
-            if (armed && ! greyed && ((filled >> bit) & 1) != 0)
-            {
-                g.setColour (prof);
-                g.fillRoundedRectangle (r.expanded (stroke * 0.5f), corner + stroke * 0.5f);
-            }
-            else
-            {
-                g.setColour (greyed ? juce::Colour (0xff4a4e57) : line);
-                g.drawRoundedRectangle (r, corner, stroke);
-            }
+            g.setColour (acc.withAlpha (0.14f));
+            g.fillRoundedRectangle (die, corner);
         }
+        g.setColour (col);
+        g.drawRoundedRectangle (die.reduced (stroke * 0.5f), corner, stroke);
+
+        // Augen: 3x3-Raster, Augenzahl 1..6 wechselt mit jedem Wurf.
+        const int face = ((colorState % 6) + 6) % 6 + 1;
+        static constexpr int kFaces[7][9] = {
+            {0,0,0, 0,0,0, 0,0,0},
+            {0,0,0, 0,1,0, 0,0,0},   // 1
+            {1,0,0, 0,0,0, 0,0,1},   // 2
+            {1,0,0, 0,1,0, 0,0,1},   // 3
+            {1,0,1, 0,0,0, 1,0,1},   // 4
+            {1,0,1, 0,1,0, 1,0,1},   // 5
+            {1,0,1, 1,0,1, 1,0,1} }; // 6
+        const float step = side * 0.25f;
+        const float pr   = juce::jmax (1.2f, side * 0.085f);
+        for (int i = 0; i < 9; ++i)
+            if (kFaces[face][i] != 0)
+            {
+                const float px = c.x + (float) (i % 3 - 1) * step;
+                const float py = c.y + (float) (i / 3 - 1) * step;
+                g.fillEllipse (px - pr, py - pr, pr * 2.0f, pr * 2.0f);
+            }
     }
 
     // Inhalt des Breathe-Buttons (User-Wunsch, 2. Anlauf: "Fuege einen
