@@ -5091,60 +5091,14 @@ void LCRMSAudioProcessorEditor::updateUndoRedoButtonStates()
 juce::Font LCRMSAudioProcessorEditor::sectionTitleFont() { return titleFont(); }
 juce::Font LCRMSAudioProcessorEditor::paramLabelFont()   { return paramFont(); }
 
-// Runde 150 (Footer-Variante 3, User): unter Mix, Pan und Vol steht beim
-// Ueberfahren oder Drehen der Wert in der Akzentfarbe statt des Namens.
-// Nur Text und Farbe tauschen - kein Layout, keine eigene Komponente.
-void LCRMSAudioProcessorEditor::updateFooterValueLabels()
-{
-    struct Item { juce::Slider* s; juce::Label* l; int kind; };
-    const Item items[] = { { &mixSlider, &mixLabel, 0 }, { &panSlider, &panLabel, 1 }, { &volSlider, &volLabel, 2 } };
-    for (const auto& it : items)
-    {
-        auto& props = it.l->getProperties();
-        const bool active = it.s->isShowing() && it.s->isEnabled() && it.s->isMouseOverOrDragging();
-        const bool wasActive = props.getWithDefault ("showsValue", false);
-        if (active)
-        {
-            if (! wasActive)
-            {
-                props.set ("restText", it.l->getText());
-                props.set ("restColour", (int) it.l->findColour (juce::Label::textColourId).getARGB());
-                props.set ("showsValue", true);
-                it.l->setColour (juce::Label::textColourId, themePalette().knob);
-            }
-            const double v = it.s->getValue();
-            juce::String txt;
-            if (it.kind == 0)
-                txt = juce::String (juce::roundToInt (v)) + " %";
-            else if (it.kind == 1)
-            {
-                const int pv = juce::roundToInt (v);
-                txt = pv < 0 ? "L " + juce::String (-pv) : pv > 0 ? "R " + juce::String (pv) : juce::String ("C");
-            }
-            else
-            {
-                const double d = std::abs (v) < 0.05 ? 0.0 : v;
-                txt = (d > 0.0 ? "+" : "") + juce::String (d, 1) + " dB";
-            }
-            if (it.l->getText() != txt)
-                it.l->setText (txt, juce::dontSendNotification);
-        }
-        else if (wasActive)
-        {
-            it.l->setText (props.getWithDefault ("restText", it.l->getText()).toString(), juce::dontSendNotification);
-            it.l->setColour (juce::Label::textColourId,
-                             juce::Colour ((juce::uint32) (int) props.getWithDefault ("restColour", (int) 0xffa9aeb8)));
-            props.set ("showsValue", false);
-        }
-    }
-}
-
 void LCRMSAudioProcessorEditor::timerCallback()
 {
     // Runde 143: die Sterne ums Smart-Profil funkeln - nur ihr kleiner Bereich.
     if (! profileStarsArea.isEmpty() && categoryButton.isVisible())
         content.repaint (profileStarsArea);
-    updateFooterValueLabels();
+    // Runde 152: mit Smart-Profil kreist ein Planet um den Wuerfel.
+    if (mutateCategoryValue > 0 && globalChaosButton.isShowing())
+        globalChaosButton.repaint();
     updateHintBar();
     bool needsRepaint = false;
 

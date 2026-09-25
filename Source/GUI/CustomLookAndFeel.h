@@ -3314,16 +3314,49 @@ public:
         const float x0 = bounds.getCentreX() - gridW * 0.5f;
         const float y0 = bounds.getCentreY() - gridH * 0.5f;
 
-        if (button.getProperties().getWithDefault ("categoryArmed", false))
+        // Runde 152 (User: Variante A): mit Smart-Profil bekommt der Wuerfel
+        // dieselbe Umlaufbahn wie das Profil-Icon - man sieht sofort, dass
+        // beide zusammengehoeren. Gleiche Neigung, gleiche 14 s, gleiche Phase
+        // wie der Planet am Profil. Hinterer Teil der Bahn liegt unter den
+        // Feldern, der Planet verschwindet hinten hinter dem Wuerfel.
+        // (Ersetzt den Glow aus Runde 139/150.)
+        const bool armedOrbit = button.getProperties().getWithDefault ("categoryArmed", false);
+        juce::Point<float> planet;
+        float planetFront = 0.0f, orbitRx = 0.0f;
+        juce::AffineTransform orbitRot;
+        const auto orbitCol = themePalette().knob;
+        if (armedOrbit)
         {
-            // Runde 139 (User: "muss staerker glowen, war mal mehr"): kraeftiger
-            // Hof plus ein enger heller Kern, in der Farbe des Smart-Profils.
-            // (Runde 150 hatte Einzel-Glows + Atmen - User: "nicht besser", zurueck.)
             const auto lb = button.getLocalBounds().toFloat();
-            const float rr = juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f;
-            softIconGlow (g, lb.getCentre(), rr,         themePalette().knob, 2.2f);
-            softIconGlow (g, lb.getCentre(), rr * 0.62f, themePalette().knob, 1.4f);
+            const auto c  = juce::Point<float> (x0 + gridW * 0.5f, y0 + gridH * 0.5f);
+            orbitRx = juce::jmin (gridW * 0.95f, lb.getWidth() * 0.5f - 6.0f);
+            const float ry = juce::jmax (3.0f, gridH * 0.30f);
+            orbitRot = juce::AffineTransform::rotation (juce::degreesToRadians (-10.0f), c.x, c.y);
+            juce::Path orbit;
+            orbit.addEllipse (c.x - orbitRx, c.y - ry, orbitRx * 2.0f, ry * 2.0f);
+            orbit.applyTransform (orbitRot);
+            g.setColour (orbitCol.withAlpha (0.42f));
+            g.strokePath (orbit, juce::PathStrokeType (1.0f));
+
+            const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            const float th = (float) (juce::MathConstants<double>::twoPi * std::fmod (tSec, 14.0) / 14.0);
+            planet = { c.x + orbitRx * std::cos (th), c.y + ry * std::sin (th) };
+            planet.applyTransform (orbitRot);
+            planetFront = 0.5f + 0.5f * std::sin (th);   // unten = vorne
         }
+        auto drawPlanet = [&]
+        {
+            const float a  = 0.35f + 0.65f * planetFront;
+            const float pr = 1.6f + 0.6f * planetFront;
+            juce::ColourGradient pg (orbitCol.withAlpha (a * 0.45f), planet.x, planet.y,
+                                     orbitCol.withAlpha (0.0f), planet.x + pr * 2.6f, planet.y, true);
+            g.setGradientFill (pg);
+            g.fillEllipse (planet.x - pr * 2.6f, planet.y - pr * 2.6f, pr * 5.2f, pr * 5.2f);
+            g.setColour (orbitCol.withAlpha (a));
+            g.fillEllipse (planet.x - pr, planet.y - pr, pr * 2.0f, pr * 2.0f);
+        };
+        if (armedOrbit && planetFront < 0.5f)
+            drawPlanet();                                // hinten: unter den Feldern
 
         for (int row = 0; row < 2; ++row)
         {
@@ -3349,6 +3382,8 @@ public:
                 g.fillRoundedRectangle (r, cell * 0.2f);
             }
         }
+        if (armedOrbit && planetFront >= 0.5f)
+            drawPlanet();                                // vorne: ueber den Feldern
     }
 
     // Inhalt des Breathe-Buttons (User-Wunsch, 2. Anlauf: "Fuege einen
