@@ -191,6 +191,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     // erst nach Konstruktion angewendet werden kann (es ersetzt den
     // gesamten State-Baum).
     factoryState = apvts.copyState();
+    apvts.addParameterListener (ID_GALAXY_ACTIVATE, this);
 
     juce::Timer::callAfterDelay (60, [this]
     {
@@ -209,6 +210,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
                 {
                     apvts.replaceState (tree);
                     appliedFullDefault = true;
+                    reportLatencyForCurrentState();   // Runde 107, siehe Header
                 }
             }
         }
@@ -2670,6 +2672,7 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     bendL.reset();
     bendR.reset();
     elevateStateL = {}; elevateStateR = {};
+    msEqMidHs = {}; msEqSideLs = {}; msEqSideHs = {};
     prismGalHpL = {}; prismGalLpL = {}; prismGalHpR = {}; prismGalLpR = {};
     prismDimHp = {}; prismDimLp = {};
     prismPosHp = {}; prismPosLp = {};
@@ -2853,6 +2856,9 @@ void LCRMSAudioProcessor::setStateInformation (const void* data, int sizeInBytes
     }
 
     apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    // Runde 107: die Latenz sofort melden - nicht erst im ersten Audio-Block,
+    // sonst uebernimmt die DAW sie erst nach dem ersten Stop (User-Bug).
+    reportLatencyForCurrentState();
 
     if (found && newA.isValid() && newB.isValid())
     {
@@ -2870,6 +2876,31 @@ void LCRMSAudioProcessor::setStateInformation (const void* data, int sizeInBytes
         abCurrentIsA = true;
         abRestored   = false;
     }
+}
+
+LCRMSAudioProcessor::~LCRMSAudioProcessor()
+{
+    apvts.removeParameterListener (ID_GALAXY_ACTIVATE, this);
+}
+
+void LCRMSAudioProcessor::reportLatencyForCurrentState()
+{
+    const bool armed  = pGalaxyActivate != nullptr && pGalaxyActivate->load() > 0.5f;
+    const int  needed = armed ? lcrExtractor.getLatencySamples() : 0;
+    if (needed != lastReportedLatency)
+    {
+        setLatencySamples (needed);
+        lastReportedLatency = needed;
+    }
+}
+
+// Die LCR-Engine wird ein- oder ausgeschaltet: Latenz sofort melden, auch
+// wenn gerade kein Audio laeuft (Cubase setzt Plugins ohne Signal aus - dann
+// kaeme der erste Block und damit die Meldung erst beim naechsten Play).
+void LCRMSAudioProcessor::parameterChanged (const juce::String& parameterID, float)
+{
+    if (parameterID == ID_GALAXY_ACTIVATE)
+        reportLatencyForCurrentState();
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

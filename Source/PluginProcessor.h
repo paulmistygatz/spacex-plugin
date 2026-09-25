@@ -34,11 +34,12 @@ struct GonioRingBuffer
  #define SPACEX_CPU_OPT 1     // 1 = SpaceXparaCPU: optimierte DSP
 #endif
 
-class LCRMSAudioProcessor : public juce::AudioProcessor
+class LCRMSAudioProcessor : public juce::AudioProcessor,
+                            private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     LCRMSAudioProcessor();
-    ~LCRMSAudioProcessor() override = default;
+    ~LCRMSAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -850,6 +851,14 @@ private:
 
     double currentSampleRate = 44100.0;
     int lastReportedLatency = -1;
+    // Runde 107 (User-Bug: "nach dem Laden klingt der erste Play-Durchlauf
+    // phasig, nach Stop/Play ist es weg"): die Latenz wurde nur im Audio-
+    // Thread gemeldet, also erst beim ersten Block NACH dem Laden. Die DAW
+    // uebernimmt eine Latenzaenderung aber erst beim naechsten Stop - bis
+    // dahin lag die Spur um die FFT-Laenge verschoben. Jetzt wird sie sofort
+    // gemeldet, sobald der Zustand feststeht.
+    void reportLatencyForCurrentState();
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     // Auto-Pan LFO Phase
     double autoPanPhase = 0.0;
