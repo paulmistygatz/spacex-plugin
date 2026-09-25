@@ -44,6 +44,10 @@ public:
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
+    // Runde 170: der Host meldet "Verarbeitung aus" (VST3 setProcessing(false)
+    // ruft reset()). Das ist das verlaessliche Signal fuer eine echte Pause -
+    // die Puffer werden beim naechsten Block geleert, mit sanftem Einblenden.
+    void reset() override { pendingTailClear.store (true, std::memory_order_relaxed); }
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -921,16 +925,43 @@ private:
     // ausgesetzt (Cubase bei Stille/Stop), werden beim Wiedereinstieg alle
     // Zustaende geleert - sonst "entlaedt" sich alter Klang aus den Puffern.
     juce::uint32 gapLastMs = 0;
+    // Runde 170 (User: "Knacken wie ein Maschinengewehr, fast wie dieses
+    // Entladen, 10x hintereinander" - 10 Instanzen): die Uhr-basierte
+    // Pausen-Erkennung aus Runde 144 loeste bei Cubase (ASIO-Guard rechnet
+    // voraus und in Schueben) auch MITTEN im Signal aus. Jede Instanz leerte
+    // dann hart ihre Puffer = ein Knacks pro Instanz. Jetzt:
+    //  1) Hauptweg ist reset() vom Host (s.o.).
+    //  2) Die Uhr bleibt nur als Notnetz fuer Hosts ohne setProcessing, mit
+    //     3 s statt 0,5 s Schwelle.
+    //  3) Egal welcher Weg: nach dem Leeren wird der Ausgang ueber 20 ms
+    //     eingeblendet - ein Leeren kann nie mehr knacken.
+    std::atomic<bool> pendingTailClear { false };
+    float resumeFadeGain = 1.0f;
     void clearIfProcessingWasSuspended (int numSamples) noexcept
     {
         const juce::uint32 now = juce::Time::getMillisecondCounter();
         const juce::uint32 prev = gapLastMs;
         gapLastMs = now;
-        if (prev == 0 || currentSampleRate <= 0.0) return;
-        const double blockMs = 1000.0 * (double) numSamples / currentSampleRate;
-        const double limitMs = juce::jmax (500.0, 4.0 * blockMs);
-        if ((double) (now - prev) > limitMs)
+        bool doClear = pendingTailClear.exchange (false, std::memory_order_relaxed);
+        if (prev != 0 && currentSampleRate > 0.0)
+        {
+            const double blockMs = 1000.0 * (double) numSamples / currentSampleRate;
+            const double limitMs = juce::jmax (3000.0, 8.0 * blockMs);
+            if ((double) (now - prev) > limitMs)
+                doClear = true;
+        }
+        if (doClear)
+        {
             clearDspTails();
+            resumeFadeGain = 0.0f;
+        }
+    }
+    void applyResumeFade (juce::AudioBuffer<float>& buffer, int numSamples) noexcept
+    {
+        if (resumeFadeGain >= 1.0f || currentSampleRate <= 0.0) return;
+        const float to = juce::jmin (1.0f, resumeFadeGain + (float) numSamples / (0.020f * (float) currentSampleRate));
+        buffer.applyGainRamp (0, numSamples, resumeFadeGain, to);
+        resumeFadeGain = to;
     }
 
     // One-Pole-Tiefpass fuer "Distance" (Naehe/Ferne) - Koeffizient ebenfalls

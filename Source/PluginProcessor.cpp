@@ -2712,6 +2712,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         }
     }
 
+    applyResumeFade (buffer, numSamples);   // Runde 170
     currentOutputLevel.store (buffer.getMagnitude (0, numSamples), std::memory_order_relaxed);
 
     // Lebenszeichen fuer das Starfield - siehe lastProcessBlockMs im Header.
@@ -2889,8 +2890,9 @@ void LCRMSAudioProcessor::updateVisualMeters (const float* leftBuf, const float*
 
 void LCRMSAudioProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-    clearIfProcessingWasSuspended (buffer.getNumSamples());   // Runde 144
+    clearIfProcessingWasSuspended (buffer.getNumSamples());   // Runde 144/170
     passthroughWithLatencyCompensation (buffer);
+    applyResumeFade (buffer, buffer.getNumSamples());
 }
 
 juce::AudioProcessorEditor* LCRMSAudioProcessor::createEditor()
