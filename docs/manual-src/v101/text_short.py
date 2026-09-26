@@ -6,7 +6,7 @@ SECTIONS_INTRO = "Every section: click the name to switch it on or off, Cmd-clic
 SECTIONS = [
     ("LCR Matrix",
      "Splits the image into a real centre and real sides - not just mid-side. Runs while **LCR** is armed in the header, "
-     "which adds latency. **L/R** sets how much of the sides you keep, **C-Weight** how firmly the centre is held, "
+     "which adds latency. **LCR** sets how much of the sides you keep - the bars show centre and sides, **C-Weight** how firmly the centre is held, "
      "**HF Regain** brings back the highs the split takes away. **EQ → LCR** puts the Sides EQ on this split."),
     ("Polarity",
      "Flips the phase of the left or right side. **PRE / POST** decides whether that happens before or after Micropitch and "
@@ -16,7 +16,7 @@ SECTIONS = [
      "hand-tuned trick: **Velvet** gentle and close, **Halo** a soft ring that holds up in a full mix, **Illusion** wider than "
      "it is but tight, **Double** the widest with the most character. Pick one, turn **Amount**."),
     ("Mid-Side",
-     "**Width** opens or narrows the image, **Sides** lifts the sides without touching the centre. The Sides EQ curves were "
+     "**Width** opens or narrows the image - the wedge shows how wide, **Sides** lifts the sides without touching the centre. The Sides EQ curves were "
      "picked by ear for real mix problems: **Tight** cleans the lows, **Clear** adds air, **Focus** gives a calmer, brighter "
      "centre. The small fader sets how strong - left is gentle."),
     ("Autopan",
@@ -43,7 +43,8 @@ CONTROL = [
      "Sorted in folders. The arrows step through the current folder, a star means you changed something, **Save** lets you "
      "pick the folder. **A/B** compares two versions."),
     ("Settings",
-     "Theme, LCR On Startup, Show Modulation, Save State as Default - plus the Tour, this manual and the Back Panel."),
+     "Theme, Brightness, LCR On Startup, Show Modulation, Save State as Default - plus the Tour, this manual and the Back Panel. "
+     "Under **Beta** you find experimental options that may change."),
     ("Help",
      "Click the **?** at the bottom left and hover anything for a short hint."),
 ]

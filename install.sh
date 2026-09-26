@@ -49,6 +49,23 @@ sudo rm -rf "$DST/SpaceXout.vst3" "$DST/SpaceXin.vst3" \
 
 echo "OK -> $DST/$NAME"
 
+# 1.0.1: Audio Unit (nur Mac) nach /Library/Audio/Plug-Ins/Components.
+AU_NAME="SpaceX.component"
+AU_SRC="build/LCRMSPlugin_artefacts/Release/AU/$AU_NAME"
+[ -d "$AU_SRC" ] || AU_SRC="build/LCRMSPlugin_artefacts/AU/$AU_NAME"
+AU_DST="/Library/Audio/Plug-Ins/Components"
+if [ -d "$AU_SRC" ]; then
+    sudo rm -rf "$AU_DST/$AU_NAME"
+    sudo mkdir -p "$AU_DST"
+    sudo cp -R "$AU_SRC" "$AU_DST/"
+    rm -rf "$HOME/Library/Audio/Plug-Ins/Components/$AU_NAME" 2>/dev/null || true
+    # macOS merkt sich Audio Units - ohne das sieht Logic die neue Fassung oft erst nach einem Neustart.
+    killall -9 AudioComponentRegistrar 2>/dev/null || true
+    echo "OK -> $AU_DST/$AU_NAME"
+else
+    echo "Hinweis: kein AU gebaut ($AU_SRC fehlt)."
+fi
+
 # Kurzer Selbsttest: beide Architekturen drin, und wie alt darf das Ziel-macOS
 # sein? Ohne das faellt "laeuft nur auf meinem Rechner" erst beim Kollegen auf.
 "$(dirname "$0")/tools/check_binary.sh" "$DST/$NAME/Contents/MacOS/SpaceX" 2>/dev/null || true

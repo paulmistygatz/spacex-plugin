@@ -19,7 +19,7 @@ if (APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version" FORCE)
 endif()
 
-project(LCRMSPlugin VERSION 1.0.0 LANGUAGES C CXX)
+project(LCRMSPlugin VERSION 1.0.1 LANGUAGES C CXX)
 
 # Review 1.0.1: Ohne Build-Typ baut ein Makefile-/Ninja-Generator OHNE
 # Optimierung (-O0) - "cmake --build ... --config Release" wirkt nur bei
@@ -120,6 +120,13 @@ if (SPX_OWN)
     set(SPX_EXTRA BUNDLE_ID "${SPX_BUNDLE}")
 endif()
 
+# 1.0.1: auf dem Mac zusaetzlich Audio Unit (Logic, GarageBand, Final Cut ...).
+if (APPLE)
+    set(SPX_FORMATS VST3 AU)
+else()
+    set(SPX_FORMATS VST3)
+endif()
+
 juce_add_plugin(LCRMSPlugin
     COMPANY_NAME "Mistycat"
     # ACHTUNG: der Hersteller-Code geht in die eindeutige Plugin-ID ein. Mit
@@ -128,7 +135,7 @@ juce_add_plugin(LCRMSPlugin
     # nicht nach dem Verkaufsstart.
     PLUGIN_MANUFACTURER_CODE Mcat
     PLUGIN_CODE ${SPX_CODE}
-    FORMATS VST3
+    FORMATS ${SPX_FORMATS}
     PRODUCT_NAME "${SPX_PRODUCT}"
     ${SPX_EXTRA}
     IS_SYNTH FALSE

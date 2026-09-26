@@ -77,13 +77,12 @@ QUICK = [
 
 TOUR = [
     ("Logo", "Click it for the back panel - who built this, which copy it is."),
-    ("Smart profile", "What you are working on. Guides the dice."),
+    ("Smart profile", "What you are working on. Guides the dice and sums it up in one line under the logo."),
     ("Power · Smart dice · Life · Mod", "Bypass, roll, how much it moves, modulation on / off."),
     ("LCR", "Arms the L/C/R engine."),
     ("Presets", "Arrows, list, save."),
     ("Undo · A/B", "Undo / Redo, compare two settings, copy across."),
     ("Settings · Reset", "Themes, behaviour, back to Default."),
-    ("Info line", "Your Smart profile in one sentence."),
     ("Starfield", "Goniometer and correlation - it reacts to everything."),
     ("Output", "Meters, Mono, Dry, Mix, Pan, Vol, AG."),
     ("Sections", "Six stages, top-left to bottom-right."),

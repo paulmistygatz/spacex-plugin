@@ -1,48 +1,93 @@
-# Windows-Build von "Space X" (VST3) auf GitHub Actions.
+# Windows-Build von SpaceX.
 #
-# Einrichtung (einmalig):
-#   1. Projektordner als Git-Repository zu GitHub pushen (der Ordner "build"
-#      sollte in .gitignore stehen).
-#   2. Diese Datei liegt unter .github/workflows/build-windows.yml.
-#   3. GitHub -> Reiter "Actions" -> "Build Windows VST3" -> "Run workflow".
-#      Nach ~10-15 Minuten liegt unter dem Lauf ein Artefakt
-#      "SpaceX-Windows-VST3" (ZIP mit "Space X.vst3") zum Download.
+# Ein VST3 fuer Windows laesst sich vom Mac aus nicht querkompilieren - es
+# braucht einen echten Windows-Rechner mit Visual Studio. GitHub stellt genau
+# den kostenlos als Runner bereit. Jeder Push auf main (oder "Run workflow")
+# baut das Plugin plus einen Installer (.exe) und haengt beides als Download
+# an den Lauf. Ein Tag wie v1.0.1 legt zusaetzlich ein GitHub-Release an.
 #
-# Installation auf Windows: den Ordner "Space X.vst3" nach
-#   C:\Program Files\Common Files\VST3\
-# kopieren und die DAW neu scannen lassen.
-
-name: Build Windows VST3
+# 1.0.1: Vergleichs-Varianten raye1/raye2 gestrichen (gibt es im CMake nicht mehr).
+name: Windows VST3
 
 on:
-  workflow_dispatch:
   push:
-    tags: [ "v*" ]
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  windows:
+  build:
     runs-on: windows-latest
+    name: SpaceX
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure (Visual Studio 2022, x64)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      # JUCE wird von CMake selbst geholt (FetchContent) und zwischengespeichert.
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-9.0.2-${{ runner.os }}
 
-      - name: Build Release
+      - name: Toolchain
+        shell: pwsh
+        run: cmake --version
+
+      # Kein fest verdrahteter Generator (-G ...), sonst bricht es beim naechsten
+      # Visual-Studio-Update des Runner-Images ab.
+      - name: Configure
+        run: cmake -B build -A x64
+
+      - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Collect VST3
+      - name: Collect
         shell: pwsh
         run: |
-          $src = Get-ChildItem -Path build -Recurse -Directory -Filter "Space X.vst3" | Select-Object -First 1
-          if (-not $src) { throw "Space X.vst3 nicht gefunden" }
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item -Recurse -Force $src.FullName dist/
-          Get-ChildItem -Recurse dist | Select-Object FullName
+          $name  = "SpaceX.vst3"
+          $found = Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -Directory -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $found) {
+            Write-Host "$name nicht gefunden - Inhalt von build\LCRMSPlugin_artefacts:"
+            Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            throw "$name nicht gefunden"
+          }
+          Write-Host "Gefunden: $($found.FullName)"
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item -Recurse -Force -Path $found.FullName -Destination out\
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      # Installer (.exe) mit Inno Setup. Version kommt aus CMakeLists.txt.
+      - name: Installer
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path CMakeLists.txt -Pattern 'project\(LCRMSPlugin VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          Write-Host "Version $ver"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup nicht gefunden" }
+          & $iscc "/DMyVersion=$ver" installer\windows\SpaceX.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC fehlgeschlagen" }
+          Get-ChildItem dist\*.exe
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: SpaceX-Windows-VST3
-          path: dist/
+          name: SpaceX-VST3-Windows
+          path: out/
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpaceX-Windows-Installer
+          path: dist/*.exe
+          if-no-files-found: error
+
+      # Nur bei einem Tag (z. B. v1.0.1): Release mit dem Installer anlegen.
+      # Das Repo ist privat - das Release sehen nur Leute mit Zugriff.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          draft: true

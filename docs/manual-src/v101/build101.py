@@ -177,9 +177,10 @@ page('''
        ''.join('<div><i></i><h3>%s</h3><p>%s</p></div>' % (e(a), e(b)) for a, b in COVER_PILLARS), VERSION), cls='cover', foot=False)
 
 # 4 tour -------------------------------------------------------------------------
-HOT = [(30, 30), (835, 88), (1270, 20), (1535, 20), (1320, 170), (1720, 170), (1968, 97),
-       (600, 201), (115, 480), (400, 1105), (1150, 798)]
-hs = ''.join('<span class="num" style="left:%.2f%%;top:%.2f%%">%d</span>' % (x / 20.0, y / 11.57, i + 1) for i, (x, y) in enumerate(HOT))
+# Runde 180: neuer Screenshot (2574 x 1500), Koordinaten auf 2000 Breite gerechnet; Info-Zeile entfaellt
+HOT = [(30, 30), (835, 80), (1270, 22), (1541, 22), (1320, 174), (1705, 174), (1968, 104),
+       (48, 300), (400, 1110), (1150, 808)]
+hs = ''.join('<span class="num" style="left:%.2f%%;top:%.2f%%">%d</span>' % (x / 20.0, y / (2000 * 1500 / 2574 / 100.0), i + 1) for i, (x, y) in enumerate(HOT))
 lg = ''.join('<div><span class="num">%d</span><span><b>%s</b>%s</span></div>' % (i + 1, e(a), e(b)) for i, (a, b) in enumerate(TOUR))
 page('''%s<h1>The one-minute <em>tour.</em></h1>
 <div class="hot"><img class="shot" src="%s">%s</div>

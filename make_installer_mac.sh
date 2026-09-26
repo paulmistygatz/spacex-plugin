@@ -4,6 +4,7 @@
 # Baut aus dem fertigen SpaceX.vst3 eine macOS-Installationsdatei (.pkg).
 # Installiert wird:
 #   /Library/Audio/Plug-Ins/VST3/SpaceX.vst3
+#   /Library/Audio/Plug-Ins/Components/SpaceX.component   (Audio Unit, ab 1.0.1)
 #   /Library/Audio/Plug-Ins/Documentation/SpaceX/SpaceX Manual (EN).pdf
 #
 # Der Dokumentationspfad ist kein Zufall: openManual() im Plugin sucht die
@@ -11,7 +12,7 @@
 # Fassung nach "Application Support" entpackt.
 #
 # Aufruf:     ./make_installer_mac.sh
-# Ergebnis:   dist/SpaceX 1.0.0.pkg
+# Ergebnis:   dist/SpaceX <Version>.pkg (Version aus CMakeLists.txt)
 #
 # Ohne Signatur laeuft das .pkg lokal problemlos; beim Empfaenger meldet
 # sich Gatekeeper (Rechtsklick -> Oeffnen, oder Systemeinstellungen ->
@@ -22,7 +23,10 @@ set -e
 cd "$(dirname "$0")"
 
 PRODUCT="SpaceX"
-VERSION="1.0.0"
+# 1.0.1: Version direkt aus CMakeLists.txt - nie wieder zwei Stellen pflegen.
+VERSION="$(sed -n 's/^project(LCRMSPlugin VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+[ -n "$VERSION" ] || { echo "Fehler: Version in CMakeLists.txt nicht gefunden."; exit 1; }
+IDENT_AU="com.paulmisty.spacex.au"
 IDENT_VST3="com.paulmisty.spacex.vst3"
 IDENT_DOCS="com.paulmisty.spacex.docs"
 INSTALLER_IDENTITY=""          # z. B. "Developer ID Installer: Paul Misty (TEAMID)"
@@ -44,6 +48,10 @@ if [ ! -d "$VST3" ]; then
 fi
 [ -d "$VST3" ] || { echo "Fehler: $PRODUCT.vst3 nicht gefunden."; exit 1; }
 echo "==> Plugin: $VST3"
+AU="build/LCRMSPlugin_artefacts/Release/AU/$PRODUCT.component"
+[ -d "$AU" ] || AU="build/LCRMSPlugin_artefacts/AU/$PRODUCT.component"
+HAVE_AU=0
+if [ -d "$AU" ]; then HAVE_AU=1; echo "==> AU:     $AU"; else echo "Hinweis: kein AU gefunden - Installer nur mit VST3."; fi
 
 # ---- Selbsttest VOR dem Verpacken -------------------------------------
 # Ein Installer mit falscher Mindest-macOS-Version faellt sonst erst beim
@@ -53,9 +61,13 @@ echo "==> Selbsttest:"
 echo ""
 
 # ---- Paketwurzeln bauen ------------------------------------------------
-rm -rf dist/pkgroot-vst3 dist/pkgroot-docs dist/tmp
+rm -rf dist/pkgroot-vst3 dist/pkgroot-au dist/pkgroot-docs dist/tmp
 mkdir -p "dist/pkgroot-vst3/Library/Audio/Plug-Ins/VST3" dist/tmp
 cp -R "$VST3" "dist/pkgroot-vst3/Library/Audio/Plug-Ins/VST3/"
+if [ "$HAVE_AU" = "1" ]; then
+    mkdir -p "dist/pkgroot-au/Library/Audio/Plug-Ins/Components"
+    cp -R "$AU" "dist/pkgroot-au/Library/Audio/Plug-Ins/Components/"
+fi
 
 HAVE_DOCS=0
 if [ -f "$MANUAL_SRC" ]; then
@@ -69,6 +81,10 @@ fi
 echo "==> Baue Komponenten-Pakete ..."
 pkgbuild --root dist/pkgroot-vst3 --identifier "$IDENT_VST3" --version "$VERSION" \
          --install-location / "dist/tmp/$PRODUCT-vst3.pkg"
+if [ "$HAVE_AU" = "1" ]; then
+    pkgbuild --root dist/pkgroot-au --identifier "$IDENT_AU" --version "$VERSION" \
+             --install-location / "dist/tmp/$PRODUCT-au.pkg"
+fi
 if [ "$HAVE_DOCS" = "1" ]; then
     pkgbuild --root dist/pkgroot-docs --identifier "$IDENT_DOCS" --version "$VERSION" \
              --install-location / "dist/tmp/$PRODUCT-docs.pkg"
@@ -84,12 +100,17 @@ fi
   echo '    <choices-outline>'
   echo '        <line choice="default">'
   echo '            <line choice="vst3"/>'
+  [ "$HAVE_AU" = "1" ] && echo '            <line choice="au"/>'
   [ "$HAVE_DOCS" = "1" ] && echo '            <line choice="docs"/>'
   echo '        </line>'
   echo '    </choices-outline>'
   echo '    <choice id="default"/>'
   echo "    <choice id=\"vst3\" visible=\"false\"><pkg-ref id=\"$IDENT_VST3\"/></choice>"
   echo "    <pkg-ref id=\"$IDENT_VST3\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-vst3.pkg</pkg-ref>"
+  if [ "$HAVE_AU" = "1" ]; then
+    echo "    <choice id=\"au\" visible=\"false\"><pkg-ref id=\"$IDENT_AU\"/></choice>"
+    echo "    <pkg-ref id=\"$IDENT_AU\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-au.pkg</pkg-ref>"
+  fi
   if [ "$HAVE_DOCS" = "1" ]; then
     echo "    <choice id=\"docs\" visible=\"false\"><pkg-ref id=\"$IDENT_DOCS\"/></choice>"
     echo "    <pkg-ref id=\"$IDENT_DOCS\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-docs.pkg</pkg-ref>"
@@ -103,6 +124,7 @@ $PRODUCT $VERSION
 Installiert wird:
 
   /Library/Audio/Plug-Ins/VST3/$PRODUCT.vst3
+  /Library/Audio/Plug-Ins/Components/$PRODUCT.component  (Audio Unit)
   /Library/Audio/Plug-Ins/Documentation/$PRODUCT/$MANUAL_DST
 
 Danach die DAW neu starten oder die Plugin-Liste neu scannen lassen.
@@ -125,7 +147,7 @@ else
                  --package-path dist/tmp "$OUT"
 fi
 
-rm -rf dist/pkgroot-vst3 dist/pkgroot-docs dist/tmp
+rm -rf dist/pkgroot-vst3 dist/pkgroot-au dist/pkgroot-docs dist/tmp
 echo ""
 echo "Fertig: $OUT"
 ls -lh "$OUT"

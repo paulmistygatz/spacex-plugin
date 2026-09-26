@@ -967,7 +967,9 @@ private:
             footer.setVisible (false);
             // Runde 64 (User): die Versionsnummer gehoert auf die Rueckseite.
             // Das frei gewordene QR-Label traegt sie jetzt.
-            qrCaption.setText ("Version " + juce::String (JucePlugin_VersionString) + "  \xc2\xb7  VST3",
+            // 1.0.1: Format je nach Wrapper (VST3 oder AU)
+            qrCaption.setText ("Version " + juce::String (JucePlugin_VersionString) + "  \xc2\xb7  "
+                                 + juce::String (juce::AudioProcessor::getWrapperTypeDescription (juce::PluginHostType::getPluginLoadedAs())),
                                juce::dontSendNotification);
             qrCaption.setVisible (true);
 
