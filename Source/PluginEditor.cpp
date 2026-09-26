@@ -2162,7 +2162,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     add (area ({ &volInputMeter, &volOutputMeter, &monoCheckButton, &monoDryButton, &mixSlider,
                  &panSlider, &volSlider, &autoGainButton }), "Listen", "Output",
          "Mono to check, Mix to blend, Vol at the very end. "
-         "AG matches the level, so bypass is a fair comparison.");
+         "Auto Gain (AG) matches the level, so bypass is a fair comparison.");
 
     add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "Presets",
          "35 presets, set by ear on real sessions, sorted in folders. "
