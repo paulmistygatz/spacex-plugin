@@ -663,7 +663,7 @@ private:
 
             behavBtn[1].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
             betaOrbitBtn.setTooltip ("Shows L/R in LCR MATRIX as orbiting planets instead of bars");
-            betaWedgeBtn.setTooltip ("Shows a width wedge inside the Width knob instead of a pointer");
+            betaWedgeBtn.setTooltip ("Width without a ring - you grab the wedge itself");
             betaThrBtn.setTooltip ("C-Weight sets a threshold for what counts as centre - a stronger, audible change. Experimental");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
             labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
@@ -2206,7 +2206,8 @@ private:
     void drawLogo (juce::Graphics& g, juce::Rectangle<float> area);
     void paintContent (juce::Graphics& g);
     void paintOverContent (juce::Graphics& g);
-    void applyBrightness (float v, bool persist);   // Runde 174: Settings > Brightness
+    void applyBrightness (float v, bool persist);
+    bool lastLrOrbitApplied = false, lastWidthWedgeApplied = false;   // Runde 178   // Runde 174: Settings > Brightness
     void layoutContent();
     void setupPowerButton (juce::TextButton& button, const juce::String& paramId,
                             std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& attachment,

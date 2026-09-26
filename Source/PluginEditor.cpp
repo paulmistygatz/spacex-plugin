@@ -1160,7 +1160,7 @@ void LCRMSAudioProcessorEditor::applyLabelStyle()
     put (rayTitleLabel,        "RAYE",       "PHASER");
 
     put (gravityLabel,   "Gravity", "C-Weight");
-    put (orbitLabel,     "Orbit",   "L/R");
+    put (orbitLabel,     "Orbit",   "LCR");   // Runde 178 (User): C gehoert sichtbar dazu
     put (driftLabel,     "Drift",   "Haas");
     put (bendLabel,      "Shift",   "Detune");
     put (offsetLabel,    "Tilt",    "Pan");
@@ -2138,7 +2138,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     forceOn ({ LCRMSAudioProcessor::SOLO_GALAXY });
 
     add (groupLcrArea, "Section 1", L ("LCR Matrix", "Galaxy"),
-         L ("L/R", "Orbit") + " sets how much of the sides you keep, " + L ("C-Weight", "Gravity")
+         L ("LCR", "Orbit") + " shifts the balance from the centre to the sides, " + L ("C-Weight", "Gravity")
          + " how firmly the centre is held, " + L ("HF Regain", "Regain") + " brings back the highs the split takes away.");
     forceOn ({ LCRMSAudioProcessor::SOLO_GALAXY });
 
@@ -3934,6 +3934,9 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     gravitySlider.setDoubleClickReturnValue (true, 50.0, juce::ModifierKeys::commandModifier);
 
     orbitSlider.setSliderStyle (juce::Slider::LinearVertical);
+    // Runde 178 (User-Bug): Klick darf nicht springen - nur Ziehen verstellt,
+    // relativ zur Startposition (wie bei den Drehreglern).
+    orbitSlider.setSliderSnapsToMousePosition (false);
     orbitSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     orbitSlider.getProperties().set ("focusStyle", true);
     orbitSlider.getProperties().set ("lcrBars", true);   // Runde 174: Entwurf C (L · C · R)
@@ -5563,6 +5566,16 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (posLockButton,        isPosOn);
     setSectionOff (rayLockButton,        isRayOn);
     setSectionOff (orbitSlider, isLcrOn);
+    // Runde 178 (User-Bug: Orbit "sprang" in einer zweiten Instanz): die
+    // Beta-Schalter gelten global - hat eine ANDERE Instanz umgeschaltet,
+    // zieht diese hier Layout und Zeichnung nach.
+    if (lastLrOrbitApplied != uiLrOrbitRef() || lastWidthWedgeApplied != uiWidthWedgeRef())
+    {
+        lastLrOrbitApplied    = uiLrOrbitRef();
+        lastWidthWedgeApplied = uiWidthWedgeRef();
+        resized();
+        content.repaint();
+    }
     // Runde 174: leise Animation im L/R-Regler (Staub bzw. Orbit) - nur wenn
     // die Sektion an und sichtbar ist und gerade etwas zu sehen ist.
     {
@@ -8399,11 +8412,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int knobAreaH = lcrInner.getHeight() - 14;
         const int W         = lcrInner.getWidth();
         const int minGap    = 12;
-        int knobD = uiLrOrbitRef() ? juce::jmin (knobAreaH, (int) ((float) (W - 4 * minGap) / 3.05f))   // Orbit ist so breit wie ein Regler
+        int knobD = uiLrOrbitRef() ? juce::jmin (knobAreaH, (int) ((float) (W - 4 * minGap) / 2.90f))   // Orbit fast so breit wie ein Regler
                                    : juce::jmin (knobAreaH, (W - 60 - 4 * minGap) / 2);
         knobD = (kVariant == 0) ? juce::jlimit (34, 190, knobD) : juce::jmin (kBig, knobD);
         const float barW  = juce::jlimit (10.0f, 18.0f, (float) knobD * 0.19f);
-        const int   barsW = uiLrOrbitRef() ? juce::roundToInt ((float) knobD * 1.05f)   // Orbit braucht Platz zur Seite
+        const int   barsW = uiLrOrbitRef() ? juce::roundToInt ((float) knobD * 0.90f)   // Orbit: schmaler (User)
                                            : juce::roundToInt (barW * 3.9f);            // drei Balken + zwei Luecken (siehe drawLinearSlider, "lcrBars")
         const int   g     = juce::jmax (minGap, (W - barsW - 2 * knobD) / 4);
         const int   x0    = lcrInner.getX() + juce::jmax (0, (W - barsW - 2 * knobD - 4 * g) / 2);
@@ -8413,7 +8426,8 @@ void LCRMSAudioProcessorEditor::layoutContent()
 
         // L/R: so hoch wie die Regler, nach oben 7 px laenger (Runde 65),
         // Unterkante buendig mit den Reglern.
-        orbitSlider.setBounds (xBars, knobY - 7, barsW, knobD + 7);
+        // Runde 178 (User): unten ein paar Pixel mehr Weg - bis kurz ueber die Beschriftung.
+        orbitSlider.setBounds (xBars, knobY - 7, barsW, juce::jmax (knobD + 7, labelY - 3 - (knobY - 7)));
         orbitLabel.setBounds  (xBars - g / 2, labelY, barsW + g, 14);
         // Reihenfolge Orbit - Gravity - Air (User).
         gravitySlider.setBounds (xK1, knobY, knobD, knobD);

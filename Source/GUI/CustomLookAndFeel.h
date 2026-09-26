@@ -337,6 +337,52 @@ public:
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f);
         auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         auto centre = bounds.getCentre();
+        // Runde 178 (User, Beta "Width Wedge"): der Ring verschwindet ganz,
+        // der Keil selbst ist der Regler (Ziehen wie bei jedem Knopf).
+        if (uiWidthWedgeRef() && (bool) slider.getProperties().getWithDefault ("widthWedge", false))
+        {
+            const bool off = (bool) slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
+            const auto area = bounds.reduced (2.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.025f));
+            g.fillRoundedRectangle (area, 10.0f);
+            g.setColour (juce::Colours::white.withAlpha (off ? 0.04f : 0.07f));
+            g.drawRoundedRectangle (area.reduced (0.5f), 10.0f, 1.0f);
+            const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
+            const float len  = area.getHeight() * 0.80f;
+            const float yTip = area.getBottom() - area.getHeight() * 0.10f, yTop = yTip - len;
+            const float half = juce::jmin (area.getWidth() * 0.46f, 0.46f * w * len * 0.50f);
+            const auto wCol  = off ? knobValueOffColour() : accent;
+            juce::Path wedge;
+            wedge.startNewSubPath (centre.x, yTip);
+            wedge.lineTo (centre.x - half, yTop);
+            wedge.quadraticTo (centre.x, yTop - len * 0.06f, centre.x + half, yTop);
+            wedge.closeSubPath();
+            g.setGradientFill (juce::ColourGradient (wCol.withAlpha (0.95f), centre.x, yTip,
+                                                     (off ? wCol : wCol.interpolatedWith (glowAccent, juce::jlimit (0.0f, 1.0f, w - 1.0f))).withAlpha (0.28f),
+                                                     centre.x, yTop, false));
+            g.fillPath (wedge);
+            juce::Path edges;
+            edges.startNewSubPath (centre.x - half, yTop);
+            edges.lineTo (centre.x, yTip);
+            edges.lineTo (centre.x + half, yTop);
+            g.setColour (wCol.withAlpha (0.9f));
+            g.strokePath (edges, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            // 100 %-Marke: zwei kleine Kerben am oberen Rand, wo das Original endet
+            const float hO = juce::jmin (area.getWidth() * 0.46f, 0.46f * len * 0.50f);
+            g.setColour (juce::Colours::white.withAlpha (off ? 0.12f : 0.40f));
+            g.fillRect (centre.x - hO - 0.75f, yTop - 5.0f, 1.5f, 4.0f);
+            g.fillRect (centre.x + hO - 0.75f, yTop - 5.0f, 1.5f, 4.0f);
+            if (! off && slider.getProperties().getWithDefault ("modLiveActive", false))
+            {
+                const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
+                const float lx = area.getX() + 6.0f + (area.getWidth() - 12.0f) * liveT;
+                g.setColour (juce::Colour (0xcc0a0b0e));
+                g.fillEllipse (lx - 4.2f, area.getBottom() - 8.2f, 8.4f, 8.4f);
+                g.setColour (glowAccent);
+                g.fillEllipse (lx - 2.9f, area.getBottom() - 6.9f, 5.8f, 5.8f);
+            }
+            return;
+        }
         // Runde 113 (User): ist Autopan-Speed an den Phaser gekoppelt (LINK),
         // liegt ein leichter blauer Schein UM den Regler - ein weicher Ring,
         // hinter allem anderen gezeichnet. Pop behaelt seinen Tinten-Ring.
@@ -520,7 +566,7 @@ public:
             softIconGlow (g, tip, trackThickness * 2.2f, col, 0.9f);
         }
 
-        const bool wedgeMode = uiWidthWedgeRef() && (bool) slider.getProperties().getWithDefault ("widthWedge", false);
+        const bool wedgeMode = (bool) slider.getProperties().getWithDefault ("widthWedge", false);   // Runde 178: immer (User)
         if (! wedgeMode)
         {
             float pointerLength = radius * 0.55f;
@@ -544,9 +590,8 @@ public:
             g.fillEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
             const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
             const float len  = inner * 1.25f;
-            const float yTip = centre.y + inner * 0.62f, yTop = yTip - len;
+            const float yTip = centre.y + inner * 0.78f, yTop = yTip - len;   // Runde 178: etwas tiefer, Enden bleiben weg vom Ring
             const float half = 0.46f * w * len * 0.55f;
-            const float hO   = 0.46f * len * 0.55f;
             juce::Path clipC; clipC.addEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
             g.saveState();
             g.reduceClipRegion (clipC);
@@ -566,15 +611,6 @@ public:
             edges.lineTo (centre.x + half, yTop);
             g.setColour (wCol.withAlpha (0.9f));
             g.strokePath (edges, juce::PathStrokeType (1.3f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            juce::Path orig;
-            orig.startNewSubPath (centre.x - hO, yTop);
-            orig.lineTo (centre.x, yTip);
-            orig.lineTo (centre.x + hO, yTop);
-            juce::Path dashed;
-            const float dashes[] = { 2.0f, 3.0f };
-            juce::PathStrokeType (1.0f).createDashedStroke (dashed, orig, dashes, 2);
-            g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.08f : 0.18f));
-            g.fillPath (dashed);
             g.restoreState();
         }
 
@@ -3965,7 +4001,7 @@ public:
             // Bei 0 % stehen L, C und R gleich hoch (55 %). Aufdrehen: C sinkt
             // auf null, L und R steigen bis ganz oben. Staub fliegt von C zu
             // den Seiten, solange sich das Verhaeltnis verschiebt.
-            const float bw  = juce::jmax (6.0f, b.getWidth() / 3.9f);   // Balken fuellen die Breite (Layout setzt sie passend)
+            const float bw  = juce::jmax (6.0f, (b.getWidth() - 12.0f) / 3.9f);   // Balken fuellen die Breite, 6 px Rand fuer die Kerben
             const float gap = bw * 0.45f;
             constexpr float kBase = 0.55f;
             auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
@@ -3992,17 +4028,26 @@ public:
                 else
                     g.setColour (col.withAlpha (alpha));
                 g.fillRect (bx, bottom - fillH, bw, fillH);
-                if (side && ! offVisual)
-                {
-                    g.setColour (juce::Colours::white.withAlpha (0.85f));
-                    g.fillRect (bx, bottom - fillH - 1.0f, bw, 2.0f);
-                }
                 g.restoreState();
             };
             const float xL = cx - bw * 1.5f - gap, xC = cx - bw * 0.5f, xR = cx + bw * 0.5f + gap;
             bar (xL, sideH (valT), sideCol, 0.90f, true);
             bar (xC, cH, cNeutral, offVisual ? 0.6f : 0.85f, false);
             bar (xR, sideH (valT), sideCol, 0.90f, true);
+            // Runde 178 (User, wie im Entwurf): Griff-Linie quer ueber alle drei
+            // Balken auf Wert-Hoehe - feine goldene Linie mit zwei hellen Kerben.
+            // Man sieht, wo man greift, und die ganze Flaeche ist der Regler.
+            {
+                const float vy = juce::jmap (valT, bottom, top);
+                const float gx0 = xL - 4.0f, gx1 = xR + bw + 4.0f;
+                juce::ColourGradient edge (accent.withAlpha (0.0f), gx0, vy, accent.withAlpha (0.0f), gx1, vy, false);
+                edge.addColour (0.5, (offVisual ? knobValueOffColour() : themePalette().knob).withAlpha (offVisual ? 0.35f : 0.9f));
+                g.setGradientFill (edge);
+                g.fillRect (gx0, vy - 0.75f, gx1 - gx0, 1.5f);
+                g.setColour (offVisual ? knobValueOffColour() : juce::Colour (0xfff2f4f8));
+                g.fillRoundedRectangle (gx0 - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+                g.fillRoundedRectangle (gx1 - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+            }
             // Staub von C zu den Seiten (nur waehrend sich etwas verschiebt)
             if (! offVisual && valT > 0.01f && valT < 0.99f)
                 for (int i = 0; i < 6; ++i)
