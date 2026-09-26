@@ -581,10 +581,10 @@ private:
             brightSlider.setSliderStyle (juce::Slider::LinearHorizontal);
             brightSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
             brightSlider.setRange (0.0, 1.0, 0.0);
-            brightSlider.setDoubleClickReturnValue (true, 0.0);
+            brightSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);   // Doppelklick UND Cmd-Klick = 0
             brightSlider.getProperties().set ("viewSlider", true);
             brightSlider.setWantsKeyboardFocus (false);
-            brightSlider.setTooltip ("Lifts the dark areas - for bright rooms or glare. Double-click for the original look");
+            brightSlider.setTooltip ("Lifts the dark areas - for bright rooms or glare. Cmd-click or double-click for the original look");
             brightSlider.onValueChange = [this] { if (onBrightness) onBrightness ((float) brightSlider.getValue(), false); };
             brightSlider.onDragEnd     = [this] { if (onBrightness) onBrightness ((float) brightSlider.getValue(), true); };
             brightSlider.addMouseListener (this, false);
@@ -667,6 +667,13 @@ private:
             // mit Koordinaten RELATIV ZUM KNOPF. Die lagen oft zufaellig in der
             // Titelzeile, und das Panel schloss sich beim Theme-Wechsel
             // (User: "Settings-Fenster soll offen bleiben").
+            // Runde 174: nach jedem Klick/Zug am Brightness-Regler (auch
+            // Cmd-Klick-Reset) den Wert speichern.
+            if (e.eventComponent == &brightSlider)
+            {
+                if (onBrightness) onBrightness ((float) brightSlider.getValue(), true);
+                return;
+            }
             if (e.eventComponent != this)
                 return;
             if (title.getBounds().contains (e.getPosition()) && onClose)
