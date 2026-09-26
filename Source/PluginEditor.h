@@ -1172,6 +1172,17 @@ private:
             g.setColour (juce::Colour (0xff07080b).withAlpha (hole.isEmpty() ? 0.84f : 0.76f));
             g.fillRect (getLocalBounds());
             g.restoreState();
+            // Runde 174 (User: "das, worauf sich die Tour bezieht, ist teils
+            // sehr dunkel - muss deutlich mehr leuchten"): das Loch wird
+            // angehoben - ein heller Schleier in einem Hauch Theme-Farbe hebt
+            // auch ausgeschaltete (graue) Sektionen klar hervor.
+            if (! hole.isEmpty())
+            {
+                const auto hf = hole.toFloat();
+                g.setColour (juce::Colours::white.interpolatedWith (accent, 0.25f).withAlpha (0.16f));
+                g.fillRoundedRectangle (hf, 9.0f);
+            }
+            g.setColour (juce::Colour (0xff07080b).withAlpha (0.80f));
             for (const auto& d : st->dims)
                 g.fillRect (d.expanded (2).getIntersection (hole));
 
@@ -1181,7 +1192,7 @@ private:
                 auto hr = hole.toFloat().reduced (0.5f);
                 for (int i = 3; i >= 1; --i)
                 {
-                    g.setColour (accent.withAlpha (0.06f * (float) (4 - i)));
+                    g.setColour (accent.withAlpha (0.10f * (float) (4 - i)));   // Runde 174: kraeftigerer Schein
                     g.drawRoundedRectangle (hr.expanded ((float) i * 2.0f), 9.0f + (float) i * 2.0f, 2.0f);
                 }
                 g.setColour (accent.withAlpha (0.9f));
