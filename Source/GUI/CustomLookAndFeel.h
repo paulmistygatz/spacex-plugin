@@ -62,6 +62,11 @@ inline bool     usesFlatPanels()     { return isSciFiTheme() || isFlatTheme(); }
 // optisch schonmal gar keinen Sinn"). Pop hat keine Layout-Varianten - dort
 // traegt der Kasten den ganzen Look.
 inline int&  uiLayoutRef()      { static int m = 0; return m; }
+// Runde 174 (User): "Brightness" im Settings-Panel, 0..1, global wie das Theme.
+// Wirkt als EINE helle Schicht ueber der ganzen Oberflaeche (ausser dem
+// Sternenfeld), siehe paintOverContent - jedes Element hebt sich im selben
+// Verhaeltnis, An/Aus-Zustaende bleiben untereinander exakt gleich.
+inline float& uiBrightnessRef() { static float b = 0.0f; return b; }
 inline bool  layoutFrameless()  { return uiLayoutRef() == 1 && ! isComicTheme(); }
 inline bool  layoutOutline()    { return uiLayoutRef() == 2 && ! isComicTheme(); }
 inline juce::Colour comicInk() { return juce::Colour (0xff0d0a1e); }

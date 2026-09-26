@@ -1439,6 +1439,7 @@ void LCRMSAudioProcessorEditor::applyVisualsVisibility()
     // Neuer Schluessel "uiTheme3" (7 Themes, andere Indizes): Standard Sci-Fi (User).
     uiLayoutRef() = juce::jlimit (0, 2, props.getIntValue ("uiLayout", 0));
     setUiTheme (props.getIntValue ("uiTheme4", 3), false);
+    uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, (float) props.getDoubleValue ("uiBrightness", 0.0));   // Runde 174
     applyLayoutMode();
     goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
     starVisualsOn       = ! props.getBoolValue ("spaceVisualsDisabledDefault", false);
@@ -2012,6 +2013,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.modVis      = modulationVisualsEnabled;
     settingsSnap.advMod      = advancedModVisible;
     settingsSnap.techLabels  = technicalLabels;
+    settingsSnap.bright      = uiBrightnessRef();
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -2036,6 +2038,8 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
                                                             settingsSnap.bassGuard,   idBassGuard);
 
+    if (std::abs (uiBrightnessRef() - settingsSnap.bright) > 0.0001f)
+        applyBrightness (settingsSnap.bright, true);
     if (uiLayoutRef() != settingsSnap.layout)
         handleSettingsAction (settingsSnap.layout == 0 ? idLayoutFrames
                             : settingsSnap.layout == 1 ? idLayoutFrameless : idLayoutEasy);
@@ -2234,6 +2238,7 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     // Runde 71: die Layout-Knoepfe gibt es nicht mehr - jedes Theme hat sein
     // festes Layout. "Technical Labels" steht jetzt bei Behaviour.
     settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,  juce::dontSendNotification);
+    settingsPanel.brightSlider.setValue (uiBrightnessRef(), juce::dontSendNotification);
     // "SpaceX Labels" ist die Umkehrung: angehakt = NICHT technisch.
     settingsPanel.labelBtn.setToggleState (! technicalLabels, juce::dontSendNotification);
     settingsPanel.behavBtn[0].setToggleState (p.getBoolValue ("galaxyActivateDefault", false),   juce::dontSendNotification);
@@ -2371,6 +2376,7 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     writeProps.setValue ("technicalLabels", true);
                     technicalLabels = true;
                     writeProps.saveIfNeeded();
+                    applyBrightness (0.0f, true);   // Runde 174
                     applyLabelStyle();
                     applyLayoutMode();
                     resized();
@@ -4936,6 +4942,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     backPanel.linksBtn.onClick  = [this] { juce::URL (spacexContact::linksUrl).launchInDefaultBrowser(); };
     settingsPanel.onAction = [this] (int id) { handleSettingsAction (id); };
     settingsPanel.onClose  = [this] { closeSettingsPanel(); };
+    settingsPanel.onBrightness = [this] (float v, bool persist) { applyBrightness (v, persist); };
     content.addMouseListener (this, true);   // Klicks auf Titel-/Footer-Labels (mouseUp)
     // Aenderungen wirken sofort und leben im Plugin-Zustand (DAW-Session);
     // erst "Make Default" schreibt sie als Startwerte, "Reset" holt die
@@ -7365,8 +7372,42 @@ void LCRMSAudioProcessorEditor::drawHintBar (juce::Graphics& g)
     }
 }
 
+void LCRMSAudioProcessorEditor::applyBrightness (float v, bool persist)
+{
+    uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, v);
+    if (persist)
+    {
+        juce::PropertiesFile p (LCRMSAudioProcessor::appPropertiesOptions());
+        p.setValue ("uiBrightness", (double) uiBrightnessRef());
+        p.saveIfNeeded();
+    }
+    if (std::abs ((float) settingsPanel.brightSlider.getValue() - uiBrightnessRef()) > 0.0001f)
+        settingsPanel.brightSlider.setValue (uiBrightnessRef(), juce::dontSendNotification);
+    content.repaint();
+}
+
 void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
 {
+    // Runde 174 (User: "im Dunkeln oder bei falschem Licht sieht man wenig -
+    // ein Ticken heller, aber den Look behalten, und bitte eine einfache
+    // Methode, die nicht nachgebessert werden muss"): EINE helle Schicht in
+    // einem Hauch der Plattenfarbe ueber der ganzen Oberflaeche. Sie hebt
+    // die Tiefen deutlich, die Mitten etwas und Weiss praktisch gar nicht -
+    // wie ein angehobener Schwarzwert. Weil sie ueber ALLEM liegt, bleiben
+    // alle An/Aus- und Bypass-Zustaende untereinander exakt gleich, kein
+    // Element braucht eigene Regeln. Das Sternenfeld bleibt schwarz (es hat
+    // seinen eigenen Shine-Regler). Bei 100 %: Platte ~0x15 -> ~0x29.
+    if (const float br = uiBrightnessRef(); br > 0.001f)
+    {
+        g.saveState();
+        if (goniometer.isVisible())
+            g.excludeClipRegion (goniometer.getBounds());
+        const auto lift = themePalette().plate.interpolatedWith (juce::Colours::white, 0.80f);
+        g.setColour (lift.withAlpha (0.11f * br));
+        g.fillAll();
+        g.restoreState();
+    }
+
     // Runde 58 (User-Bug: "Info Zeile ist doppelt ... AutoGain scheint auch
     // durch"): paintOverChildren laeuft NACH allen Kindern, die Zeile lag
     // deshalb ueber jedem Overlay. Sie gehoert zur normalen Oberflaeche, also

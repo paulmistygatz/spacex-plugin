@@ -104,6 +104,7 @@ public:
         bool prism = true, mix = false, cats = true, clickEdge = false,
              galaxyStart = false, keepSolo = true, modVis = true, showHz = false, advMod = false,
              techLabels = false;
+        float bright = 0.0f;   // Runde 174
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -535,7 +536,10 @@ private:
         // Modulation raus" - uebrig bleiben zwei echte Schalter.
         static constexpr int kBehav   = 2;
 
-        juce::Label title, themeHead, layoutHead, behavHead;
+        juce::Label title, themeHead, layoutHead, behavHead, brightHead;
+        // Runde 174 (User): Brightness-Regler unter der Vorschau.
+        juce::Slider brightSlider;
+        std::function<void (float, bool)> onBrightness;   // Wert, speichern?
         // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
         // unabhaengig vom "?"-Schalter im Hauptfenster.
         juce::Label hintLine;
@@ -573,6 +577,18 @@ private:
             head (themeHead,  "THEME",     13.0f, juce::Colour (0xff8f96a4));
             head (layoutHead, "LAYOUT",    13.0f, juce::Colour (0xff8f96a4));
             head (behavHead,  "BEHAVIOUR", 13.0f, juce::Colour (0xff8f96a4));
+            head (brightHead, "BRIGHTNESS", 13.0f, juce::Colour (0xff8f96a4));
+            brightSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+            brightSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+            brightSlider.setRange (0.0, 1.0, 0.0);
+            brightSlider.setDoubleClickReturnValue (true, 0.0);
+            brightSlider.getProperties().set ("viewSlider", true);
+            brightSlider.setWantsKeyboardFocus (false);
+            brightSlider.setTooltip ("Lifts the dark areas - for bright rooms or glare. Double-click for the original look");
+            brightSlider.onValueChange = [this] { if (onBrightness) onBrightness ((float) brightSlider.getValue(), false); };
+            brightSlider.onDragEnd     = [this] { if (onBrightness) onBrightness ((float) brightSlider.getValue(), true); };
+            brightSlider.addMouseListener (this, false);
+            addAndMakeVisible (brightSlider);
             hintLine.setFont (juce::Font (juce::FontOptions (12.0f)));
             hintLine.setColour (juce::Label::textColourId, juce::Colour (0xff9aa0ab));
             hintLine.setJustificationType (juce::Justification::centredLeft);
@@ -664,6 +680,8 @@ private:
             if (auto* b = dynamic_cast<juce::Button*> (e.eventComponent))
                 if (b->getTooltip().isNotEmpty())
                     hintLine.setText (b->getTooltip(), juce::dontSendNotification);
+            if (e.eventComponent == &brightSlider)
+                hintLine.setText (brightSlider.getTooltip(), juce::dontSendNotification);
             for (int i = 0; i < kThemes; ++i)
                 if (e.eventComponent == &themeBtn[i]) { hoverTheme = i; repaint (previewArea.expanded (4)); return; }
         }
@@ -813,7 +831,15 @@ private:
             for (int i = 0; i < kLayouts; ++i) { layoutBtn[i].setVisible (false); layoutBtn[i].setBounds ({}); }
             layoutHead.setVisible (false);
 
-            // Die Vorschau bekommt die ganze rechte Spalte.
+            // Runde 174: Brightness unter der Vorschau.
+            {
+                auto row = col2.removeFromBottom (26);
+                col2.removeFromBottom (2);
+                brightHead.setBounds (col2.removeFromBottom (19));
+                col2.removeFromBottom (12);
+                brightSlider.setBounds (row.withTrimmedRight (row.getWidth() / 3));
+            }
+            // Die Vorschau bekommt die restliche rechte Spalte.
             {
                 layoutHead.setBounds ({});
                 const int pw = col2.getWidth();
@@ -2113,6 +2139,7 @@ private:
     void drawLogo (juce::Graphics& g, juce::Rectangle<float> area);
     void paintContent (juce::Graphics& g);
     void paintOverContent (juce::Graphics& g);
+    void applyBrightness (float v, bool persist);   // Runde 174: Settings > Brightness
     void layoutContent();
     void setupPowerButton (juce::TextButton& button, const juce::String& paramId,
                             std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& attachment,
