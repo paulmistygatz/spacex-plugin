@@ -367,11 +367,11 @@ void GoniometerComponent::timerCallback()
     if (! isShowing())
         return;
 
-    // Logo-Klick-Bypass: komplett einfrieren (keine Sterne, kein Fade, kein
-    // neuer Scope-Trace) statt weiterzulaufen, waehrend das Signal gar
-    // nicht mehr bearbeitet wird.
-    if (processor.uiBypassed.load (std::memory_order_relaxed))
-        return;
+    // Runde 174 (User): im Bypass laeuft alles weiter und zeigt das
+    // unbearbeitete Signal - so sieht man direkt, wie es ohne SpaceX aussieht.
+    // Nur die Szene dahinter wird gedimmt (siehe bypassSm, composeScene) und
+    // oben links steht BYPASS (siehe paint). Vorher fror der Logo-Bypass das
+    // Feld ein, der DAW-Bypass nicht.
 
     // ===== EBENEN vorbereiten (siehe Header) =====
     // Nachleuchten = Alpha der transparenten Ebene abschwaechen; Ebenen ohne
@@ -457,6 +457,7 @@ void GoniometerComponent::timerCallback()
         glide (shineSpaceSm, viewShine,    0.12f);   // folgt immer dem Regler (siehe Deklaration)
         glide (sizeSm,     traceSizeMul(), 0.45f);
         glide (vigSm,      traceOn() ? 1.0f : 0.0f, 0.40f);   // Vignette weich (User: "nicht so ploetzlich")
+        glide (bypassSm,   processor.isBypassedNow() ? 1.0f : 0.0f, 0.20f);   // Runde 174: Szene im Bypass gedimmt
         if (photoXfade > 0.0f)
         {
             photoXfade -= lastFrameDt / 0.6f;
@@ -2784,6 +2785,15 @@ void GoniometerComponent::composeScene()
             g.fillEllipse (cxv - r0 * 1.53f, cyv - r0 * 1.53f, r0 * 3.06f, r0 * 3.06f);
         }
 
+        // Runde 174 (User): im Bypass die ganze Szene (Foto, Sterne, Sonne,
+        // Mond, Objekte) rund zur Haelfte abdunkeln. Die Spur liegt in paint()
+        // darueber und bleibt voll hell - sie zeigt das unbearbeitete Signal.
+        if (bypassSm > 0.01f)
+        {
+            g.setOpacity (1.0f);
+            g.setColour (juce::Colours::black.withAlpha (0.50f * bypassSm));
+            g.fillAll();
+        }
     }
 }
 
@@ -2922,6 +2932,24 @@ void GoniometerComponent::paint (juce::Graphics& g)
         g.restoreState();
     }
 
+
+    // Runde 174 (User): BYPASS-Plakette oben links im Feld (oben rechts sitzt
+    // das Zahnrad, die DEMO-Plakette steht im Header neben dem Slogan). Ruhig,
+    // ohne Blinken - der atmende Power-Knopf im Header reicht als Signal.
+    if (bypassSm > 0.01f)
+    {
+        const auto f = juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f);
+        const float chipW = juce::GlyphArrangement::getStringWidth (f, "BYPASS") + 16.0f;
+        const juce::Rectangle<float> chip (bounds.getX() + 12.0f, bounds.getY() + 12.0f, chipW, 17.0f);
+        const auto frameCol = juce::Colour ((juce::uint32) (int) getProperties().getWithDefault ("frameColour", (int) 0xff8a90a0));
+        g.setColour (juce::Colour (0xff050608).withAlpha (0.70f * bypassSm));
+        g.fillRoundedRectangle (chip, 8.0f);
+        g.setColour (frameCol.withAlpha (0.60f * bypassSm));
+        g.drawRoundedRectangle (chip.reduced (0.5f), 8.0f, 1.0f);
+        g.setFont (f);
+        g.setColour (juce::Colours::white.withAlpha (0.85f * bypassSm));
+        g.drawText ("BYPASS", chip, juce::Justification::centred, false);
+    }
 
     // Dickerer Rahmen als vorher (1.0 -> 1.8px, User-Feedback: "Rahmen um
     // das Feld mit den Sternen dicker").

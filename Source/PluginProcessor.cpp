@@ -1167,8 +1167,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // Voll im Bypass: Original (latenzgleich) durchreichen, Rest sparen.
         buffer.copyFrom (0, 0, bypassDryL.data(), numSamples);
         buffer.copyFrom (1, 0, bypassDryR.data(), numSamples);
-        currentInputLevel.store  (0.0f, std::memory_order_relaxed);
-        currentOutputLevel.store (0.0f, std::memory_order_relaxed);
+        // Runde 174 (User): im Bypass laufen alle Meter weiter und zeigen das
+        // unbearbeitete Signal (IN ist oben schon gemessen, OUT = Original).
+        currentOutputLevel.store (buffer.getMagnitude (0, numSamples), std::memory_order_relaxed);
         currentRayLfo.store (0.0f, std::memory_order_relaxed);
         updateVisualMeters (buffer.getReadPointer (0), buffer.getReadPointer (1), numSamples);
         wasFullyBypassed = true;
@@ -2853,8 +2854,11 @@ void LCRMSAudioProcessor::passthroughWithLatencyCompensation (juce::AudioBuffer<
     // Der Input-Peak wird ganz am Anfang von processBlock gespeichert, also
     // VOR der Bypass-Pruefung - ohne dieses Zuruecksetzen wuerde das
     // IN-Meter munter weiterlaufen, waehrend das Plugin gar nichts tut.
-    currentInputLevel.store  (0.0f, std::memory_order_relaxed);
-    currentOutputLevel.store (0.0f, std::memory_order_relaxed);
+    // Runde 174 (User): jetzt umgekehrt - im Bypass laufen alle Meter weiter
+    // und zeigen das unbearbeitete Signal. Heute nur noch Rueckfallweg
+    // (processBlockBypassed); der Host-Bypass laeuft ueber processBlock.
+    currentInputLevel.store  (buffer.getMagnitude (0, buffer.getNumSamples()), std::memory_order_relaxed);
+    currentOutputLevel.store (buffer.getMagnitude (0, buffer.getNumSamples()), std::memory_order_relaxed);
     currentRayLfo.store (0.0f, std::memory_order_relaxed);
 
     // Wichtig fuer korrekte Latenzkompensation beim Bypass (Host-Bypass ODER

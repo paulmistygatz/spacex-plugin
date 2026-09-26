@@ -197,7 +197,16 @@ void LCRMSAudioProcessorEditor::resetSoloIfMatches (int soloValue)
 // Siehe Kommentar an der Deklaration (PluginEditor.h).
 void LCRMSAudioProcessorEditor::toggleUiBypass()
 {
-    processor.uiBypassed.store (! processor.uiBypassed.load (std::memory_order_relaxed), std::memory_order_relaxed);
+    // Runde 174 (User): nur noch EIN Bypass. Power-Knopf und Logo schalten
+    // den Bypass-Parameter des Hosts - die DAW zeigt ihn dann auch an, und
+    // der DAW-Bypass sieht im Plugin genauso aus wie der eigene.
+    if (auto* bp = processor.getBypassParameter())
+    {
+        const bool nowBypassed = bp->getValue() > 0.5f;
+        bp->beginChangeGesture();
+        bp->setValueNotifyingHost (nowBypassed ? 0.0f : 1.0f);
+        bp->endChangeGesture();
+    }
     content.repaint();
 }
 
@@ -295,6 +304,7 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
 
     juce::Array<juce::RangedAudioParameter*> excluded {
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_VOL_TRIM),
+        processor.apvts.getParameter (LCRMSAudioProcessor::ID_OUT_PAN),   // Runde 174: Fusszeile wird nie gewuerfelt
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_CHECK),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_MONO_DRY),
         processor.apvts.getParameter (LCRMSAudioProcessor::ID_GLOBAL_MOD_BYPASS),
@@ -5692,6 +5702,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (mixSlider, ! uiBypassed);
     setSectionOff (monoCheckButton, ! uiBypassed);
     setSectionOff (monoDryButton, ! uiBypassed);
+    setSectionOff (autoGainButton, ! uiBypassed);   // Runde 174: ganze Fusszeile dimmt im Bypass
     // Power- und Solo-Icons zeigten bisher NUR ihren eigenen Toggle-Status -
     // bei Bypass blieb eine eingeschaltete Sektion daher weiterhin farbig
     // leuchtend, obwohl der Rest der Sektion ausgegraut wurde (User-
@@ -6125,10 +6136,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
         {
             monoDryButton.setEnabled (monoOn);
             monoDryButton.repaint();
-            // Das neue eigene "DRY"-Label mitdimmen, damit Icon und
-            // Beschriftung nicht auseinanderlaufen.
-            monoDryLabel.setAlpha (monoOn ? 1.0f : 0.35f);
         }
+        // Das eigene "DRY"-Label mitdimmen, damit Icon und Beschriftung nicht
+        // auseinanderlaufen. Runde 174: im Bypass dimmen alle Beschriftungen
+        // der Fusszeile mit.
+        const float footerA = processor.isBypassedNow() ? 0.40f : 1.0f;
+        auto setA = [] (juce::Component& c, float a) { if (std::abs (c.getAlpha() - a) > 0.001f) c.setAlpha (a); };
+        setA (monoDryLabel, (monoOn ? 1.0f : 0.35f) * footerA);
+        for (auto* l : { &monoCheckLabel, &mixLabel, &panLabel, &volLabel, &autoGainLabel })
+            setA (*l, footerA);
         if (monoDryButton.getToggleState())
             monoDryButton.repaint();
     }
@@ -6236,11 +6252,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // (processor.uiBypassed, auch per Logo-Klick schaltbar) nachgezogen,
     // damit beide Wege synchron aussehen.
     {
-        const bool bypassedNow = processor.uiBypassed.load (std::memory_order_relaxed);
+        const bool bypassedNow = processor.isBypassedNow();   // Runde 174: auch DAW-Bypass
         if (globalBypassButton.getToggleState() != bypassedNow)
         {
             globalBypassButton.setToggleState (bypassedNow, juce::dontSendNotification);
             globalBypassButton.repaint();
+            needsRepaint = true;   // Logo (grau im Bypass) liegt in content
         }
     }
 
@@ -6264,7 +6281,7 @@ void LCRMSAudioProcessorEditor::drawLogo (juce::Graphics& g, juce::Rectangle<flo
     // angelehnt an das "Space"-Thema, ohne aufwendige Assets. Per Klick
     // schaltbarer GUI-Bypass: im bypassten Zustand wird das Logo neutral
     // grau statt farbig gezeichnet, als klare visuelle Rueckmeldung.
-    const bool bypassed = processor.uiBypassed.load (std::memory_order_relaxed);
+    const bool bypassed = processor.isBypassedNow();
     auto ringCol  = bypassed ? juce::Colour (0xff6a6e78) : lookAndFeel.accent;
     auto glowCol  = bypassed ? juce::Colour (0xff6a6e78) : lookAndFeel.glowAccent;
 
@@ -6576,9 +6593,12 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // sanfte Puls-Alpha wie die Icons (Solo/Mono/Mod) auch auf die
     // Fuell-/Linienfarbe des GESAMTEN Rahmens ein (User-Feedback: "soll der
     // ganze Rahmen blinken, nicht nur der Button").
+    // Runde 174 (User): im Bypass sehen alle Sektionen aus wie ausgeschaltet.
+    const bool bypassFrames = processor.isBypassedNow();
     auto drawGroup = [&] (juce::Rectangle<int> r, juce::Colour c, bool on, bool blink, float strokeWidth = 2.8f)
     {
         if (r.isEmpty()) return;
+        on = on && ! bypassFrames;
         auto rf = r.toFloat().reduced (3.0f);
         auto col = on ? c : juce::Colour (0xff545862);
         // Sehr dezenter Aussen-Glow NUR bei eingeschalteter Sektion (User:
@@ -6630,7 +6650,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setGradientFill (wash);
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.38f : 0.10f) * pulse));
+            g.setColour (col.withAlpha ((on ? 0.38f : 0.20f) * pulse));   // Runde 174: aus 0.10 -> 0.20
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.4f : 1.0f);
             return;
         }
@@ -6673,7 +6693,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             }
             // Aus: nur noch ein minimaler Rand, damit man sieht, DASS dort eine
             // Sektion liegt - sonst nichts (User).
-            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.030f));
+            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.055f));   // Runde 174: aus 0.030 -> 0.055
             g.drawRoundedRectangle (rf, 10.0f, 1.0f);
             // Moon (User: "Kontrast zwischen on und off ist zu gering, und die
             // UI ist schon dunkel genug"): der Rahmen der EINGESCHALTETEN
@@ -6767,11 +6787,15 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setColour (surf.withAlpha (isSciFiTheme() ? 0.34f : 0.62f));
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.42f : 0.10f) * pulse));
+            g.setColour (col.withAlpha ((on ? 0.42f : 0.22f) * pulse));   // Runde 174: aus 0.10 -> 0.22
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.6f : 1.0f);
             return;
         }
-        const float lineA = (on ? 0.45f : 0.10f) * pulse;   // aus: nur ein minimaler Rand (User)
+        // Runde 174 (User): der Aus-Rahmen war im Dunkeln kaum zu sehen - die
+        // Sektionen liessen sich schlecht voneinander abgrenzen. Mittelweg:
+        // deutlich heller als frueher (0.10), aber klar unter dem An-Rahmen;
+        // Fuellung und Glow bleiben der eingeschalteten Sektion vorbehalten.
+        const float lineA = (on ? 0.45f : 0.24f) * pulse;
         onGlow (10.0f);
         if (on)
         {
@@ -6908,7 +6932,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         const bool galaxyEngineOn = false
                                  && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_GALAXY_ACTIVATE)->load() > 0.5f
                                  && processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_ENABLED)->load() > 0.5f
-                                 && ! processor.uiBypassed.load()
+                                 && ! processor.isBypassedNow()
                                  && ! layoutFrameless();   // ohne Sektionskasten haette der Glow nichts, worum er liegen koennte
         if (galaxyEngineOn)
         {
@@ -7428,11 +7452,9 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         }
     }
 
-    if (! processor.uiBypassed.load (std::memory_order_relaxed))
-        return;
-
-    g.setColour (juce::Colour (0xff0e0f13).withAlpha (0.6f));
-    g.fillRoundedRectangle (bounds.reduced (8.0f), 10.0f);
+    // Runde 174 (User): keine dunkle Ebene mehr ueber der ganzen GUI im
+    // Bypass. Sektionen und Fusszeile werden gedimmt, Header und Meter bleiben
+    // normal, und der Power-Knopf leuchtet.
 }
 
 void LCRMSAudioProcessorEditor::resized()

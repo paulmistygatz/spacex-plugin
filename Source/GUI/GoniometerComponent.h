@@ -238,6 +238,7 @@ private:
     int uiTheme = 0;
     int gravityChoice = 0;   // Wahl im Panel; gravityMode = ggf. vom Theme erzwungen
     float vigSm = 0.0f;      // Vignette weich ein/aus
+    float bypassSm = 0.0f;   // Runde 174: Bypass-Dimmung der Szene weich ein/aus
     float idleSm = 0.0f;     // Ruhezustand des Gonios weich ein/aus            // Wahl im Panel (Space); Gonio-Ansicht erzwingt Nebula
     juce::Image photoSrc, photoScaled, photoScaledPrev;
     float photoXfade = 0.0f;        // 1 -> 0: altes Foto blendet aus

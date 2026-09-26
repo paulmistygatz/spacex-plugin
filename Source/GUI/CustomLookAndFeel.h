@@ -2202,7 +2202,8 @@ public:
             // Runde 112: AG - nur der Wert, gedaempft; aus = OFF, noch leiser.
             if ((bool) button.getProperties().getWithDefault ("plainValue", false))
             {
-                const bool on  = button.getToggleState();
+                // Runde 174: im Bypass (sectionOff) wie aus gezeichnet.
+                const bool on  = button.getToggleState() && ! (bool) button.getProperties().getWithDefault ("sectionOff", false);
                 const bool hot = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
                 g.setColour (on ? themePalette().knob.withAlpha (hot ? 1.0f : 0.85f)
                                 : iconOffColour().withAlpha (hot ? 0.85f : 0.55f));
@@ -3358,9 +3359,15 @@ public:
             const auto acc = themePalette().knob;
             const auto lb  = button.getLocalBounds().toFloat();
             softIconGlow (g, lb.getCentre(), juce::jmin (lb.getWidth(), lb.getHeight()) * 0.5f, acc, 1.1f + 0.9f * breath);
-            g.setColour (acc.withAlpha (0.30f + 0.25f * breath));
-            g.drawEllipse (centre.x - r * 0.98f, centre.y - r * 0.98f, r * 1.96f, r * 1.96f, 1.2f);
-            col = juce::Colour (0xfff2f4f8).interpolatedWith (acc, 0.25f);
+            // Runde 174 (User: "Power Button sollte visuell hervorgehoben
+            // werden, wenn aktiv"): kraeftiger als Runde 168 - getoente
+            // Flaeche, satterer Ring, Symbol in der Akzentfarbe. Die dunkle
+            // Ebene ueber der GUI, die ihn vorher mit abgedunkelt hat, ist weg.
+            g.setColour (acc.withAlpha (0.14f + 0.08f * breath));
+            g.fillEllipse (centre.x - r * 0.98f, centre.y - r * 0.98f, r * 1.96f, r * 1.96f);
+            g.setColour (acc.withAlpha (0.60f + 0.30f * breath));
+            g.drawEllipse (centre.x - r * 0.98f, centre.y - r * 0.98f, r * 1.96f, r * 1.96f, 1.6f);
+            col = acc.brighter (0.35f);
         }
         g.setColour (col);
         juce::Path ring;
