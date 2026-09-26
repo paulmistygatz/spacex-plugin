@@ -2151,7 +2151,8 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
 
     add (groupFlowArea.getUnion (groupRayArea), "Sections 5 + 6", L ("Autopan and Phaser", "Hyperdrive and Raye"),
          L ("Autopan", "Hyperdrive") + " moves the sound left and right - the note syncs it to the song. "
-         "The phaser moves the image, not the tone. LINK ties it to the " + L ("Autopan", "Hyperdrive") + ".");
+         "The phaser moves the image, not the tone. LINK lets it follow the " + L ("Autopan", "Hyperdrive")
+         + " at half its pace - a slow wave underneath, not a second wobble.");
     forceOn ({ LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::SOLO_RAY });
 
     add (area ({ &goniometer }), "Look", "The starfield",

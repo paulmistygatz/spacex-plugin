@@ -23,7 +23,7 @@ SECTIONS = [
      "Moves the sound between left and right. The note syncs it to the song, the box sets the length - 1/16 up to 8 bars."),
     ("Phaser",
      "Moves the image, not the tone. **Sweep**, **Shimmer**, **Spin** or **Swirl** - then **Amount**. **FAST** runs it quicker, "
-     "**LINK** makes it follow the Autopan."),
+     "**LINK** makes it follow the Autopan at half its pace."),
 ]
 
 CONTROL = [
