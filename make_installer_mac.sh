@@ -121,17 +121,17 @@ fi
 cat > dist/tmp/welcome.txt <<WELCOME
 $PRODUCT $VERSION
 
-Installiert wird:
+This installs:
 
   /Library/Audio/Plug-Ins/VST3/$PRODUCT.vst3
   /Library/Audio/Plug-Ins/Components/$PRODUCT.component  (Audio Unit)
   /Library/Audio/Plug-Ins/Documentation/$PRODUCT/$MANUAL_DST
 
-Danach die DAW neu starten oder die Plugin-Liste neu scannen lassen.
+Afterwards, restart your DAW or let it rescan its plug-ins.
 
-Ohne Seriennummer laeuft SpaceX im Demo-Modus: vollstaendig, aber alle
-50 Sekunden fuer gut drei Sekunden leise. Die Seriennummer traegst du im
-Plugin unter Settings -> Activate ein.
+Without a serial, SpaceX runs as a demo: everything works, but about every
+50 seconds the sound goes quiet for a moment. To activate, click the logo
+in the plugin and enter your name and serial.
 WELCOME
 
 OUT="dist/$PRODUCT $VERSION.pkg"

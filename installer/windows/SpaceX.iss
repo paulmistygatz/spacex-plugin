@@ -35,6 +35,13 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=SpaceX {#MyVersion}
 
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+WelcomeLabel2=This will install [name/ver] on your computer.%n%nThe VST3 plug-in goes to Common Files\VST3, the manual to Program Files\SpaceX. Presets are created by the plug-in on first launch.%n%nWithout a serial, SpaceX runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a moment. To activate, click the logo in the plug-in and enter your name and serial.
+FinishedLabel=Setup has finished installing [name] on your computer. Restart your DAW or let it rescan its plug-ins.
+
 [InstallDelete]
 ; alte Fassung komplett weg, sonst bleiben geloeschte Dateien im Bundle liegen
 Type: filesandordirs; Name: "{commoncf64}\VST3\SpaceX.vst3"
