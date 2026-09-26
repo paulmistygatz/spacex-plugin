@@ -840,8 +840,11 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     bypassDelayL.assign ((size_t) latSize, 0.0f);
     bypassDelayR.assign ((size_t) latSize, 0.0f);
     bypassWritePos = 0;
-    bypassDryL.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
-    bypassDryR.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
+    // Review 1.0.1: grosszuegig reservieren. Manche Hosts schicken groessere
+    // Bloecke als angekuendigt - dann haette processBlock() im Audio-Thread
+    // nachallokiert (resize weiter unten bleibt nur als letzte Absicherung).
+    bypassDryL.assign ((size_t) juce::jmax (8192, samplesPerBlock), 0.0f);
+    bypassDryR.assign ((size_t) juce::jmax (8192, samplesPerBlock), 0.0f);
     bypassBlend.reset (sampleRate, 0.025);   // ~25 ms Ueberblendung
     bypassBlend.setCurrentAndTargetValue (isBypassedNow() ? 1.0f : 0.0f);
     bypassHoldSamples = 0;
