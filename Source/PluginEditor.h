@@ -1099,7 +1099,9 @@ private:
     class TourOverlay : public juce::Component
     {
     public:
-        struct Step { juce::Rectangle<int> target; juce::String eyebrow, head, text; };
+        struct Step { juce::Rectangle<int> target; juce::String eyebrow, head, text;
+                      std::vector<juce::Rectangle<int>> dims {};   // Runde 174: im Loch liegend, gehoert aber nicht zum Schritt - wird mitverschleiert
+        };
         std::vector<Step> steps;
         int index = 0;
         std::function<void()> onFinish;
@@ -1170,6 +1172,8 @@ private:
             g.setColour (juce::Colour (0xff07080b).withAlpha (hole.isEmpty() ? 0.84f : 0.76f));
             g.fillRect (getLocalBounds());
             g.restoreState();
+            for (const auto& d : st->dims)
+                g.fillRect (d.expanded (2).getIntersection (hole));
 
             // Rahmen ums Loch: feine Linie in der Theme-Farbe, weicher Schein
             if (! hole.isEmpty())

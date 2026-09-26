@@ -19,13 +19,13 @@ INTRO = [
 COVER_PILLARS = [
     ("Fast", "One click to a finished sound."),
     ("Light", "Low CPU. Zero latency without LCR."),
-    ("Clean", "A real L / C / R split, not just mid-side."),
+    ("Clean", "A real L/C/R split, not just mid-side."),
     ("Safe", "Hand-tuned. Nothing you have to undo."),
 ]
 PILLARS = [
     ("Fast", "One click to a finished sound. Smart profiles for lead vocals, backings, adlibs and send FX."),
     ("Light", "Low CPU. Zero latency - unless you arm the LCR engine. Then you pay a little for the real thing."),
-    ("Clean", "A next-generation L / C / R split instead of plain mid-side. Centre, left and right, for real."),
+    ("Clean", "A next-generation L/C/R split instead of plain mid-side. Centre, left and right, for real."),
     ("Safe", "Hand-tuned and interlocked. Everything the dice can reach was tuned by ear, so it will not hand you a result you have to undo."),
 ]
 
@@ -40,7 +40,7 @@ BIO = [
 ]
 
 JOBS = [
-    ("L / C / R extraction", "a dedicated centre-separation plugin"),
+    ("L/C/R extraction", "a dedicated centre-separation plugin"),
     ("Micro pitch and Haas doubling", "a pitch / delay widener"),
     ("Polarity, side gain, width, mid-side", "a utility plugin"),
     ("EQ on the sides only", "a mid-side EQ"),
@@ -79,7 +79,7 @@ TOUR = [
     ("Logo", "Click it for the back panel - who built this, which copy it is."),
     ("Smart profile", "What you are working on. Guides the dice."),
     ("Power · Smart dice · Life · Mod", "Bypass, roll, how much it moves, modulation on / off."),
-    ("LCR", "Arms the L / C / R engine."),
+    ("LCR", "Arms the L/C/R engine."),
     ("Presets", "Arrows, list, save."),
     ("Undo · A / B", "Undo / Redo, compare two settings, copy across."),
     ("Settings · Reset", "Themes, behaviour, back to Default."),
@@ -102,11 +102,11 @@ HEADER = [
     ("Smart dice", "Rolls a complete setting and decides which sections belong in it. The face shows how many sections are active."),
     ("Life", "How much everything moves. One knob for every modulation depth. At zero, nothing moves."),
     ("Mod", "All modulation off - without losing the depths. Switch it back on and it is all still there."),
-    ("LCR", "Arms the L / C / R engine. Needs an analysis window, so it adds latency while it runs."),
+    ("LCR", "Arms the L/C/R engine. Needs an analysis window, so it adds latency while it runs."),
 ]
 
 SMART_NOTE = ("This is not the randomise button other plugins have. Everything the dice can reach was tuned "
-              "by ear, and whatever did not work never made it in. Sections you lock with the padlock are "
+              "by ear, and whatever did not work never made it in. Sections you lock are "
               "left alone. While a section is soloed the dice waits.")
 
 CHAIN = ["IN", "LCR MATRIX", "POLARITY · PRE", "MICROPITCH", "MID-SIDE + SIDES EQ",
@@ -119,11 +119,11 @@ COMMON = [
     ("Click the name", "section on / off. An off section goes dark."),
     ("Cmd-click the name", "solo - hear this section on its own."),
     ("Cmd + Shift-click", "reset this section to its defaults."),
-    ("Padlock", "the dice leaves this section alone."),
+    ("Lock", "the dice leaves this section alone."),
     ("Double-click a knob", "back to its default."),
 ]
 
-MS_VS_LCR = ("Mid-side is not L / C / R. Mid-side splits a stereo signal into sum and difference - everything "
+MS_VS_LCR = ("Mid-side is not L/C/R. Mid-side splits a stereo signal into sum and difference - everything "
              "that is not identical on both sides lands in the sides, including half of what you hear as centre. "
              "The LCR Matrix finds what really sits in the middle and keeps hard left and hard right as their own "
              "parts. That is why it can open a stack without touching the lead.")

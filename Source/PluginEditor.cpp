@@ -2109,14 +2109,18 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     add (area ({ &globalBypassButton, &lifeSlider, &globalModBypassButton }), "Header", "Power, Life, Mod",
          "Power bypasses the plugin. Life sets how much everything moves - one knob for all modulation. "
          "Mod switches the modulation off without losing it.");
+    // Runde 174 (User): der Rahmen umschliesst auch den Wuerfel - der ist hier
+    // nicht gemeint und wird im Loch mit abgedunkelt.
+    if (! tourOverlay.steps.empty() && tourOverlay.steps.back().head == "Power, Life, Mod")
+        tourOverlay.steps.back().dims.push_back (area ({ &globalChaosButton }));
 
     add (area ({ &globalGalaxyActivateButton }), "Engine", L ("LCR", "Galaxy"),
-         "Switches on the real L / C / R split - a true centre, not just mid-side. "
+         "Switches on the real L/C/R split - a true centre, not just mid-side. "
          "It adds latency while it runs. Off, SpaceX has zero latency.");
 
-    add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and padlock",
+    add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and lock",
          "Click a section name to switch it on or off. Cmd-click solos it. "
-         "The padlock keeps the Smart dice away from that section.");
+         "The lock keeps the Smart dice away from that section.");
 
     add (groupLcrArea, "Section 1", L ("LCR Matrix", "Galaxy"),
          L ("L/R", "Orbit") + " sets how much of the sides you keep, " + L ("C-Weight", "Gravity")

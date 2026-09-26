@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # SpaceX 1.0.1 - short manual. Only what you cannot guess. **x** = control name.
 
-SECTIONS_INTRO = "Every section: click the name to switch it on or off, Cmd-click to solo it. The padlock keeps the Smart dice away."
+SECTIONS_INTRO = "Every section: click the name to switch it on or off, Cmd-click to solo it. The lock keeps the Smart dice away."
 
 SECTIONS = [
     ("LCR Matrix",
@@ -33,7 +33,7 @@ CONTROL = [
     ("Life & Mod",
      "**Life** is how much everything moves - one knob for all modulation. **Mod** switches the modulation off without losing it."),
     ("LCR",
-     "Arms the L / C / R engine. Off, SpaceX runs with zero latency."),
+     "Arms the L/C/R engine. Off, SpaceX runs with zero latency."),
     ("Output",
      "**Mono** and **Dry** to check, **Mix** to blend, **Vol** at the very end. **AG** matches the level, so bypass is a fair "
      "comparison. Right-click **Mix** or **Vol** to lock them against presets and Reset."),

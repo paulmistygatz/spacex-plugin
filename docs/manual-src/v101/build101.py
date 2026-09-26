@@ -170,7 +170,7 @@ page('''
 <div class="logo"><img src="%s"></div>
 <div class="claim"><div class="eyebrow">Stereo imaging, tuned by ear</div>
 <h1>Width. Depth.<br><em>Dimension.</em></h1>
-<p>Six stages, the Smart dice, a real L / C / R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
+<p>Six stages, the Smart dice, a real L/C/R split. Wider, deeper, fuller - and still exactly where the song needs it.</p></div>
 <div class="cpil">%s</div>
 <div class="meta"><span class="pill">Version %s</span></div>
 ''' % (jpg('cover_bg'), VERSION, img('logo_a'),
