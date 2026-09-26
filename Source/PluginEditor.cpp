@@ -3970,7 +3970,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     horizonSlider.onValueChange = [this]
     {
         horizonSlider.setTooltip ("Regain " + horizonSlider.getTextFromValue (horizonSlider.getValue())
-                                  + ": turn up to keep more of the top end in the sides");
+                                  + ": turn up to bring back the centre's highs");
     };
     horizonSlider.onValueChange();
 
