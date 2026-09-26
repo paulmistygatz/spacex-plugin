@@ -838,21 +838,25 @@ private:
             for (int i = 0; i < kLayouts; ++i) { layoutBtn[i].setVisible (false); layoutBtn[i].setBounds ({}); }
             layoutHead.setVisible (false);
 
-            // Runde 174: Brightness unter der Vorschau.
-            {
-                auto row = col2.removeFromBottom (26);
-                col2.removeFromBottom (2);
-                brightHead.setBounds (col2.removeFromBottom (19));
-                col2.removeFromBottom (12);
-                brightSlider.setBounds (row.withTrimmedRight (row.getWidth() / 3));
-            }
-            // Die Vorschau bekommt die restliche rechte Spalte.
+            // Runde 174: Brightness unter der Vorschau. Die Vorschau behaelt
+            // IMMER das Seitenverhaeltnis der Oberflaeche - vorher wurde sie
+            // in die niedrigere Restflaeche gestreckt und oben/unten
+            // abgeschnitten (User).
+            auto row = col2.removeFromBottom (26);
+            col2.removeFromBottom (2);
+            auto headR = col2.removeFromBottom (19);
+            col2.removeFromBottom (12);
             {
                 layoutHead.setBounds ({});
-                const int pw = col2.getWidth();
-                const int ph = juce::jmin (col2.getHeight(), (int) ((float) pw / 1.72f));
+                const float aspect = 1040.0f / 604.0f;   // kDesignW / kDesignH
+                int pw = col2.getWidth();
+                int ph = (int) ((float) pw / aspect);
+                if (ph > col2.getHeight()) { ph = col2.getHeight(); pw = (int) ((float) ph * aspect); }
                 previewArea = col2.withSizeKeepingCentre (pw, ph);
             }
+            // Ueberschrift und Regler buendig mit der linken Kante der Vorschau.
+            brightHead.setBounds (headR.withX (previewArea.getX()).withWidth (previewArea.getWidth()));
+            brightSlider.setBounds (row.withX (previewArea.getX() - 6).withWidth (previewArea.getWidth() * 2 / 3 + 6));
         }
 
     private:
