@@ -6761,7 +6761,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // DAW-Bypass - Schimmer fast wie "an" und ein Hauch der beiden
             // Saum-Striche. Fuellung, Farbhauch und Glow bleiben "an".
             g.setColour (juce::Colours::white.withAlpha (on ? 0.096f : 0.085f));   // Runde 174c: an +6 %
-            g.drawRoundedRectangle (rf, 10.0f, 1.0f);
+            g.drawRoundedRectangle (rf, 10.0f, on ? 1.5f : 1.0f);   // Runde 174: an minimal dicker (User)
             if (! on)
             {
                 g.setColour (col.withAlpha (0.04f));
@@ -6880,7 +6880,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Rahmen leicht dicker, aber nicht viel"); die beiden linken
         // Rahmen (Galaxy/Timewarp) bekommen ueber strokeWidth nochmal einen
         // Tick mehr (User-Feedback: "Links beide Rahmen dicker").
-        g.drawRoundedRectangle (rf, 10.0f, strokeWidth);
+        g.drawRoundedRectangle (rf, 10.0f, on ? strokeWidth : strokeWidth - 0.8f);   // Runde 174: an minimal dicker als aus (User)
     };
 
     // Aktuell solote Sektion (falls vorhanden) bekommt statt ihrer normalen
