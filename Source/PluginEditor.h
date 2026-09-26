@@ -1116,6 +1116,9 @@ private:
                 b->setWantsKeyboardFocus (false);
                 b->getProperties().set ("thinOnFrame", true);
                 b->getProperties().set ("noGlow", true);
+                // Runde 174 (User: "Schrift in den Pillen gequetscht"): etwas
+                // groessere Schrift mit weniger Sperrung, dazu hoehere Pillen.
+                b->getProperties().set ("btnFontPx", 12.5);
                 addAndMakeVisible (*b);
             }
             backBtn.onClick = [this] { go (-1); };
@@ -1231,7 +1234,7 @@ private:
             const int textH = (int) std::ceil (layoutFor (st->text, cw - 2 * kPadX).getHeight());
             const bool dont = dontShowBtn.isVisible();
             const int ch = kPadY + kEyebrowH + kGap1 + kHeadH + kGap2 + textH + 16
-                         + (dont ? 30 : 0) + kBtnH + kPadY;
+                         + (dont ? 36 : 0) + kBtnH + kPadY;
 
             const auto target = st->target;
             int cx, cy;
@@ -1262,20 +1265,20 @@ private:
 
             auto inner = cardArea.reduced (kPadX, kPadY);
             auto row = inner.removeFromBottom (kBtnH);
-            const int bw = 76, gap = 8;
-            skipBtn.setBounds (row.removeFromLeft (60));
+            const int bw = 84, gap = 8;
+            skipBtn.setBounds (row.removeFromLeft (68));
             nextBtn.setBounds (row.removeFromRight (bw));
             row.removeFromRight (gap);
             backBtn.setBounds (row.removeFromRight (bw));
             if (dont)
-                dontShowBtn.setBounds (inner.removeFromBottom (30).withTrimmedBottom (6)
-                                             .withWidth (juce::jmin (150, inner.getWidth())));
+                dontShowBtn.setBounds (inner.removeFromBottom (36).withTrimmedBottom (6)
+                                             .withWidth (juce::jmin (168, inner.getWidth())));
             else
                 dontShowBtn.setBounds ({});
         }
 
     private:
-        static constexpr int kPadX = 22, kPadY = 18, kEyebrowH = 14, kGap1 = 10, kHeadH = 24, kGap2 = 6, kBtnH = 26;
+        static constexpr int kPadX = 22, kPadY = 18, kEyebrowH = 14, kGap1 = 10, kHeadH = 24, kGap2 = 6, kBtnH = 30;
         juce::Rectangle<int> cardArea;
 
         const Step* current() const

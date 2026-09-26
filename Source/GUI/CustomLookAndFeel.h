@@ -2209,6 +2209,10 @@ public:
                 if (button.getProperties().getWithDefault ("goldText", false))
                     g.setColour (juce::Colour (0xffd9b45f));   // lnk.bio, Unterstuetzen (User Runde 60)
                 g.setFont (unifiedButtonFont (button.getHeight()));
+                // Runde 174: feste, lesbare Groesse fuer Knoepfe in Karten (Tour).
+                if (button.getProperties().contains ("btnFontPx"))
+                    g.setFont (juce::Font (juce::FontOptions ((float) (double) button.getProperties()["btnFontPx"], juce::Font::bold))
+                                   .withExtraKerningFactor (0.04f));
             }
             // "textYShift" (Runde 49): schiebt die Beschriftung nach oben,
             // wenn die Modus-Punkte INNERHALB der Pille sitzen.
