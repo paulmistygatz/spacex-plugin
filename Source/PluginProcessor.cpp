@@ -874,6 +874,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         (pGalaxyActivate->load() > 0.5f && pLcrEnabled->load() > 0.5f) ? 1.0f : 0.0f);
     galaxyEnginePaused = false;
     galaxyWarmupRemaining = 0;
+    galaxyWasArmed = pGalaxyActivate->load() > 0.5f;
 
     balanceOnGain.reset (sampleRate, 0.03);
     balanceOnGain.setCurrentAndTargetValue (pTimewarpBalance->load() > 0.5f ? 1.0f : 0.0f);
@@ -1057,6 +1058,20 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool lcrBypassOffRaw   = pLcrEnabled->load() > 0.5f;
     const bool lcrWetOn = galaxyActivateRaw && lcrBypassOffRaw
                           && (! soloActive || soloSection == SOLO_GALAXY);
+    // Review 1.0.1: Solange die Engine nicht scharf ist, laufen ihre Puffer
+    // (FFT und latenzgleiches Original) nicht mit und behalten alten Inhalt.
+    // Ohne Neustart durch den Host spielte das Wieder-Scharfschalten bis zu
+    // 85 ms alten Klang ab (gemessen). Also leeren und - wie beim Einschalten
+    // der Sektion - erst unhoerbar einschwingen lassen.
+    if (galaxyActivateRaw && ! galaxyWasArmed)
+    {
+        lcrExtractor.reset();
+        std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
+        std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
+        lcrDryWritePos = 0;
+        galaxyWarmupRemaining = 3 * lcrExtractor.getLatencySamples();
+    }
+    galaxyWasArmed = galaxyActivateRaw;
     if (! lcrWetOn)
     {
         lcrWetGain.setTargetValue (0.0f);

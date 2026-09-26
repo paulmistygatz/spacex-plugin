@@ -748,6 +748,9 @@ private:
     // wird weich eingeblendet.
     bool galaxyEnginePaused = false;
     int  galaxyWarmupRemaining = 0;
+    // Review 1.0.1: war die Engine im letzten Block scharf? Beim erneuten
+    // Scharfschalten werden ihre Puffer geleert (siehe processBlock).
+    bool galaxyWasArmed = false;
     // 0..1 - wie stark die "Balance"-Gain-Kompensation (siehe
     // ID_TIMEWARP_BALANCE) gerade eingeblendet ist, weich statt hart
     // schaltend, damit das Icon klickfrei an/aus geht.
