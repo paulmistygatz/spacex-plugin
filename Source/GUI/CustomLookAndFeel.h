@@ -343,10 +343,7 @@ public:
         {
             const bool off = (bool) slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
             const auto area = bounds.reduced (2.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.025f));
-            g.fillRoundedRectangle (area, 10.0f);
-            g.setColour (juce::Colours::white.withAlpha (off ? 0.04f : 0.07f));
-            g.drawRoundedRectangle (area.reduced (0.5f), 10.0f, 1.0f);
+            // Runde 179 (User): kein Rahmen, keine 100 %-Kerben, kein Modulationspunkt
             const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
             const float len  = area.getHeight() * 0.80f;
             const float yTip = area.getBottom() - area.getHeight() * 0.10f, yTop = yTip - len;
@@ -367,20 +364,6 @@ public:
             edges.lineTo (centre.x + half, yTop);
             g.setColour (wCol.withAlpha (0.9f));
             g.strokePath (edges, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            // 100 %-Marke: zwei kleine Kerben am oberen Rand, wo das Original endet
-            const float hO = juce::jmin (area.getWidth() * 0.46f, 0.46f * len * 0.50f);
-            g.setColour (juce::Colours::white.withAlpha (off ? 0.12f : 0.40f));
-            g.fillRect (centre.x - hO - 0.75f, yTop - 5.0f, 1.5f, 4.0f);
-            g.fillRect (centre.x + hO - 0.75f, yTop - 5.0f, 1.5f, 4.0f);
-            if (! off && slider.getProperties().getWithDefault ("modLiveActive", false))
-            {
-                const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
-                const float lx = area.getX() + 6.0f + (area.getWidth() - 12.0f) * liveT;
-                g.setColour (juce::Colour (0xcc0a0b0e));
-                g.fillEllipse (lx - 4.2f, area.getBottom() - 8.2f, 8.4f, 8.4f);
-                g.setColour (glowAccent);
-                g.fillEllipse (lx - 2.9f, area.getBottom() - 6.9f, 5.8f, 5.8f);
-            }
             return;
         }
         // Runde 113 (User): ist Autopan-Speed an den Phaser gekoppelt (LINK),
@@ -3934,10 +3917,7 @@ public:
                 // Griff-Flaeche mit Pegel-Schleier und leuchtender Kante
                 const auto area = juce::Rectangle<float> (b.getX() + 2.0f, top, b.getWidth() - 4.0f, h);
                 const float vy  = juce::jmap (valT, bottom, top);
-                g.setColour (juce::Colours::white.withAlpha (0.025f));
-                g.fillRoundedRectangle (area, 9.0f);
-                g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.04f : 0.07f));
-                g.drawRoundedRectangle (area.reduced (0.5f), 9.0f, 1.0f);
+                // Runde 179 (User): kein Rahmen um die Orbit-Flaeche
                 {
                     juce::Path clip; clip.addRoundedRectangle (area, 9.0f);
                     g.saveState();
@@ -3954,8 +3934,8 @@ public:
                     g.restoreState();
                 }
                 g.setColour (offVisual ? knobValueOffColour() : juce::Colour (0xfff2f4f8));
-                g.fillRoundedRectangle (area.getX() - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
-                g.fillRoundedRectangle (area.getRight() - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+                g.fillRoundedRectangle (area.getX() - 2.0f, vy - 1.5f, 4.0f, 3.0f, 1.5f);   // Runde 179: feiner
+                g.fillRoundedRectangle (area.getRight() - 2.0f, vy - 1.5f, 4.0f, 3.0f, 1.5f);
 
                 // Umlaufbahn
                 g.setColour (juce::Colours::white.withAlpha (0.08f));
@@ -3985,8 +3965,8 @@ public:
                     g.setColour (blue.interpolatedWith (juce::Colours::white, 0.4f).withAlpha (offVisual ? 0.6f : 0.95f));
                     g.fillEllipse (mx - sR, my - sR, sR * 2.0f, sR * 2.0f);
                 }
-                // Modulation: Punkt an der Kante rechts, auf der Live-Hoehe
-                if (modLive)
+                // Runde 179 (User): Modulationspunkt beim Orbit vorerst aus (kommt im Update)
+                if (modLive && false)
                 {
                     const float ly = juce::jmap (liveT, bottom, top);
                     g.setColour (juce::Colour (0xcc0a0b0e));
@@ -4045,8 +4025,8 @@ public:
                 g.setGradientFill (edge);
                 g.fillRect (gx0, vy - 0.75f, gx1 - gx0, 1.5f);
                 g.setColour (offVisual ? knobValueOffColour() : juce::Colour (0xfff2f4f8));
-                g.fillRoundedRectangle (gx0 - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
-                g.fillRoundedRectangle (gx1 - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+                g.fillRoundedRectangle (gx0 - 2.0f, vy - 1.5f, 4.0f, 3.0f, 1.5f);   // Runde 179: feiner
+                g.fillRoundedRectangle (gx1 - 2.0f, vy - 1.5f, 4.0f, 3.0f, 1.5f);
             }
             // Staub von C zu den Seiten (nur waehrend sich etwas verschiebt)
             if (! offVisual && valT > 0.01f && valT < 0.99f)

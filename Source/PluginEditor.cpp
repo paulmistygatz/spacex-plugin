@@ -8427,7 +8427,11 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // L/R: so hoch wie die Regler, nach oben 7 px laenger (Runde 65),
         // Unterkante buendig mit den Reglern.
         // Runde 178 (User): unten ein paar Pixel mehr Weg - bis kurz ueber die Beschriftung.
-        orbitSlider.setBounds (xBars, knobY - 7, barsW, juce::jmax (knobD + 7, labelY - 3 - (knobY - 7)));
+        // Runde 179 (User): noch etwas laenger nach unten, bis an die Beschriftung.
+        orbitSlider.setBounds (xBars, knobY - 7, barsW, juce::jmax (knobD + 7, labelY + 2 - (knobY - 7)));
+        // Runde 179 (User): Maus soll am Griff bleiben - Ziehweg = gezeichneter
+        // Weg (drawLinearSlider "lcrBars": 4 px Rand oben und unten), statt JUCE-Standard 250 px.
+        orbitSlider.setMouseDragSensitivity (juce::jmax (20, orbitSlider.getHeight() - 8));
         orbitLabel.setBounds  (xBars - g / 2, labelY, barsW + g, 14);
         // Reihenfolge Orbit - Gravity - Air (User).
         gravitySlider.setBounds (xK1, knobY, knobD, knobD);
