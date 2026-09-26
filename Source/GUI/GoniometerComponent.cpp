@@ -369,8 +369,8 @@ void GoniometerComponent::timerCallback()
 
     // Runde 174 (User): im Bypass laeuft alles weiter und zeigt das
     // unbearbeitete Signal - so sieht man direkt, wie es ohne SpaceX aussieht.
-    // Nur die Szene dahinter wird gedimmt (siehe bypassSm, composeScene) und
-    // oben links steht BYPASS (siehe paint). Vorher fror der Logo-Bypass das
+    // Nur die Szene dahinter wird gedimmt (siehe bypassSm, composeScene); die
+    // BYPASS-Plakette steht im Header neben der Wortmarke. Vorher fror der Logo-Bypass das
     // Feld ein, der DAW-Bypass nicht.
 
     // ===== EBENEN vorbereiten (siehe Header) =====
@@ -2932,24 +2932,6 @@ void GoniometerComponent::paint (juce::Graphics& g)
         g.restoreState();
     }
 
-
-    // Runde 174 (User): BYPASS-Plakette oben links im Feld (oben rechts sitzt
-    // das Zahnrad, die DEMO-Plakette steht im Header neben dem Slogan). Ruhig,
-    // ohne Blinken - der atmende Power-Knopf im Header reicht als Signal.
-    if (bypassSm > 0.01f)
-    {
-        const auto f = juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f);
-        const float chipW = juce::GlyphArrangement::getStringWidth (f, "BYPASS") + 16.0f;
-        const juce::Rectangle<float> chip (bounds.getX() + 12.0f, bounds.getY() + 12.0f, chipW, 17.0f);
-        const auto frameCol = juce::Colour ((juce::uint32) (int) getProperties().getWithDefault ("frameColour", (int) 0xff8a90a0));
-        g.setColour (juce::Colour (0xff050608).withAlpha (0.70f * bypassSm));
-        g.fillRoundedRectangle (chip, 8.0f);
-        g.setColour (frameCol.withAlpha (0.60f * bypassSm));
-        g.drawRoundedRectangle (chip.reduced (0.5f), 8.0f, 1.0f);
-        g.setFont (f);
-        g.setColour (juce::Colours::white.withAlpha (0.85f * bypassSm));
-        g.drawText ("BYPASS", chip, juce::Justification::centred, false);
-    }
 
     // Dickerer Rahmen als vorher (1.0 -> 1.8px, User-Feedback: "Rahmen um
     // das Feld mit den Sternen dicker").

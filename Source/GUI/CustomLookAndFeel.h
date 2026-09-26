@@ -93,7 +93,7 @@ struct ThemePalette
     juce::Colour title { juce::Colour (0x00000000) };
     juce::Colour titleColour() const { return title.getAlpha() == 0 ? frameMain : title; }
 };
-inline ThemePalette themePalette()
+inline ThemePalette themePaletteRaw()
 {
     switch (uiThemeRef())
     {
@@ -138,6 +138,18 @@ inline ThemePalette themePalette()
             return { juce::Colour (0xffc9c5be), juce::Colour (0xff97b8ee), juce::Colour (0xff86847e), juce::Colour (0xff86847e),
                      juce::Colour (0xffd6b975), juce::Colour (0xffc9c5be), juce::Colour (0xffc9c5be), juce::Colour (0xff1a1a1d) };
     }
+}
+
+// Runde 174 (User: "das ganze Plugin bei allen Themes etwas zu dunkel ...
+// so ein Ticken heller"): die Platte aller Themes hebt sich um 3 % Richtung
+// Weiss. Alles, was aus der Platte abgeleitet ist (Sektionsflaechen,
+// Felder), zieht automatisch mit - der Charakter bleibt, nur die Tiefen
+// werden etwas offener.
+inline ThemePalette themePalette()
+{
+    auto p = themePaletteRaw();
+    p.plate = p.plate.interpolatedWith (juce::Colours::white, 0.03f);
+    return p;
 }
 
 // Farbe der RAYE-Pair-Kopplung (Pair-Knopf + gekoppelte Hyperdrive-Teile).
@@ -195,7 +207,7 @@ inline juce::Colour controlIdleFill(){ return isComicTheme() ? juce::Colour (0xf
 
 // Sektionsflaeche der flachen Themes (Sci-Fi, Moon); wird mit 62 % (an)
 // bzw. 30 % (aus) ueber die Platte gelegt.
-inline juce::Colour themeSurface()
+inline juce::Colour themeSurfaceRaw()
 {
     switch (uiThemeRef())
     {
@@ -204,6 +216,10 @@ inline juce::Colour themeSurface()
         case UiTheme::Flat:         return juce::Colour (0xff222327);
         default:                    return juce::Colour (0xff1e2434);
     }
+}
+inline juce::Colour themeSurface()   // Runde 174: 3 % heller, wie die Platte (siehe themePalette)
+{
+    return themeSurfaceRaw().interpolatedWith (juce::Colours::white, 0.03f);
 }
 // Runde 66 (User): Fuellung der Sektionen im Outline-Layout, JE THEME.
 // Outline ist die neue Basis (klare Kontur, kein Glow) - wie viel Flaeche
@@ -228,7 +244,7 @@ inline OutlineFill outlineFill()
 }
 // "Wash"-Sektionen: Fuellfarbe + Deckkraft fuer an / aus je Theme.
 struct WashFill { juce::Colour on, off; float aOn, aOff; };
-inline WashFill washFill()
+inline WashFill washFillRaw()
 {
     switch (uiThemeRef())
     {
@@ -243,6 +259,12 @@ inline WashFill washFill()
         case UiTheme::DayNight: return { juce::Colour (0xff141826), juce::Colour (0xff05060b), 0.62f, 0.0f };   // tiefes Navy + Gold
         default:                return { juce::Colour (0xff13152a), juce::Colour (0xff07080f), 0.56f, 0.0f };   // Dark Night
     }
+}
+inline WashFill washFill()   // Runde 174: 3 % heller, wie die Platte (siehe themePalette)
+{
+    auto w = washFillRaw();
+    w.on = w.on.interpolatedWith (juce::Colours::white, 0.03f);
+    return w;
 }
 // Effektive Fuellfarbe einer AUSGESCHALTETEN Sektion (Platte + Flaeche) -
 // Bezugsfarbe fuer Reglerringe, Reglermitte und Labels bei Sektion aus

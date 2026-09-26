@@ -6508,6 +6508,26 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                                      xBase, 0.0f, (float) xLine.getBottom(), false);
         g.setGradientFill (xGrad);
         g.drawText (wordX, xLine, juce::Justification::centredLeft);
+
+        // Runde 174 (User): BYPASS-Plakette oben im Header, rechts neben der
+        // Wortmarke - gut sichtbar und nie im Weg der DEMO-Plakette, die eine
+        // Zeile tiefer neben dem Slogan steht.
+        if (processor.isBypassedNow())
+        {
+            const auto f = juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f);
+            const float xW    = juce::GlyphArrangement::getStringWidth (xFont, wordX);
+            const float chipW = juce::GlyphArrangement::getStringWidth (f, "BYPASS") + 18.0f;
+            const juce::Rectangle<float> chip ((float) markLine.getX() + (float) spaceW + 1.0f + xW + 18.0f,
+                                               (float) markLine.getCentreY() - 9.0f, chipW, 18.0f);
+            const auto acc = themePalette().knob;
+            g.setColour (acc.withAlpha (0.16f));
+            g.fillRoundedRectangle (chip, 9.0f);
+            g.setColour (acc.withAlpha (0.80f));
+            g.drawRoundedRectangle (chip.reduced (0.5f), 9.0f, 1.0f);
+            g.setFont (f);
+            g.setColour (acc.brighter (0.35f));
+            g.drawText ("BYPASS", chip, juce::Justification::centred, false);
+        }
     }
 
     // Slogan unter dem Logo (User-Wunsch: "Unter dem Logo ist noch Platz ...
@@ -6650,7 +6670,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setGradientFill (wash);
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.38f : 0.20f) * pulse));   // Runde 174: aus 0.10 -> 0.20
+            g.setColour (col.withAlpha ((on ? 0.38f : 0.28f) * pulse));   // Runde 174: aus 0.10 -> 0.28
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.4f : 1.0f);
             return;
         }
@@ -6693,8 +6713,17 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             }
             // Aus: nur noch ein minimaler Rand, damit man sieht, DASS dort eine
             // Sektion liegt - sonst nichts (User).
-            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.055f));   // Runde 174: aus 0.030 -> 0.055
+            // Runde 174 (User): der Aus-Rahmen soll aussehen wie frueher im
+            // DAW-Bypass - Schimmer fast wie "an" und ein Hauch der beiden
+            // Saum-Striche. Fuellung, Farbhauch und Glow bleiben "an".
+            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.085f));
             g.drawRoundedRectangle (rf, 10.0f, 1.0f);
+            if (! on)
+            {
+                g.setColour (col.withAlpha (0.04f));
+                g.drawRoundedRectangle (rf.expanded (1.0f), 11.0f, 1.5f);
+                g.drawRoundedRectangle (rf.expanded (2.0f), 12.0f, 1.5f);
+            }
             // Moon (User: "Kontrast zwischen on und off ist zu gering, und die
             // UI ist schon dunkel genug"): der Rahmen der EINGESCHALTETEN
             // Sektion bekommt zusaetzlich einen klaren Zug Akzentfarbe - das
@@ -6787,7 +6816,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setColour (surf.withAlpha (isSciFiTheme() ? 0.34f : 0.62f));
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.42f : 0.22f) * pulse));   // Runde 174: aus 0.10 -> 0.22
+            g.setColour (col.withAlpha ((on ? 0.42f : 0.32f) * pulse));   // Runde 174: aus 0.10 -> 0.32
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.6f : 1.0f);
             return;
         }
@@ -6795,7 +6824,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Sektionen liessen sich schlecht voneinander abgrenzen. Mittelweg:
         // deutlich heller als frueher (0.10), aber klar unter dem An-Rahmen;
         // Fuellung und Glow bleiben der eingeschalteten Sektion vorbehalten.
-        const float lineA = (on ? 0.45f : 0.24f) * pulse;
+        const float lineA = (on ? 0.45f : 0.34f) * pulse;
         onGlow (10.0f);
         if (on)
         {
