@@ -17,6 +17,7 @@ enum SpaceXSettingsId
     idDisableModMovement,
     idReduceAnimations,
     idLrOrbit,          // Runde 174: L/R als Orbit statt Balken
+    idWidthWedge,       // Runde 175: Width mit Keil statt Zeiger
     idSaveSizeDefault,
     idSaveStateDefault,
     idOpenPresetFolder,
@@ -107,6 +108,7 @@ public:
              techLabels = false;
         float bright = 0.0f;   // Runde 174
         bool  lrOrbit = false; // Runde 174
+        bool  widthWedge = false; // Runde 175
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -536,11 +538,13 @@ private:
         // Runde 102 (User): "Bass Protect auch aus den Settings", "Labels
         // Option weg" (sie steht jetzt unter den Themes) und "Show Advanced
         // Modulation raus" - uebrig bleiben zwei echte Schalter.
-        static constexpr int kBehav   = 3;   // Runde 174: + L/R Orbit
+        static constexpr int kBehav   = 2;
 
         juce::Label title, themeHead, layoutHead, behavHead, brightHead;
         // Runde 174 (User): Brightness-Regler unter der Vorschau.
         juce::Slider brightSlider;
+        // Runde 175 (User, Beta-Vergleich): zwei kleine Umschalter neben Brightness.
+        juce::TextButton betaOrbitBtn { "L/R Orbit" }, betaWedgeBtn { "Width Wedge" };
         std::function<void (float, bool)> onBrightness;   // Wert, speichern?
         // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
         // unabhaengig vom "?"-Schalter im Hauptfenster.
@@ -562,7 +566,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
-        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation, idLrOrbit }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation }; return a; }
 
         SettingsPanelComponent()
         {
@@ -608,8 +612,7 @@ private:
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
             static const char* const behavNames[kBehav]   = { "LCR On Startup (Latency)",
-                                                              "Show Modulation",
-                                                              "L/R Orbit" };
+                                                              "Show Modulation" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -644,13 +647,18 @@ private:
             setup (aboutBtn,  "Back Panel",            idBackPanel);
             setup (resetBtn,  "Reset",                 idResetSettings);
             setup (licenceBtn, "Activate...", idActivate);
+            setup (betaOrbitBtn, "L/R Orbit",   idLrOrbit);
+            setup (betaWedgeBtn, "Width Wedge", idWidthWedge);
+            for (auto* bb : { &betaOrbitBtn, &betaWedgeBtn })
+                bb->getProperties().set ("btnFontPx", 11.5);
             setup (cancelBtn, "Cancel", idCancelSettings);
             setup (saveBtn,   "Save",   idSaveSettings);
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
             saveBtn.setTooltip ("Keep the changes and close");
 
             behavBtn[1].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
-            behavBtn[2].setTooltip ("Shows L/R in LCR MATRIX as orbiting planets instead of bars");
+            betaOrbitBtn.setTooltip ("Shows L/R in LCR MATRIX as orbiting planets instead of bars");
+            betaWedgeBtn.setTooltip ("Shows a width wedge inside the Width knob instead of a pointer");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
             labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
@@ -860,7 +868,15 @@ private:
             }
             // Ueberschrift und Regler buendig mit der linken Kante der Vorschau.
             brightHead.setBounds (headR.withX (previewArea.getX()).withWidth (previewArea.getWidth()));
-            brightSlider.setBounds (row.withX (previewArea.getX() - 6).withWidth (previewArea.getWidth() * 2 / 3 + 6));
+            {
+                auto r2 = row.withX (previewArea.getX()).withWidth (previewArea.getWidth());
+                const int chipW = juce::jmin (118, (r2.getWidth() / 2 - 12) / 2);
+                betaWedgeBtn.setBounds (r2.removeFromRight (chipW));
+                r2.removeFromRight (8);
+                betaOrbitBtn.setBounds (r2.removeFromRight (chipW));
+                r2.removeFromRight (16);
+                brightSlider.setBounds (r2.withX (r2.getX() - 6).withWidth (r2.getWidth() + 6));
+            }
         }
 
     private:

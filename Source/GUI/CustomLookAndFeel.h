@@ -68,6 +68,8 @@ inline int&  uiLayoutRef()      { static int m = 0; return m; }
 inline float& uiBrightnessRef() { static float b = 0.0f; return b; }
 // Runde 174 (User, Beta-Vergleich): L/R als Orbit statt als Balken (Settings).
 inline bool& uiLrOrbitRef() { static bool b = false; return b; }
+// Runde 175 (User, Beta-Vergleich): Width-Regler mit Keil statt Zeiger (Settings).
+inline bool& uiWidthWedgeRef() { static bool b = false; return b; }
 inline bool  layoutFrameless()  { return uiLayoutRef() == 1; }
 inline bool  layoutOutline()    { return uiLayoutRef() == 2; }
 // Aus-Zustand der Icons (Power/Solo/Lock/Mod/...): im Comic dunkle Tinte,
@@ -480,8 +482,35 @@ public:
         // voller Ring, sondern nur als blauer Wertebogen (blau = gekoppelt).
         if (! offVisual && (bool) slider.getProperties().getWithDefault ("pairedGold", false))
             col = pairAccentColour();
-        g.setColour (col);
-        g.strokePath (value, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        const bool hfSparkle = ! offVisual && (bool) slider.getProperties().getWithDefault ("hfSparkle", false);
+        if (hfSparkle && ! centerOut && angle - rotaryStartAngle > 0.001f)
+        {
+            // Runde 175 (User, HF Regain): der Bogen bleibt golden, nur vom
+            // Zeiger aus rueckwaerts laeuft ein Stueck ins Blau - je hoeher der
+            // Wert, desto laenger. Gold = Mitte, Blau = Seiten.
+            const float r2   = radius - trackThickness;
+            const float frac = 0.15f + 0.45f * sliderPos;
+            constexpr int kSeg = 40;
+            for (int i = 0; i < kSeg; ++i)
+            {
+                const float q0 = (float) i / kSeg, q1 = (float) (i + 1) / kSeg, q = 0.5f * (q0 + q1);
+                float bl = juce::jlimit (0.0f, 1.0f, (q - (1.0f - frac)) / frac);
+                bl = bl * bl * (3.0f - 2.0f * bl);
+                juce::Path seg;
+                seg.addCentredArc (centre.x, centre.y, r2, r2, 0.0f,
+                                   rotaryStartAngle + (angle - rotaryStartAngle) * q0,
+                                   rotaryStartAngle + (angle - rotaryStartAngle) * q1 + 0.004f, true);
+                g.setColour (col.interpolatedWith (glowAccent, bl));
+                g.strokePath (seg, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved,
+                                                         (i == 0 || i == kSeg - 1) ? juce::PathStrokeType::rounded : juce::PathStrokeType::butt));
+            }
+            col = glowAccent;   // Schimmer an der Spitze in Blau
+        }
+        else
+        {
+            g.setColour (col);
+            g.strokePath (value, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
         // Runde 110: ein winziger Schimmer an der Spitze des Wertebogens -
         // dieselbe Sprache wie die Icon-Felder, ganz leise.
         if (! offVisual && ! value.isEmpty())
@@ -491,15 +520,89 @@ public:
             softIconGlow (g, tip, trackThickness * 2.2f, col, 0.9f);
         }
 
-        float pointerLength = radius * 0.55f;
-        juce::Path pointer;
-        pointer.startNewSubPath (centre.x, centre.y);
-        pointer.lineTo (centre.x + pointerLength * std::sin (angle), centre.y - pointerLength * std::cos (angle));
-        g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.30f : 1.0f));
-        g.strokePath (pointer, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        const bool wedgeMode = uiWidthWedgeRef() && (bool) slider.getProperties().getWithDefault ("widthWedge", false);
+        if (! wedgeMode)
+        {
+            float pointerLength = radius * 0.55f;
+            juce::Path pointer;
+            pointer.startNewSubPath (centre.x, centre.y);
+            pointer.lineTo (centre.x + pointerLength * std::sin (angle), centre.y - pointerLength * std::cos (angle));
+            g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.30f : 1.0f));
+            g.strokePath (pointer, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        g.setColour (offVisual ? knobCentreOffColour() : knobCapColour());
-        g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
+            g.setColour (offVisual ? knobCentreOffColour() : knobCapColour());
+            g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
+        }
+        else
+        {
+            // Runde 175 (User, Width Variante B): statt des Zeigers ein Keil in
+            // der Knopfmitte - Spitze unten, oeffnet nach oben. Width geht
+            // 50..200 %: bei 50 % halb so breit wie das Original, nie ein
+            // Strich. Die gestrichelte Linie zeigt 100 %.
+            const float inner = radius - trackThickness * 1.9f;
+            g.setColour (offVisual ? knobCentreOffColour() : knobCapColour());
+            g.fillEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
+            const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
+            const float len  = inner * 1.25f;
+            const float yTip = centre.y + inner * 0.62f, yTop = yTip - len;
+            const float half = 0.46f * w * len * 0.55f;
+            const float hO   = 0.46f * len * 0.55f;
+            juce::Path clipC; clipC.addEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
+            g.saveState();
+            g.reduceClipRegion (clipC);
+            const auto wCol = offVisual ? knobValueOffColour() : accent;
+            juce::Path wedge;
+            wedge.startNewSubPath (centre.x, yTip);
+            wedge.lineTo (centre.x - half, yTop);
+            wedge.quadraticTo (centre.x, yTop - len * 0.08f, centre.x + half, yTop);
+            wedge.closeSubPath();
+            g.setGradientFill (juce::ColourGradient (wCol.withAlpha (0.95f), centre.x, yTip,
+                                                     (offVisual ? wCol : wCol.interpolatedWith (glowAccent, juce::jlimit (0.0f, 1.0f, w - 1.0f))).withAlpha (0.25f),
+                                                     centre.x, yTop, false));
+            g.fillPath (wedge);
+            juce::Path edges;
+            edges.startNewSubPath (centre.x - half, yTop);
+            edges.lineTo (centre.x, yTip);
+            edges.lineTo (centre.x + half, yTop);
+            g.setColour (wCol.withAlpha (0.9f));
+            g.strokePath (edges, juce::PathStrokeType (1.3f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            juce::Path orig;
+            orig.startNewSubPath (centre.x - hO, yTop);
+            orig.lineTo (centre.x, yTip);
+            orig.lineTo (centre.x + hO, yTop);
+            juce::Path dashed;
+            const float dashes[] = { 2.0f, 3.0f };
+            juce::PathStrokeType (1.0f).createDashedStroke (dashed, orig, dashes, 2);
+            g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.08f : 0.18f));
+            g.fillPath (dashed);
+            g.restoreState();
+        }
+
+        // Runde 175 (User, HF Regain): Funken spruehen aus der Knopfmitte zu
+        // den Seiten - golden in der Mitte, blau nach aussen. Dezent: wenige,
+        // kleine Punkte, Menge mit dem Wert.
+        if (hfSparkle && sliderPos > 0.01f)
+        {
+            const double tS = juce::Time::getMillisecondCounterHiRes() * 0.001;
+            const int n = juce::roundToInt (2.0f + 6.0f * sliderPos);
+            for (int i = 0; i < n; ++i)
+            {
+                const float seed  = (float) i * 12.9898f;
+                const float dir   = (i % 2) ? 1.0f : -1.0f;
+                const float speed = 0.9f + (std::sin (seed) * 0.5f + 0.5f) * 0.9f;
+                const float p     = (float) std::fmod (tS * speed * (0.8 + sliderPos) + (std::sin (seed * 3.1f) * 0.5f + 0.5f), 1.0);
+                const float reach = radius * (0.50f + 0.45f * sliderPos);   // bleibt innerhalb der Komponente (sonst abgeschnitten)
+                const float sx = centre.x + dir * p * reach;
+                const float sy = centre.y + std::sin (seed * 7.7f) * radius * 0.35f * p - p * p * 5.0f;
+                const float a  = juce::jlimit (0.0f, 1.0f, sliderPos * (1.0f - p * 0.8f) * (0.55f + 0.45f * (float) std::sin (tS * 9.0 + seed)));
+                const auto sc = juce::Colour (0xffffecc8).interpolatedWith (glowAccent.interpolatedWith (juce::Colours::white, 0.25f),
+                                                                           juce::jmin (1.0f, p * 1.3f));
+                const float rr = 2.4f;
+                juce::ColourGradient sg (sc.withAlpha (a), sx, sy, sc.withAlpha (0.0f), sx + rr, sy, true);
+                g.setGradientFill (sg);
+                g.fillEllipse (sx - rr, sy - rr, rr * 2.0f, rr * 2.0f);
+            }
+        }
 
         // Live-Mod-Anzeige (Drift/Shift/Expand/Boost/Speed): zusaetzlich zum
         // normalen Zeiger (der die EINGESTELLTE Position zeigt) ein
@@ -3869,7 +3972,7 @@ public:
             const float cH  = h * kBase * (1.0f - valT);
             const float rad = juce::jmin (5.0f, bw * 0.35f);
             const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
-            const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Blau, oben Gold
+            const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Gold, oben Blau
             auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool side)
             {
                 const juce::Rectangle<float> tr (bx, top, bw, h);
@@ -3882,8 +3985,10 @@ public:
                 g.saveState();
                 g.reduceClipRegion (clip);
                 if (fairyGrad && side && ! offVisual)
-                    g.setGradientFill (juce::ColourGradient (glowAccent.withAlpha (alpha), bx, bottom,
-                                                             accent.withAlpha (alpha),     bx, top, false));
+                    // Runde 175 (User, Farbregel "Gold = Mitte, Blau = Seiten"):
+                    // unten Gold, nach oben Blau - je weiter L/R steigen, desto blauer.
+                    g.setGradientFill (juce::ColourGradient (accent.withAlpha (alpha),     bx, bottom,
+                                                             glowAccent.withAlpha (alpha), bx, top, false));
                 else
                     g.setColour (col.withAlpha (alpha));
                 g.fillRect (bx, bottom - fillH, bw, fillH);

@@ -1441,6 +1441,7 @@ void LCRMSAudioProcessorEditor::applyVisualsVisibility()
     setUiTheme (props.getIntValue ("uiTheme4", (int) UiTheme::DayNight), false);
     uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, (float) props.getDoubleValue ("uiBrightness", 0.0));   // Runde 174
     uiLrOrbitRef()    = props.getBoolValue ("lrOrbit", false);                                            // Runde 174
+    uiWidthWedgeRef() = props.getBoolValue ("widthWedge", false);                                         // Runde 175
     applyLayoutMode();
     goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
     starVisualsOn       = ! props.getBoolValue ("spaceVisualsDisabledDefault", false);
@@ -2016,6 +2017,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.techLabels  = technicalLabels;
     settingsSnap.bright      = uiBrightnessRef();
     settingsSnap.lrOrbit     = uiLrOrbitRef();
+    settingsSnap.widthWedge  = uiWidthWedgeRef();
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -2036,6 +2038,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (advancedModVisible,                             settingsSnap.advMod,      idShowAdvancedMod);
     flipIf (technicalLabels,                                settingsSnap.techLabels,  idTechnicalLabels);
     flipIf (uiLrOrbitRef(),                                 settingsSnap.lrOrbit,     idLrOrbit);
+    flipIf (uiWidthWedgeRef(),                              settingsSnap.widthWedge,  idWidthWedge);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
@@ -2258,7 +2261,8 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     // Runde 71: die Layout-Knoepfe gibt es nicht mehr - jedes Theme hat sein
     // festes Layout. "Technical Labels" steht jetzt bei Behaviour.
     settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,  juce::dontSendNotification);
-    settingsPanel.behavBtn[2].setToggleState (uiLrOrbitRef(),            juce::dontSendNotification);
+    settingsPanel.betaOrbitBtn.setToggleState (uiLrOrbitRef(),           juce::dontSendNotification);
+    settingsPanel.betaWedgeBtn.setToggleState (uiWidthWedgeRef(),        juce::dontSendNotification);
     settingsPanel.brightSlider.setValue (uiBrightnessRef(), juce::dontSendNotification);
     // "SpaceX Labels" ist die Umkehrung: angehakt = NICHT technisch.
     settingsPanel.labelBtn.setToggleState (! technicalLabels, juce::dontSendNotification);
@@ -2400,6 +2404,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     applyBrightness (0.0f, true);   // Runde 174
                     writeProps.setValue ("lrOrbit", false);
                     uiLrOrbitRef() = false;
+                    writeProps.setValue ("widthWedge", false);
+                    uiWidthWedgeRef() = false;
                     setUiTheme ((int) UiTheme::DayNight, true);   // Runde 174: Werkseinstellung = Day & Night
                     applyLabelStyle();
                     applyLayoutMode();
@@ -2476,6 +2482,12 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     starVisualsOn = ! starVisualsOn;
                     goniometer.setSpaceVisualsEnabled (starVisualsOn);
                     writeProps.setValue ("spaceVisualsDisabledDefault", ! starVisualsOn);
+                    break;
+                case idWidthWedge:
+                    uiWidthWedgeRef() = ! uiWidthWedgeRef();
+                    writeProps.setValue ("widthWedge", uiWidthWedgeRef());
+                    writeProps.saveIfNeeded();
+                    sideWidthSlider.repaint();
                     break;
                 case idLrOrbit:
                     uiLrOrbitRef() = ! uiLrOrbitRef();
@@ -3925,6 +3937,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     styleLabel (horizonLabel, "Regain");
     content.addAndMakeVisible (horizonLabel);
     horizonAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_LCR_HORIZON, horizonSlider);
+    horizonSlider.getProperties().set ("hfSparkle", true);   // Runde 175: HF Regain - Bogen laeuft ins Blau, Funken
     horizonSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
     horizonSlider.textFromValueFunction = [] (double v)
     {
@@ -4324,6 +4337,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (sideWidthLabel);
     content.addAndMakeVisible (sideBoostLabel);
     sideWidthAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SIDE_WIDTH, sideWidthSlider);
+    sideWidthSlider.getProperties().set ("widthWedge", true);   // Runde 175: Keil, wenn in den Settings gewaehlt
     sideBoostAttachment = std::make_unique<SliderAttachment> (processor.apvts, LCRMSAudioProcessor::ID_SIDE_BOOST, sideBoostSlider);
     sideWidthSlider.setDoubleClickReturnValue (true, 100.0, juce::ModifierKeys::commandModifier);
     sideBoostSlider.setDoubleClickReturnValue (true, 0.0, juce::ModifierKeys::commandModifier);
@@ -5543,6 +5557,10 @@ void LCRMSAudioProcessorEditor::timerCallback()
         if (isLcrOn && ! uiBypassed && orbitSlider.isShowing()
             && (uiLrOrbitRef() ? v > 0.01 : (v > 0.01 && v < 0.99)))
             orbitSlider.repaint();
+        // Runde 175: HF-Regain-Funken
+        if (isLcrOn && ! uiBypassed && horizonSlider.isShowing()
+            && horizonSlider.valueToProportionOfLength (horizonSlider.getValue()) > 0.01)
+            horizonSlider.repaint();
     }
     setSectionOff (horizonSlider, isLcrOn);
     setSectionOff (driftSlider, isDriftOn);
