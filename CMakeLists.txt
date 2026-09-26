@@ -21,6 +21,16 @@ endif()
 
 project(LCRMSPlugin VERSION 1.0.0 LANGUAGES C CXX)
 
+# Review 1.0.1: Ohne Build-Typ baut ein Makefile-/Ninja-Generator OHNE
+# Optimierung (-O0) - "cmake --build ... --config Release" wirkt nur bei
+# Xcode/Visual Studio. Genau so war build/ konfiguriert (CMAKE_BUILD_TYPE
+# leer), das Plugin lief dadurch mit 4-5-facher CPU-Last. Leerer Typ heisst
+# ab jetzt Release (Windows/Visual Studio ist davon nicht betroffen).
+get_property(SPX_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if (NOT SPX_MULTI_CONFIG AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build-Typ (Standard: Release)" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

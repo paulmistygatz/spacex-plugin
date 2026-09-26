@@ -12,7 +12,12 @@ NAME="SpaceX.vst3"
 SRC="build/LCRMSPlugin_artefacts/VST3/$NAME"
 DST="/Library/Audio/Plug-Ins/VST3"
 
-cmake --build build --config Release
+# Review 1.0.1: build/ bei Bedarf selbst anlegen, als Release. So klappt auch
+# "rm -rf build && ./install.sh" (BEFEHLE.md). --parallel nutzt alle Kerne.
+if [ ! -f build/CMakeCache.txt ]; then
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+fi
+cmake --build build --config Release --parallel
 
 # Alte Fassung erst weg, sonst bleiben geloeschte Dateien im Bundle liegen.
 sudo rm -rf "$DST/$NAME"
