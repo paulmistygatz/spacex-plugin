@@ -119,6 +119,7 @@ public:
         bufL.assign ((size_t) fftSize * 2, 0.0f);
         bufR.assign ((size_t) fftSize * 2, 0.0f);
         cBuf.assign ((size_t) fftSize * 2, 0.0f);
+        fftOut.assign ((size_t) fftSize * 2, 0.0f);
 
         const size_t nb = (size_t) (fftSize / 2 + 1);
         sxx.assign  (nb, 0.0f);
@@ -291,14 +292,15 @@ private:
                 cBuf[(size_t) i * 2 + 1] = fifoInR[(size_t) idx] * window[(size_t) i];
                 if (++idx == fftSize) idx = 0;
             }
+            // Review 1.0.1: out-of-place (siehe fftOut unten).
             fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()),
-                          reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()), false);
+                          reinterpret_cast<juce::dsp::Complex<float>*> (fftOut.data()), false);
             const int nbHalf = fftSize / 2;
             for (int b = 0; b <= nbHalf; ++b)
             {
                 const int m = (b == 0) ? 0 : fftSize - b;
-                const float zr = cBuf[(size_t) b * 2], zi = cBuf[(size_t) b * 2 + 1];
-                const float wr = cBuf[(size_t) m * 2], wi = cBuf[(size_t) m * 2 + 1];
+                const float zr = fftOut[(size_t) b * 2], zi = fftOut[(size_t) b * 2 + 1];
+                const float wr = fftOut[(size_t) m * 2], wi = fftOut[(size_t) m * 2 + 1];
                 bufL[(size_t) b * 2]     = 0.5f * (zr + wr);
                 bufL[(size_t) b * 2 + 1] = 0.5f * (zi - wi);
                 bufR[(size_t) b * 2]     = 0.5f * (zi + wi);
@@ -408,12 +410,12 @@ private:
         }
 
         fft->perform (reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()),
-                      reinterpret_cast<juce::dsp::Complex<float>*> (cBuf.data()), true);
+                      reinterpret_cast<juce::dsp::Complex<float>*> (fftOut.data()), true);
 
         for (int i = 0; i < fftSize; ++i)
         {
             const int idx = (writeHead + i) % ringSize;
-            outC[(size_t) idx] += cBuf[(size_t) i * 2] * (window[(size_t) i] / normFactor);
+            outC[(size_t) idx] += fftOut[(size_t) i * 2] * (window[(size_t) i] / normFactor);
         }
         writeHead = (writeHead + hopSize) % ringSize;
     }
@@ -441,6 +443,11 @@ private:
 
     // Arbeitspuffer - in prepare() dimensioniert, nie im Audio-Thread.
     std::vector<float> bufL, bufR, cBuf;
+    // Review 1.0.1: eigener Ausgabepuffer fuer die FFT. juce::dsp::FFT::perform()
+    // ist laut JUCE nur OUT-OF-PLACE erlaubt. In-place rechnet nur Apples vDSP
+    // zufaellig richtig; der JUCE-Fallback (Windows) lieferte Muell, Galaxy war
+    // dort wirkungslos (Center = 0, im Test gemessen).
+    std::vector<float> fftOut;
     std::vector<float> sxx, syy, sxyRe, sxyIm, gain, mask;
 
     float smoothAmount = 0.5f;
