@@ -360,6 +360,13 @@ void GoniometerComponent::timerCallback()
     if (fadeImage.isNull())
         return;
 
+    // Review 1.0.1: Fenster minimiert oder ausgeblendet - dann die Szene gar
+    // nicht erst berechnen. Ein Frame kostet einige Millisekunden (Ebenen
+    // leeren, abschwaechen, zusammensetzen), bei 30 Hz und mehreren offenen
+    // Instanzen ist das spuerbar. Beim Wiedererscheinen deckelt dt den Sprung.
+    if (! isShowing())
+        return;
+
     // Logo-Klick-Bypass: komplett einfrieren (keine Sterne, kein Fade, kein
     // neuer Scope-Trace) statt weiterzulaufen, waehrend das Signal gar
     // nicht mehr bearbeitet wird.
