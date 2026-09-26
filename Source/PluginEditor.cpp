@@ -1284,8 +1284,13 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
             demoDialog->addButton ("Buy SpaceX",    2);
             demoDialog->addButton ("Continue Demo", 0, juce::KeyPress (juce::KeyPress::escapeKey));
             styleNameDialog (*demoDialog);
-            demoDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int r)
+            // Review 1.0.1: JUCE ruft den Rueckruf auch dann noch (asynchron) auf,
+            // wenn der Dialog beim Schliessen des Plugin-Fensters mit dem Editor
+            // geloescht wird - dann darf 'this' nicht mehr benutzt werden.
+            demoDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, safe = juce::Component::SafePointer<LCRMSAudioProcessorEditor> (this)] (int r)
             {
+                if (safe == nullptr)
+                    return;
                 demoDialog.reset();
                 if (r == 1)      promptActivate();
                 else if (r == 2) juce::URL (spacexContact::shopUrl).launchInDefaultBrowser();
@@ -3266,8 +3271,10 @@ void LCRMSAudioProcessorEditor::promptActivate()
     presetNameDialog->addButton ("Cancel",   0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
 
-    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, safe = juce::Component::SafePointer<LCRMSAudioProcessorEditor> (this)] (int result)
     {
+        if (safe == nullptr)   // Review 1.0.1: Fenster schon geschlossen (siehe Demo-Dialog)
+            return;
         juce::String entered, owner;
         if (result == 1 && presetNameDialog != nullptr)
         {
@@ -3327,8 +3334,10 @@ void LCRMSAudioProcessorEditor::promptRenamePreset()
     presetNameDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     styleNameDialog (*presetNameDialog);
 
-    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, oldName] (int result)
+    presetNameDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, oldName, safe = juce::Component::SafePointer<LCRMSAudioProcessorEditor> (this)] (int result)
     {
+        if (safe == nullptr)   // Review 1.0.1: Fenster schon geschlossen (siehe Demo-Dialog)
+            return;
         juce::String name;
         if (result == 1 && presetNameDialog != nullptr)
             name = presetNameDialog->getTextEditorContents ("name").removeCharacters ("\r\n").trim();
