@@ -2166,7 +2166,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
 
     add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "Presets",
          "Presets set by ear on real sessions, sorted in folders. "
-         "The arrows step through the current folder, Save lets you pick one.");
+         "The arrows step through the current folder.");
 
     add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
          "Compare", "Undo, A / B, Settings",
