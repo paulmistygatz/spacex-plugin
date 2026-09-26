@@ -3898,6 +3898,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     orbitSlider.setSliderStyle (juce::Slider::LinearVertical);
     orbitSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     orbitSlider.getProperties().set ("focusStyle", true);
+    orbitSlider.getProperties().set ("lcrBars", true);   // Runde 174: Entwurf C (L · C · R)
     content.addAndMakeVisible (orbitSlider);
     styleLabel (orbitLabel, "Orbit");
     content.addAndMakeVisible (orbitLabel);
@@ -8413,7 +8414,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // rueckt nach rechts, die Regler werden entsprechend etwas schmaler.
         const int leftInset = 14;
         lcrInner.removeFromLeft (leftInset);
-        const int orbitW = juce::jlimit (42, 74, juce::roundToInt ((float) (availW - leftInset) * 0.22f));
+        const int orbitW = juce::jlimit (56, 90, juce::roundToInt ((float) (availW - leftInset) * 0.24f));   // Runde 174: drei Balken brauchen etwas mehr Breite
         auto orbitCol = lcrInner.removeFromLeft (orbitW);
         orbitLabel.setBounds (orbitCol.removeFromBottom (14));
         lcrInner.removeFromLeft (gap);

@@ -3830,6 +3830,67 @@ public:
         const bool offVisual = slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled()
                             || (bool) slider.getProperties().getWithDefault ("syncLocked", false);   // Runde 130
 
+        // Runde 174 (User, Entwurf C): L/R als drei Balken L · C · R. C steht
+        // fest, L und R wachsen mit dem Wert - bei 0 % sind alle drei gleich
+        // hoch (Original), nach oben kommen die Seiten dazu. Kein technischer
+        // Fader, sondern ein Bild dessen, was passiert.
+        if ((bool) slider.getProperties().getWithDefault ("lcrBars", false))
+        {
+            auto b = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height);
+            const float top = b.getY() + 4.0f, bottom = b.getBottom() - 4.0f, h = bottom - top;
+            const float bw  = juce::jlimit (8.0f, 18.0f, b.getWidth() * 0.24f);
+            const float gap = bw * 0.45f;
+            const float cx  = b.getCentreX();
+            const float valT = juce::jlimit (0.0f, 1.0f, (float) slider.valueToProportionOfLength (slider.getValue()));
+            constexpr float kBase = 0.55f;                     // Hoehe von C = Seiten bei 0 %
+            auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
+            const float rad = juce::jmin (5.0f, bw * 0.35f);
+            const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
+            const auto cCol    = offVisual ? knobRingOffColour()
+                                           : themePalette().frameMain.interpolatedWith (juce::Colour (0xffc9c5be), 0.35f);
+
+            auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool capLine)
+            {
+                const juce::Rectangle<float> tr (bx, top, bw, h);
+                g.setColour (juce::Colour (0xff23262c));
+                g.fillRoundedRectangle (tr, rad);
+                g.setColour (offVisual ? knobRingOffColour() : juce::Colour (0xff454952));
+                g.drawRoundedRectangle (tr.reduced (0.5f), rad, 1.0f);
+                juce::Path clip; clip.addRoundedRectangle (tr, rad);
+                g.saveState();
+                g.reduceClipRegion (clip);
+                g.setColour (col.withAlpha (alpha));
+                g.fillRect (bx, bottom - fillH, bw, fillH);
+                if (capLine && ! offVisual)
+                {
+                    g.setColour (juce::Colours::white.withAlpha (0.85f));
+                    g.fillRect (bx, bottom - fillH - 1.0f, bw, 2.0f);
+                }
+                g.restoreState();
+            };
+            const float xL = cx - bw * 1.5f - gap, xC = cx - bw * 0.5f, xR = cx + bw * 0.5f + gap;
+            bar (xL, sideH (valT), sideCol, 0.90f, true);
+            bar (xC, h * kBase,    cCol,    0.75f, false);
+            bar (xR, sideH (valT), sideCol, 0.90f, true);
+
+            // Live-Modulation: wie an jedem Drehregler ein Punkt - hier oben
+            // auf beiden Seitenbalken.
+            if (! offVisual && slider.getProperties().getWithDefault ("modLiveActive", false))
+            {
+                const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
+                const float ly = bottom - sideH (liveT);
+                for (float bx : { xL, xR })
+                {
+                    const float dx = bx + bw * 0.5f;
+                    g.setColour (juce::Colour (0xcc0a0b0e));
+                    g.fillEllipse (dx - 4.2f, ly - 4.2f, 8.4f, 8.4f);
+                    g.setColour (glowAccent);
+                    g.fillEllipse (dx - 2.9f, ly - 2.9f, 5.8f, 5.8f);
+                }
+            }
+            return;
+        }
+
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height);
         auto top = bounds.getY() + 6.0f;
         auto bottom = bounds.getBottom() - 6.0f;
