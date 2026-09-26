@@ -1676,19 +1676,10 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // sonst hat der Blend keine hoerbare Wirkung.
     monoDryBlend.setTargetValue     (pMonoDry->load() > 0.5f ? 1.0f : 0.0f);
 
-    // Distance/Elevate-Koeffizienten nur einmal pro Block neu berechnen
-    // (kein Audio-Rate-Modulationsziel, beides bewusst traege/subtile
-    // Regler) - spart Trig-Berechnungen gegenueber Pro-Sample-Update.
-    const float distTargetForCoeffs = distanceSmoothed.getTargetValue();
-    const float cutoffHz = juce::jmap (distTargetForCoeffs, 0.0f, 1.0f, 20000.0f, 2200.0f);
-    const float distanceLpfCoeff = std::exp (-2.0f * juce::MathConstants<float>::pi * cutoffHz / (float) currentSampleRate);
-
-    const float elevateTargetForCoeffs = elevateSmoothed.getTargetValue();
-    // 9 kHz war Luft, nicht Hoehe. 6,5 kHz mit breiterem Q rueckt eine Quelle
-    // wirklich nach vorne/oben - dort ist das Ohr aber empfindlicher, deshalb
-    // gleichzeitig weniger Anhebung (6 -> 4,5 dB), damit es eine Nuance bleibt
-    // und kein EQ-Ersatz wird (User).
-    updatePeakingCoeffs (elevateCoeffs, currentSampleRate, 6500.0f, elevateTargetForCoeffs * 4.5f, 0.7f);
+    // Review 1.0.1: Distance-Tiefpass und Elevate-Glocke wurden hier je Block
+    // neu berechnet (exp, sin, cos, pow), aber seit Runde 105 (DEPTH raus)
+    // nirgends mehr benutzt - entfernt. Die Live-Werte fuer die Anzeige
+    // oben bleiben.
 
     // ===== SEITEN-EQ (Runde 105, ersetzt DEPTH) =====
     // Runde 125: Pauls Pro-Q-Kurven (DSP/SideEq.h), Fader + An/Aus.
