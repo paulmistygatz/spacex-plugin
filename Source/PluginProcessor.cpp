@@ -2697,6 +2697,15 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         {
             buffer.clear();
             clearProcessingState();
+            // Review 1.0.1: auch die blockuebergreifenden Mittelwerte - ein
+            // einziges NaN blieb dort sonst fuer immer stehen (Auto Gain regelte
+            // nie wieder, Korrelations- und Sternenanzeige hingen fest).
+            if (! std::isfinite (autoGainInSq))       autoGainInSq       = 0.0;
+            if (! std::isfinite (autoGainOutSq))      autoGainOutSq      = 0.0;
+            if (! std::isfinite (autoGainTarget))     autoGainTarget     = 1.0f;
+            if (! std::isfinite (autoGainApplied))    autoGainApplied    = 1.0f;
+            if (! std::isfinite (correlationSmooth))  correlationSmooth  = 0.0f;
+            if (! std::isfinite (sideEmphasisSmooth)) sideEmphasisSmooth = 0.0f;
         }
 
         if (inputPeakForGuard < 1.0e-6f)   // ca. -120 dBFS
@@ -2772,6 +2781,9 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     prismDimHp = {}; prismDimLp = {};
     prismPosHp = {}; prismPosLp = {};
     bassGuardDim = {};
+    // Review 1.0.1: der Parallax-Hochpass fehlte hier. Ein NaN im Eingang
+    // blieb in seinem Zustand haengen - das Plugin war danach dauerhaft stumm.
+    pxHpL = {}; pxHpR = {};
     for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
     rayFbL = rayFbR = 0.0f;
     std::fill (lcrDryDelayL.begin(), lcrDryDelayL.end(), 0.0f);
