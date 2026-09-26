@@ -5177,7 +5177,22 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
         if (SPACEX_ROW2_VARIANT == 0 && savedW >= minW && savedW <= maxW)
             setSize (savedW, juce::roundToInt ((double) savedW * kDesignH / kDesignW));
         else
-            setSize (kDesignW, kDesignH);
+        {
+            // Runde 174 (User: "Fenster beim ersten Laden viel zu klein"):
+            // ohne gemerkte Groesse 25 % ueber der Design-Groesse starten,
+            // aber nie groesser als der Bildschirm hergibt (90 % der Breite,
+            // 85 % der Hoehe des Hauptbildschirms, ohne Dock/Menueleiste).
+            int w = juce::roundToInt (kDesignW * 1.25f);
+            if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+            {
+                const auto ua = d->userArea;
+                const int fitW = juce::jmin (juce::roundToInt (ua.getWidth() * 0.90f),
+                                             juce::roundToInt (ua.getHeight() * 0.85f * kDesignW / (float) kDesignH));
+                w = juce::jmin (w, fitW);
+            }
+            w = juce::jlimit (minW, maxW, w);
+            setSize (w, juce::roundToInt ((double) w * kDesignH / kDesignW));
+        }
     }
 
     startTimerHz (20);
