@@ -2018,6 +2018,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.bright      = uiBrightnessRef();
     settingsSnap.lrOrbit     = uiLrOrbitRef();
     settingsSnap.widthWedge  = uiWidthWedgeRef();
+    settingsSnap.cwThreshold = StereoSTFTExtractor::thresholdModeGlobal().load();
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -2039,6 +2040,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (technicalLabels,                                settingsSnap.techLabels,  idTechnicalLabels);
     flipIf (uiLrOrbitRef(),                                 settingsSnap.lrOrbit,     idLrOrbit);
     flipIf (uiWidthWedgeRef(),                              settingsSnap.widthWedge,  idWidthWedge);
+    flipIf (StereoSTFTExtractor::thresholdModeGlobal().load(), settingsSnap.cwThreshold, idCWeightThreshold);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
@@ -2263,6 +2265,7 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,  juce::dontSendNotification);
     settingsPanel.betaOrbitBtn.setToggleState (uiLrOrbitRef(),           juce::dontSendNotification);
     settingsPanel.betaWedgeBtn.setToggleState (uiWidthWedgeRef(),        juce::dontSendNotification);
+    settingsPanel.betaThrBtn.setToggleState (StereoSTFTExtractor::thresholdModeGlobal().load(), juce::dontSendNotification);
     settingsPanel.brightSlider.setValue (uiBrightnessRef(), juce::dontSendNotification);
     // "SpaceX Labels" ist die Umkehrung: angehakt = NICHT technisch.
     settingsPanel.labelBtn.setToggleState (! technicalLabels, juce::dontSendNotification);
@@ -2406,6 +2409,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     uiLrOrbitRef() = false;
                     writeProps.setValue ("widthWedge", false);
                     uiWidthWedgeRef() = false;
+                    writeProps.setValue ("cWeightThreshold", false);
+                    StereoSTFTExtractor::thresholdModeGlobal().store (false);
                     setUiTheme ((int) UiTheme::DayNight, true);   // Runde 174: Werkseinstellung = Day & Night
                     applyLabelStyle();
                     applyLayoutMode();
@@ -2483,6 +2488,14 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     goniometer.setSpaceVisualsEnabled (starVisualsOn);
                     writeProps.setValue ("spaceVisualsDisabledDefault", ! starVisualsOn);
                     break;
+                case idCWeightThreshold:
+                {
+                    auto& thr = StereoSTFTExtractor::thresholdModeGlobal();
+                    thr.store (! thr.load());
+                    writeProps.setValue ("cWeightThreshold", thr.load());
+                    writeProps.saveIfNeeded();
+                    break;
+                }
                 case idWidthWedge:
                     uiWidthWedgeRef() = ! uiWidthWedgeRef();
                     writeProps.setValue ("widthWedge", uiWidthWedgeRef());

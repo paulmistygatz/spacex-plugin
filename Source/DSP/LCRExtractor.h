@@ -162,6 +162,10 @@ public:
         }
     }
 
+    // Runde 177 (User, Beta): C-Weight als SCHWELLE statt als Potenz.
+    // Global fuer alle Instanzen (Settings > Beta > "C-Weight Threshold").
+    static std::atomic<bool>& thresholdModeGlobal() { static std::atomic<bool> b { false }; return b; }
+
     // --- Audio-Thread --------------------------------------------------------
 
     // sensitivity: 0..1 (0 = nur sehr strikt zentrierte Anteile,
@@ -337,6 +341,18 @@ private:
         //   0% -> 4.0 (sehr streng)   50% -> 1.0 (exakt)   100% -> 0.25
         const float power = std::pow (4.0f, 1.0f - 2.0f * juce::jlimit (0.0f, 1.0f, sensitivity));
         constexpr float eps = 1.0e-12f;
+        // Runde 177 (Beta "C-Weight Threshold"): statt die Zugehoerigkeit zu
+        // biegen, verschiebt der Regler die Schwelle, ab der ein Band als
+        // Mitte zaehlt (linearer Uebergang). 50 % = exakt wie bisher (Gain
+        // unveraendert). Streng (<50 %): alles unter lo faellt aus der Mitte.
+        // Grosszuegig (>50 %): alles ueber hi zaehlt voll zur Mitte. Anders
+        // als die Potenz aendert das auch Baender, die heute klar zugeordnet
+        // sind - der Regler wird deutlich hoerbarer. Guenstiger als pow().
+        const bool  thrMode = thresholdModeGlobal().load (std::memory_order_relaxed);
+        const float kSens   = 2.0f * juce::jlimit (0.0f, 1.0f, sensitivity) - 1.0f;   // -1..1
+        const float thrLo   = kSens < 0.0f ? 0.8f * -kSens : 0.0f;
+        const float thrHi   = kSens > 0.0f ? 1.0f - 0.8f * kSens : 1.0f;
+        const float thrInv  = 1.0f / juce::jmax (0.05f, thrHi - thrLo);
 
         // --- Gain pro Bin aus GEGLAETTETEN Spektren --------------------------
         // Das ist der Kern des Umbaus: nicht der Gain wird geglaettet,
@@ -370,6 +386,10 @@ private:
 
             float g = juce::jlimit (0.0f, 1.0f, align) * juce::jlimit (0.0f, 1.0f, coh)
                         * (1.0f - levelDiff);
+            if (thrMode)
+                g = juce::jlimit (0.0f, 1.0f, (g - thrLo) * thrInv);
+            else
+            {
            #if SPACEX_CPU_OPT
             if (g > 0.0f && power != 1.0f)   // pow(g, 1) = g: exakt gleich, nur ohne Rechnung
                 g = std::pow (g, power);
@@ -377,6 +397,7 @@ private:
             if (g > 0.0f)
                 g = std::pow (g, power);
            #endif
+            }
             gain[s] = g * mask[s];
         }
 

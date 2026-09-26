@@ -18,6 +18,7 @@ enum SpaceXSettingsId
     idReduceAnimations,
     idLrOrbit,          // Runde 174: L/R als Orbit statt Balken
     idWidthWedge,       // Runde 175: Width mit Keil statt Zeiger
+    idCWeightThreshold, // Runde 177: C-Weight als Schwelle (Beta)
     idSaveSizeDefault,
     idSaveStateDefault,
     idOpenPresetFolder,
@@ -109,6 +110,7 @@ public:
         float bright = 0.0f;   // Runde 174
         bool  lrOrbit = false; // Runde 174
         bool  widthWedge = false; // Runde 175
+        bool  cwThreshold = false; // Runde 177
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -544,7 +546,8 @@ private:
         // Runde 174 (User): Brightness-Regler unter der Vorschau.
         juce::Slider brightSlider;
         // Runde 175 (User, Beta-Vergleich): zwei kleine Umschalter neben Brightness.
-        juce::TextButton betaOrbitBtn { "L/R Orbit" }, betaWedgeBtn { "Width Wedge" };
+        juce::TextButton betaOrbitBtn { "L/R Orbit" }, betaWedgeBtn { "Width Wedge" }, betaThrBtn { "C-Weight Threshold" };
+        juce::Label betaHead;
         std::function<void (float, bool)> onBrightness;   // Wert, speichern?
         // Runde 53 (User): eigene Hinweiszeile IM Panel - immer aktiv,
         // unabhaengig vom "?"-Schalter im Hauptfenster.
@@ -649,7 +652,9 @@ private:
             setup (licenceBtn, "Activate...", idActivate);
             setup (betaOrbitBtn, "L/R Orbit",   idLrOrbit);
             setup (betaWedgeBtn, "Width Wedge", idWidthWedge);
-            for (auto* bb : { &betaOrbitBtn, &betaWedgeBtn })
+            setup (betaThrBtn,   "C-Weight Threshold", idCWeightThreshold);
+            head (betaHead, "BETA  -  EXPERIMENTAL", 13.0f, juce::Colour (0xff8f96a4));
+            for (auto* bb : { &betaOrbitBtn, &betaWedgeBtn, &betaThrBtn })
                 bb->getProperties().set ("btnFontPx", 11.5);
             setup (cancelBtn, "Cancel", idCancelSettings);
             setup (saveBtn,   "Save",   idSaveSettings);
@@ -659,6 +664,7 @@ private:
             behavBtn[1].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
             betaOrbitBtn.setTooltip ("Shows L/R in LCR MATRIX as orbiting planets instead of bars");
             betaWedgeBtn.setTooltip ("Shows a width wedge inside the Width knob instead of a pointer");
+            betaThrBtn.setTooltip ("C-Weight sets a threshold for what counts as centre - a stronger, audible change. Experimental");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
             labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
@@ -850,10 +856,13 @@ private:
             for (int i = 0; i < kLayouts; ++i) { layoutBtn[i].setVisible (false); layoutBtn[i].setBounds ({}); }
             layoutHead.setVisible (false);
 
-            // Runde 174: Brightness unter der Vorschau. Die Vorschau behaelt
-            // IMMER das Seitenverhaeltnis der Oberflaeche - vorher wurde sie
-            // in die niedrigere Restflaeche gestreckt und oben/unten
-            // abgeschnitten (User).
+            // Runde 174/177: unten zwei Zeilen - BETA (drei Umschalter) und
+            // darueber BRIGHTNESS. Die Vorschau behaelt IMMER das
+            // Seitenverhaeltnis der Oberflaeche (sonst abgeschnitten, User).
+            auto betaRow = col2.removeFromBottom (26);
+            col2.removeFromBottom (2);
+            auto betaHeadR = col2.removeFromBottom (19);
+            col2.removeFromBottom (10);
             auto row = col2.removeFromBottom (26);
             col2.removeFromBottom (2);
             auto headR = col2.removeFromBottom (19);
@@ -866,16 +875,17 @@ private:
                 if (ph > col2.getHeight()) { ph = col2.getHeight(); pw = (int) ((float) ph * aspect); }
                 previewArea = col2.withSizeKeepingCentre (pw, ph);
             }
-            // Ueberschrift und Regler buendig mit der linken Kante der Vorschau.
-            brightHead.setBounds (headR.withX (previewArea.getX()).withWidth (previewArea.getWidth()));
+            const int px = previewArea.getX(), pwid = previewArea.getWidth();
+            brightHead.setBounds (headR.withX (px).withWidth (pwid));
+            brightSlider.setBounds (row.withX (px - 6).withWidth (pwid * 2 / 3 + 6));
+            betaHead.setBounds (betaHeadR.withX (px).withWidth (pwid));
             {
-                auto r2 = row.withX (previewArea.getX()).withWidth (previewArea.getWidth());
-                const int chipW = juce::jmin (118, (r2.getWidth() / 2 - 12) / 2);
-                betaWedgeBtn.setBounds (r2.removeFromRight (chipW));
-                r2.removeFromRight (8);
-                betaOrbitBtn.setBounds (r2.removeFromRight (chipW));
-                r2.removeFromRight (16);
-                brightSlider.setBounds (r2.withX (r2.getX() - 6).withWidth (r2.getWidth() + 6));
+                auto r2 = betaRow.withX (px).withWidth (pwid);
+                const int gapB = 8;
+                const int w3 = (r2.getWidth() - 2 * gapB) / 3;
+                betaOrbitBtn.setBounds (r2.removeFromLeft (w3)); r2.removeFromLeft (gapB);
+                betaWedgeBtn.setBounds (r2.removeFromLeft (w3)); r2.removeFromLeft (gapB);
+                betaThrBtn.setBounds (r2);
             }
         }
 

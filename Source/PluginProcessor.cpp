@@ -91,6 +91,7 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     {
         juce::PropertiesFile props (appPropertiesOptions());
         licensed.store (spacex::isValidSerial (props.getValue ("licence")), std::memory_order_relaxed);
+        StereoSTFTExtractor::thresholdModeGlobal().store (props.getBoolValue ("cWeightThreshold", false));   // Runde 177 (Beta)
     }
     pGalaxyActivate = apvts.getRawParameterValue (ID_GALAXY_ACTIVATE);
     pLcrEnabled = apvts.getRawParameterValue (ID_LCR_ENABLED);
