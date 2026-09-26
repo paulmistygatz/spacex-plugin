@@ -7456,7 +7456,7 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         const auto lift = themePalette().plate.interpolatedWith (juce::Colours::white, 0.80f);
         // Runde 174 (User): Sci-Fi ist farbiger und wirkt schneller
         // ausgewaschen - dort reicht der Regler nur bis 65 % des Maximums.
-        const float maxA = isSciFiTheme() ? 0.11f * 0.65f : 0.11f;
+        const float maxA = 0.11f * (isSciFiTheme() ? 0.65f : isDayNightTheme() ? 0.80f : 1.0f);   // Day & Night bis 80 %
         g.setColour (lift.withAlpha (maxA * br));
         g.fillAll();
         g.restoreState();
