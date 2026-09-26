@@ -1410,7 +1410,7 @@ void GoniometerComponent::timerCallback()
             g.fillEllipse (gx - rg * 0.35f, gy - rg * 0.35f, rg * 0.7f, rg * 0.7f);
             g.restoreState();
         };
-        if (themeWater() || uiTheme == 2)   // Galaxien nur Dark Night/Pop (User: in den anderen Themes zu viel)
+        if (themeWater())   // Galaxien nur Dark Night (User: in den anderen Themes zu viel)
         {
             float gx, gy;
             // Dark Night (User): die rechte Galaxie minimal tiefer.
@@ -1419,7 +1419,7 @@ void GoniometerComponent::timerCallback()
                         0.45f + sceneT * (juce::MathConstants<float>::twoPi / 320.0f), 0.48f,
                         juce::Colour (0xfff3e6ff), juce::Colour (0xffe0c8ff), juce::Colour (0xffa98cff), 0.22f);
         }
-        if (themeWater() || uiTheme == 2)
+        if (themeWater())
         {
             float gx, gy;
             // Dark Night (User): die linke Galaxie nach oben rechts, ungefaehr
@@ -1440,7 +1440,7 @@ void GoniometerComponent::timerCallback()
         {
             float sx, sy;
             objectPos (0.10f, 0.14f, 0.15f, 53.0f, 0.4f, sx, sy);
-            const float rs     = unitR * (uiTheme == 2 ? 0.34f : 0.28f) * distShrink;   // Pop: die groessere "Sunny"-Sonne (User)
+            const float rs     = unitR * 0.28f * distShrink;
             sunHitX = sx; sunHitY = sy; sunHitR = rs * 2.2f; sunDrawR = rs;   // Klickflaeche (siehe mouseUp), Leuchtkoerper selbst fuer den Hover
             const float sb = spaceBlend;   // Ein-/Ausblenden ueber die Alphas
             const float breath = 1.0f + 0.05f * std::sin (sceneT / 6.0f * juce::MathConstants<float>::twoPi);
@@ -1502,32 +1502,19 @@ void GoniometerComponent::timerCallback()
                     g.drawEllipse (sx - rr, sy - rr, rr * 2.0f, rr * 2.0f, 1.0f);
                 }
             }
-            if (uiTheme == 2)   // Pop: die "Sunny"-Sonne - weiche, lange Strahlen statt Zacken (User)
-            {
-                for (int k = 0; k < 8; ++k)
-                {
-                    const float a0 = (float) k / 8.0f * juce::MathConstants<float>::twoPi + sceneT * 0.03f;
-                    const float r0 = rs * 1.35f, r1 = rs * (k % 2 == 0 ? 3.0f : 2.4f);
-                    const float x0 = sx + std::cos (a0) * r0, y0 = sy + std::sin (a0) * r0;
-                    const float x1 = sx + std::cos (a0) * r1, y1 = sy + std::sin (a0) * r1;
-                    juce::ColourGradient ray (hA.withAlpha (0.22f * sb), x0, y0, hA.withAlpha (0.0f), x1, y1, false);
-                    g.setGradientFill (ray);
-                    g.drawLine (x0, y0, x1, y1, 1.6f);
-                }
-            }
         }
         gCur = &gObject;
 
         // --- Erde (oben rechts) --- nur im Comic-Theme (User: "die beiden
         // blauen Planeten sehen nicht gut aus" - in Modern/Watercolor bleibt
         // nur der Ringplanet, dezent im Hintergrund).
-        if (uiTheme == 2 || uiTheme == 0)
+        if (uiTheme == 0)
         {
             // Pop (User): Ringplanet weg, dafuer die Erde an seiner Stelle - gross.
             // Moon (User, Runde 20): die Erde klein und dezent oben rechts -
             // sie ist von Flat hierher gewandert, Flat bekommt dafuer die
             // Raumstation ("farblich passt die Erde dort nicht").
-            const bool small = (uiTheme != 2);
+            const bool small = true;
             float ex, ey;
             if (small) objectPos (0.74f, 0.20f, 0.45f, 27.0f, 1.7f, ex, ey);
             else       objectPos (0.39f, 0.46f, 0.80f, 23.0f, 0.0f, ex, ey);
@@ -1592,65 +1579,6 @@ void GoniometerComponent::timerCallback()
         // absetzt. Die Baender sind Paths mit gewoelbten Ober-/Unterkanten
         // (Kruemmung zum Pol hin staerker) und senkrechtem Farbverlauf zum
         // jeweiligen Nachbarband.
-        if (uiTheme == 2)
-        {
-            float jx, jy;
-            objectPos (0.75f, 0.25f, 0.62f, 31.0f, 4.3f, jx, jy);   // weiter schraeg rechts oben (User)
-            const float r    = unitR * 0.62f * distShrink;
-            const float spin = sceneT * (juce::MathConstants<float>::twoPi / 58.0f);
-
-            g.setColour (juce::Colour (0xff3b6fd8));
-            g.fillEllipse (jx - r, jy - r, r * 2.0f, r * 2.0f);
-
-            g.saveState();
-            juce::Path clip;
-            clip.addEllipse (jx - r, jy - r, r * 2.0f, r * 2.0f);
-            g.reduceClipRegion (clip);
-            // Bandgrenzen (Breitengrade) und Farben je Band (Sued -> Nord).
-            static const float edgeLat[9] = { -1.57f, -1.05f, -0.70f, -0.38f, -0.10f, 0.18f, 0.50f, 0.85f, 1.57f };
-            static const juce::uint32 bandCol[8] = { 0xff2e5cc0, 0xff5a8ae8, 0xff3364cc, 0xff7fa8f0,
-                                                     0xff3d70d6, 0xff6c98ec, 0xff2f5fc4, 0xff5583e0 };
-            auto edgeY = [&] (float lat) { return jy - std::sin (lat) * r; };
-            auto bow   = [&] (float lat) { return -std::sin (lat) * r * 0.16f; };   // Woelbung: an den Raendern zum Pol hin
-            for (int i = 0; i < 8; ++i)
-            {
-                const float y0 = edgeY (edgeLat[i + 1]), y1 = edgeY (edgeLat[i]);
-                const float c0 = bow (edgeLat[i + 1]),  c1 = bow (edgeLat[i]);
-                juce::Path band;
-                band.startNewSubPath (jx - r * 1.05f, y0 - c0);
-                band.quadraticTo (jx, y0 + c0, jx + r * 1.05f, y0 - c0);
-                band.lineTo (jx + r * 1.05f, y1 - c1);
-                band.quadraticTo (jx, y1 + c1, jx - r * 1.05f, y1 - c1);
-                band.closeSubPath();
-                const juce::Colour cThis (bandCol[i]);
-                const juce::Colour cPrev (bandCol[juce::jmax (0, i - 1)]);
-                const juce::Colour cNext (bandCol[juce::jmin (7, i + 1)]);
-                juce::ColourGradient grad (cThis.interpolatedWith (cNext, 0.5f), jx, y0,
-                                           cThis.interpolatedWith (cPrev, 0.5f), jx, y1, false);
-                grad.addColour (0.5, cThis);
-                g.setGradientFill (grad);
-                g.fillPath (band);
-            }
-            // Dunkler Sturmfleck, wandert mit der Rotation.
-            {
-                float sx, sy, sz;
-                if (project (spin + 1.0f, -0.30f, sx, sy, sz))
-                {
-                    const float rr = r * 0.13f;
-                    g.setColour (juce::Colour (0xff1d3a80).withAlpha (0.80f * juce::jmin (1.0f, sz * 3.0f)));
-                    g.fillEllipse (jx + sx * r - rr * 1.5f * sz, jy - sy * r - rr, rr * 3.0f * sz, rr * 2.0f);
-                }
-                // Heller Wolkenwirbel
-                if (project (spin + 3.2f, 0.42f, sx, sy, sz))
-                {
-                    const float rr = r * 0.09f;
-                    g.setColour (juce::Colour (0xffd8e8ff).withAlpha (0.55f * juce::jmin (1.0f, sz * 3.0f)));
-                    g.fillEllipse (jx + sx * r - rr * 1.6f * sz, jy - sy * r - rr, rr * 3.2f * sz, rr * 2.0f);
-                }
-            }
-            g.restoreState();
-            sphereShade (jx, jy, r, 0.60f, 0.24f);
-        }
 
         // --- Sci-Fi: Neon-Planet (dunkle violette Kugel, leuchtende Baender,
         // duenner Neonring) statt des gezeichneten Ringplaneten (User) ---
@@ -2729,7 +2657,7 @@ void GoniometerComponent::composeScene()
             // als vorher. Die Abdunklung haengt jetzt allein am Shine-Regler
             // (shineSpaceSm, springt beim Ansichtswechsel nicht) und bleibt
             // waehrend des ganzen Uebergangs konstant.
-            const float capObj  = (uiTheme == 2 ? 0.80f : 0.62f);
+            const float capObj  = 0.62f;
             const float lvlObj  = 0.10f + (capObj - 0.10f) * shineSpaceSm;
             const float darkObj = juce::jlimit (0.0f, 1.0f, 1.0f - lvlObj);
             g.saveState();

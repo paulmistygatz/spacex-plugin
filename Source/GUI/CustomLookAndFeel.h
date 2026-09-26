@@ -34,7 +34,6 @@ constexpr int kUiThemeCount = 7;
 inline UiTheme& uiThemeRef()   { static UiTheme t = UiTheme::DayNight; return t; }   // Runde 66 (User): Day & Night ist das Standard-Theme
 inline bool     isDarkNightTheme() { return uiThemeRef() == UiTheme::DarkNight; }
 inline bool     isWaterTheme() { return isDarkNightTheme(); }   // Watercolor-Material (Nebula-Platte, Korn)
-inline bool     isComicTheme() { return uiThemeRef() == UiTheme::Comic; }
 inline bool     isDayNightTheme() { return uiThemeRef() == UiTheme::DayNight; }
 inline bool     isFlatTheme()  { return uiThemeRef() == UiTheme::Flat; }
 inline bool     isMoonTheme() { return uiThemeRef() == UiTheme::Moon; }
@@ -67,9 +66,8 @@ inline int&  uiLayoutRef()      { static int m = 0; return m; }
 // Sternenfeld), siehe paintOverContent - jedes Element hebt sich im selben
 // Verhaeltnis, An/Aus-Zustaende bleiben untereinander exakt gleich.
 inline float& uiBrightnessRef() { static float b = 0.0f; return b; }
-inline bool  layoutFrameless()  { return uiLayoutRef() == 1 && ! isComicTheme(); }
-inline bool  layoutOutline()    { return uiLayoutRef() == 2 && ! isComicTheme(); }
-inline juce::Colour comicInk() { return juce::Colour (0xff0d0a1e); }
+inline bool  layoutFrameless()  { return uiLayoutRef() == 1; }
+inline bool  layoutOutline()    { return uiLayoutRef() == 2; }
 // Aus-Zustand der Icons (Power/Solo/Lock/Mod/...): im Comic dunkle Tinte,
 // bei Watercolor etwas heller, sonst das bisherige Grau (User: "Icons wenn
 // off nicht gut zu erkennen").
@@ -185,8 +183,7 @@ inline juce::Colour iconOffColour()
     // abgeleitet: derselbe Abstand zur UI in jedem Theme, also ueberall
     // derselbe Eindruck, ohne dass ein kalter Grauton in einem warmen Theme
     // (oder umgekehrt) als Fremdkoerper sitzt.
-    return isComicTheme() ? juce::Colour (0xff7a7496)
-                          : themePalette().plate.interpolatedWith (juce::Colours::white, 0.30f);
+    return themePalette().plate.interpolatedWith (juce::Colours::white, 0.30f);
 }
 
 inline juce::Colour iconOnInOffSection() { return iconOffColour().interpolatedWith (juce::Colours::white, 0.16f); }
@@ -204,11 +201,9 @@ inline juce::Colour smallIconColour (bool lit)
 // Flaeche eines EINGESCHALTETEN Bedienelements (Knopf, RAYE-Kachel, Bars-Feld).
 // Eine Quelle fuer alle - vorher hatte jedes seinen eigenen festen Hex-Wert,
 // der in keinem Theme passte (User: "grau passt einfach nicht mehr").
-inline juce::Colour controlOnFill()  { return isComicTheme() ? themePalette().chip.withMultipliedSaturation (0.7f).darker (0.15f)
-                                                              : themePalette().plate.interpolatedWith (juce::Colour (0xff2a1f33), 0.5f); }
+inline juce::Colour controlOnFill()  { return themePalette().plate.interpolatedWith (juce::Colour (0xff2a1f33), 0.5f); }
 // Neutrale Flaeche fuer Felder, die kein An/Aus kennen (Bars).
-inline juce::Colour controlIdleFill(){ return isComicTheme() ? juce::Colour (0xff3a3266)   // Pop: derselbe Ton wie ein ausgeschalteter Pop-Knopf
-                                                              : themePalette().plate.interpolatedWith (juce::Colours::white, 0.045f); }
+inline juce::Colour controlIdleFill(){ return themePalette().plate.interpolatedWith (juce::Colours::white, 0.045f); }
 
 // Sektionsflaeche der flachen Themes (Sci-Fi, Moon); wird mit 62 % (an)
 // bzw. 30 % (aus) ueber die Platte gelegt.
@@ -282,7 +277,6 @@ inline juce::Colour sectionOffFill()
     // minimaler Rand." Damit loest sich auch das alte Problem, dass die
     // Off-Farbe in manchen Themes nie passen wollte: es gibt keine eigene
     // Off-Farbe mehr, nur noch die Platte. Pop behaelt seinen Comic-Look.
-    if (isComicTheme()) return juce::Colour (0xff14112a);
     return themePalette().plate;
 }
 inline juce::Colour knobRingOffColour()  { return sectionOffFill().withMultipliedBrightness (1.15f).interpolatedWith (juce::Colours::white, 0.025f); }   // noch naeher an der Flaeche (User)
@@ -301,19 +295,6 @@ inline juce::Colour knobCapColour()
 // Schrift bei ausgeschalteter Sektion: noch naeher an die UI-Farbe heran
 // (User, Runde 22: "Schrift der Regler und Buttons Richtung UI-Hintergrund").
 inline juce::Colour labelOffColour()     { return sectionOffFill().interpolatedWith (juce::Colours::white, 0.13f); }
-// Comic: Versatz-Schatten (vor dem Element zeichnen) und Kontur (danach).
-inline void comicShadow  (juce::Graphics& g, juce::Rectangle<float> b, float corner, float off = 2.5f)
-{
-    if (! isComicTheme()) return;
-    g.setColour (comicInk());
-    g.fillRoundedRectangle (b.translated (off, off), corner);
-}
-inline void comicOutline (juce::Graphics& g, juce::Rectangle<float> b, float corner, float w = 2.2f)
-{
-    if (! isComicTheme()) return;
-    g.setColour (comicInk());
-    g.drawRoundedRectangle (b, corner, w);
-}
 
 class CustomLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -355,7 +336,7 @@ public:
         // Runde 113 (User): ist Autopan-Speed an den Phaser gekoppelt (LINK),
         // liegt ein leichter blauer Schein UM den Regler - ein weicher Ring,
         // hinter allem anderen gezeichnet. Pop behaelt seinen Tinten-Ring.
-        if ((bool) slider.getProperties().getWithDefault ("pairedGold", false) && ! isComicTheme()
+        if ((bool) slider.getProperties().getWithDefault ("pairedGold", false) 
             && ! (bool) slider.getProperties().getWithDefault ("sectionOff", false))
         {
             const float halo = juce::jmin ((float) juce::jmin (width, height) * 0.5f, radius * 1.32f);
@@ -391,35 +372,18 @@ public:
                             || (bool) slider.getProperties().getWithDefault ("syncLocked", false);   // Runde 130
 
         // Runde 110 (User): die Spur eine Spur duenner (Pop behaelt seine).
-        float trackThickness = radius * (isComicTheme() ? 0.18f : 0.16f);
+        float trackThickness = radius * 0.16f;
 
-        // Comic: Scheibe mit Kontur und Versatz-Schatten unter dem Ring.
-        if (isComicTheme())
-        {
-            // Section aus: deutlich grau, ohne Schatten (User: "viel
-            // deutlicher sichtbar, wenn die Section off ist").
-            const float rr = radius + 1.5f;
-            if (! offVisual)
-            {
-                g.setColour (comicInk());
-                g.fillEllipse (centre.x - rr + 3.0f, centre.y - rr + 3.0f, rr * 2.0f, rr * 2.0f);
-            }
-            g.setColour (offVisual ? sectionOffFill() : juce::Colour (0xff3a3266));
-            g.fillEllipse (centre.x - rr, centre.y - rr, rr * 2.0f, rr * 2.0f);
-            g.setColour (offVisual ? knobRingOffColour() : comicInk());
-            g.drawEllipse (centre.x - rr, centre.y - rr, rr * 2.0f, rr * 2.0f, 2.4f);
-        }
 
         juce::Path track;
         track.addCentredArc (centre.x, centre.y, radius - trackThickness, radius - trackThickness,
                               0.0f, rotaryStartAngle, rotaryEndAngle, true);
         // Etwas heller als die getönten Gruppenrahmen dahinter, damit der
         // unlackierte Ring nicht optisch verschwindet.
-        const juce::Colour ringOnCol = isComicTheme() ? juce::Colour (0xff5a5390)
-                                     : isSciFiTheme() ? juce::Colour (0xff3a2f5a)   // Sci-Fi an: dunkles Violett statt Grau (User, Option A)
+        const juce::Colour ringOnCol = isSciFiTheme() ? juce::Colour (0xff3a2f5a)   // Sci-Fi an: dunkles Violett statt Grau (User, Option A)
                                                       : juce::Colour (0xff454952);
-        if (offVisual || isComicTheme())
-            g.setColour (offVisual ? knobRingOffColour() : ringOnCol);   // aus: kaum heller als die Off-Fuellfarbe der Sektion (User, alle Themes)
+        if (offVisual)
+            g.setColour (knobRingOffColour());   // aus: kaum heller als die Off-Fuellfarbe der Sektion (User, alle Themes)
         else
         {
             // Runde 174 (User, Entwurf E4): die Bahn einer eingeschalteten
@@ -512,13 +476,13 @@ public:
         }
         // Runde 110 (User): PAIR zeigt sich am Speed-Regler nicht mehr als
         // voller Ring, sondern nur als blauer Wertebogen (blau = gekoppelt).
-        if (! offVisual && ! isComicTheme() && (bool) slider.getProperties().getWithDefault ("pairedGold", false))
+        if (! offVisual && (bool) slider.getProperties().getWithDefault ("pairedGold", false))
             col = pairAccentColour();
         g.setColour (col);
         g.strokePath (value, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         // Runde 110: ein winziger Schimmer an der Spitze des Wertebogens -
         // dieselbe Sprache wie die Icon-Felder, ganz leise.
-        if (! offVisual && ! isComicTheme() && ! value.isEmpty())
+        if (! offVisual && ! value.isEmpty())
         {
             const float tipR = radius - trackThickness;
             const juce::Point<float> tip (centre.x + tipR * std::sin (angle), centre.y - tipR * std::cos (angle));
@@ -592,23 +556,6 @@ public:
             g.strokePath (shackle, juce::PathStrokeType (juce::jmax (1.1f, ls * 0.14f)));
         }
 
-        if (slider.getProperties().getWithDefault ("pairedGold", false) && isComicTheme())
-        {
-            // DIE eigentliche Ursache (User: "wird ja immer schlimmer, bei Pop
-            // oben und unten abgeschnitten - der Bereich ist einfach zu Ende"):
-            // der Ring lag AUSSERHALB der Slider-Komponente und wurde an deren
-            // Kante gekappt. Statt das Layout umzubauen passt sich der Ring
-            // jetzt dem an, was tatsaechlich Platz hat: er wird so gross wie
-            // moeglich gezeichnet, aber nie groesser als die Komponente.
-            const float th        = isComicTheme() ? 2.2f : 1.6f;
-            const float halfBox   = juce::jmin ((float) width, (float) height) * 0.5f;
-            const float maxRadius = halfBox - th * 0.5f - 0.5f;
-            const float wish      = radius + (isComicTheme() ? juce::jmax (7.0f, radius * 0.16f)
-                                                             : juce::jmax (4.0f, radius * 0.09f));
-            const float pr = juce::jmin (wish, maxRadius);
-            g.setColour (pairAccentColour());
-            g.drawEllipse (centre.x - pr, centre.y - pr, pr * 2.0f, pr * 2.0f, th);
-        }
     }
 
     // Leuchtender Pillen-Button fuer LCR/Sync-Toggle und Polarity-Icons:
@@ -751,7 +698,7 @@ public:
             // kein An/Aus. Beide leuchten gleich - welche gewaehlt ist, sagt
             // die Kurve selbst.
             // Runde 108: ohne Kaestchen, dafuer der Schimmer der Icon-Felder.
-            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false) && ! isComicTheme();
+            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false);
             const bool hotP = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
             if (glowStyle)
             {
@@ -809,7 +756,7 @@ public:
             const bool off = button.getProperties().getWithDefault ("sectionOff", false);
             // Runde 108: ohne Kaestchen; an = blauer Schimmer (gekoppelt ans
             // Songtempo), aus = gedimmt.
-            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false) && ! isComicTheme();
+            const bool glowStyle = (bool) button.getProperties().getWithDefault ("glowIcon", false);
             const bool hotS = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
             if (glowStyle)
             {
@@ -949,17 +896,6 @@ public:
             auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
             const float cornerSize = bounds.getHeight() * 0.5f;
             const bool on = button.getToggleState();
-            if (isComicTheme())   // Pop: Kontur + Versatz-Schatten wie die Sektionen (User)
-            {
-                comicShadow (g, bounds.reduced (1.0f), cornerSize, 2.0f);
-                g.setColour (on ? green.withMultipliedSaturation (0.75f) : juce::Colour (0xff3a3266));
-                g.fillRoundedRectangle (bounds.reduced (1.0f), cornerSize);
-                comicOutline (g, bounds.reduced (1.0f), cornerSize, 2.0f);
-                g.setColour (on ? juce::Colour (0xff1a1633) : juce::Colour (0xffe8e2f5));
-                g.setFont (chipFont());
-                g.drawText (button.getButtonText().toUpperCase(), button.getLocalBounds(), juce::Justification::centred, false);
-                return;
-            }
             if (on)
             {
                 g.setColour (green.withAlpha (0.20f));
@@ -1091,7 +1027,6 @@ public:
         // Runde 110 (User: "die letzten Kaesten weg"): Icon-Schalter ohne
         // Flaeche. ØL/ØR: Icon oben, Buchstabe darunter. FAST/PAIR/x2: Icon
         // links, Name rechts. An = Schimmer + Farbe, aus = gedimmt.
-        if (! isComicTheme())
         {
             const int  hdrIcon = (int)  button.getProperties().getWithDefault ("hdrIcon", 0);
             const bool phase   = (bool) button.getProperties().getWithDefault ("phaseIcon", false);
@@ -1205,7 +1140,7 @@ public:
             return;
 
         // Runde 108: Soft-Chip statt Umriss-Pille (FAST, PAIR, x2, L/R).
-        if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
+        if ((bool) button.getProperties().getWithDefault ("softChip", false))
         {
             drawSoftChip (g, bounds, btnAccent, button.getToggleState() || gold,
                           (bool) button.getProperties().getWithDefault ("sectionOff", false),
@@ -1252,8 +1187,7 @@ public:
         // Sektion deren Flaeche, in einer ausgeschalteten die Platte. Das war
         // der Punkt, an dem die frueheren sieben Sonderfaelle pro Theme nie
         // wirklich zusammenpassten. Pop behaelt seine gefuellten Pillen.
-        const juce::Colour onFull = isComicTheme() ? btnAccent.withMultipliedSaturation (0.7f).darker (0.15f)
-                                  : gold           ? juce::Colour (0xff2e2a1c)
+        const juce::Colour onFull = gold           ? juce::Colour (0xff2e2a1c)
                                                    : juce::Colour (0xff2a1f33);
         // Knoepfe in den Panels (Settings/View) tragen "noGlow". Ihr
         // An-Zustand war bisher controlOnFill() - in Pop eine kraeftige Pille,
@@ -1269,29 +1203,21 @@ public:
         // ein Umriss - der bleibt bewusst auch dann stehen, wenn die Sektion aus
         // ist, weil man den Modus dort trotzdem umstellen koennen soll.
         const bool modePill = button.getProperties().getWithDefault ("modePill", false);
-        const bool fillIt = (isComicTheme() || panelBtn || isOn || offButPaired) && ! modePill;
+        const bool fillIt = (panelBtn || isOn || offButPaired) && ! modePill;
         if (fillIt)
         {
             // An-Zustand auf halbem Weg zwischen "unsichtbar" und dem alten
             // An-Ton (User: "genau zwischen off und der aktuellen on-Staerke").
-            juce::Colour base = isComicTheme() ? (isOn ? onFull : juce::Colour (0xff3a3266))
-                                               : (gold ? themePalette().plate.interpolatedWith (onFull, 0.5f) : controlOnFill());
-            // Pop, Sektion AUS: die gefuellte Pille war heller als alles andere
-            // in der Sektion und zog dadurch den Blick auf sich (User: "zu sehr
-            // auffallend jetzt die ganzen Buttons"). Sie rueckt jetzt dicht an
-            // die Sektionsflaeche heran - sichtbar als Knopf, aber still.
-            if (isComicTheme() && sectionIsOffNow)
-                base = juce::Colour (0xff1f1a36);
-            if (panelBtn && ! isComicTheme())
+            juce::Colour base = gold ? themePalette().plate.interpolatedWith (onFull, 0.5f) : controlOnFill();
+            if (panelBtn)
                 base = isOn ? juce::Colour (0xff1e2128).interpolatedWith (themePalette().knob, 0.34f)
                             : juce::Colour (0xff2a2e37);
             // Knopf an, Sektion aus: nur noch ein Hauch heller als die Platte -
             // sichtbar, aber nicht laut.
-            if (offButPaired && ! isOn && ! isComicTheme())
+            if (offButPaired && ! isOn)
                 base = themePalette().plate.brighter (0.07f);
             if (shouldDrawButtonAsDown) base = base.brighter (0.1f);
             else if (shouldDrawButtonAsHighlighted) base = base.brighter (0.05f);
-            comicShadow (g, bounds, cornerSize);
             g.setColour (base);
             g.fillRoundedRectangle (bounds, cornerSize);
         }
@@ -1341,16 +1267,6 @@ public:
         juce::ignoreUnused (diagPill);
         // Pair bei ausgeschalteter RAYE-Sektion: Zustand trotzdem sichtbar
         // (hellerer Rand, User) - Property "pairedGold" bleibt gesetzt.
-       #if SPACEX_PX_DIAG_ONLY
-        if (isComicTheme() && ! diagPill)
-       #else
-        if (isComicTheme())
-       #endif
-        {
-            comicOutline (g, bounds, cornerSize);
-            if (offButPaired) { g.setColour (juce::Colour (0xff625d7d)); g.drawRoundedRectangle (bounds.reduced (2.0f), cornerSize, 1.0f); }   // nochmal dezenter (User)
-            return;
-        }
         // Sektion aus: GAR KEIN Rahmen mehr (User: "im Moment sehen die
         // Buttons auch im section=off-Zustand noch so aus, als waere die
         // Section an"). Der eigene An-Zustand bleibt allein ueber die etwas
@@ -2181,7 +2097,7 @@ public:
             // Die dunkle Off-Schrift der anderen Themes verschwindet darauf
             // spurlos (User: "man erkennt es nicht"). Dort deshalb ein
             // gedaempfter heller Ton statt eines dunklen.
-            g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
+            g.setColour (secOff ? labelOffColour()
                                 : isOn ? juce::Colour (0xffe4e7ec) : juce::Colour (0xffb5b9c2));
             // Globale Buttons (RESET) bekommen dieselbe feste Schriftgroesse wie
             // die Parameter-Labels (EXPAND/BOOST/...) statt der sonst ueblichen,
@@ -2216,7 +2132,7 @@ public:
                     auto pc = button.getProperties().contains ("pillColour")
                                 ? juce::Colour ((juce::uint32) (int) button.getProperties()["pillColour"])
                                 : juce::Colour (0xffc3c8d2);
-                    g.setColour (secOff ? (isComicTheme() ? juce::Colour (0xff7d7799) : labelOffColour())
+                    g.setColour (secOff ? labelOffColour()
                                         : pc.interpolatedWith (juce::Colour (0xfff2f4f8), 0.34f));   // Runde 69: etwas weniger Richtung Weiss
                 }
                 if (button.getProperties().getWithDefault ("goldText", false))
@@ -2234,7 +2150,7 @@ public:
             // der Pille und bleibt darin mittig - sonst saesse sie auf dem Bild.
             // Runde 108: Soft-Chips tragen die Schrift in ihrer eigenen Farbe -
             // an hell getoent, aus zurueckgenommen.
-            if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme()
+            if ((bool) button.getProperties().getWithDefault ("softChip", false)
                 && ! (bool) button.getProperties().getWithDefault ("galaxyBtn", false))
             {
                 const bool secOffC = button.getProperties().getWithDefault ("sectionOff", false);
@@ -2256,8 +2172,7 @@ public:
                 return;
             }
             // Runde 110: Icon-Schalter (ØL/ØR, FAST, PAIR, x2).
-            if (! isComicTheme()
-                && ((int) button.getProperties().getWithDefault ("hdrIcon", 0) > 0
+            if (((int) button.getProperties().getWithDefault ("hdrIcon", 0) > 0
                     || (bool) button.getProperties().getWithDefault ("phaseIcon", false)))
             {
                 const bool secOffT = button.getProperties().getWithDefault ("sectionOff", false);
@@ -2988,9 +2903,9 @@ public:
         // im Aus-Zustand grau.
         struct Ray { float dy; juce::Colour col; };
         const Ray rays[3] = {
-            { -0.30f, isOn ? (isComicTheme() ? juce::Colour (0xffd97a62) : themePalette().prism.brighter (0.25f)) : offGrey },   // je Theme (User)
-            {  0.02f, isOn ? (isComicTheme() ? juce::Colour (0xff6cc9a2) : themePalette().prism)                  : offGrey },
-            {  0.34f, isOn ? (isComicTheme() ? juce::Colour (0xff6e9ddc) : themePalette().prism.darker (0.25f))   : offGrey }
+            { -0.30f, isOn ? themePalette().prism.brighter (0.25f) : offGrey },   // je Theme (User)
+            {  0.02f, isOn ? themePalette().prism : offGrey },
+            {  0.34f, isOn ? themePalette().prism.darker (0.25f) : offGrey }
         };
         const float exitX = triCX + triW * 0.20f;
         const float exitY = triCY + triH * 0.06f;
@@ -3173,14 +3088,6 @@ public:
         // immer die ruhige Grundflaeche; an/aus steht allein im Symbol darueber.
         // Vorbild ist der RAYE-Stufenknopf bei ausgeschalteter Sektion, den der
         // User als "perfekt" bezeichnet hat.
-        if (isComicTheme())
-        {
-            comicShadow (g, b, cr, 2.0f);
-            g.setColour (juce::Colour (0xff272044));
-            g.fillRoundedRectangle (b, cr);
-            comicOutline (g, b, cr, 2.0f);
-            return;
-        }
         // Runde 62 (User, mehrfach): ist die SEKTION aus, bekommt der Knopf
         // gar keine Flaeche mehr - genau wie die Modus-Pillen daneben. Die
         // graue Fuellung war das einzige, was in einer ausgeschalteten
@@ -3716,7 +3623,7 @@ public:
         const float cornerSize = bounds.getHeight() * 0.5f;
         // Runde 108: auch LCR wird ein Soft-Chip (blau = gekoppelt: die Engine
         // bringt Latenz mit). Das langsame Atmen bleibt, nur leiser.
-        if ((bool) button.getProperties().getWithDefault ("softChip", false) && ! isComicTheme())
+        if ((bool) button.getProperties().getWithDefault ("softChip", false))
         {
             const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
             const float pulse = (float) (0.5 + 0.5 * std::sin (juce::MathConstants<double>::twoPi * t / 1.8));
@@ -4085,34 +3992,8 @@ public:
         // nur Umriss, kein Fuellton. Es war das einzige Element in dieser
         // Reihe, das aus der Familie fiel.
         const bool boxSectionOff = box.getProperties().getWithDefault ("sectionOff", false);
-        const float boxCorner = bounds.getHeight() * 0.5f;
 
         const bool goldBox = box.getProperties().getWithDefault ("pairedGold", false);
-        // Runde 55 (User): das Bars-Feld sieht aus wie die neuen Modus-Pillen -
-        // Akzentfarbe, dieselbe Deckkraft, dieselbe Strichstaerke. In Pop war
-        // der Rahmen bisher IMMER die volle Tinte, auch bei ausgeschalteter
-        // Sektion (User: "Pop -> Hyperdrive Bars dunkel wenn section off").
-        const juce::Colour boxOutline = isComicTheme() ? (boxSectionOff ? comicInk().withAlpha (0.30f) : comicInk())
-                                      : boxSectionOff ? iconOffColour().withAlpha (0.35f)
-                                      // Runde 64 (User): BLAU heisst hier "Pair
-                                      // ist an" - so wie beim PAIR-Knopf selbst.
-                                      // Der Normalfall (Sync an, kein Pair) ist
-                                      // das Gold von FAST, nicht das Blau.
-                                      // Runde 69b (User-Abgleich): exakt dieselbe
-                                      // Deckkraft wie die Modus-Pillen (0.54) -
-                                      // BARS stand sonst eine Spur kraeftiger
-                                      // neben DOUBLE und SWEEP.
-                                      : goldBox       ? pairAccentColour().withAlpha (0.54f)
-                                      // Runde 73 (User: "check nochmal alle 3
-                                      // Boxen"): altAccentColour() entsaettigt
-                                      // in Fairy Tale um 40 % - das ist fuer
-                                      // FAST gewollt, hier aber falsch: das
-                                      // Bars-Feld stand dadurch blasser als
-                                      // DOUBLE und SWEEP daneben. Jetzt
-                                      // dieselbe Quelle wie die Modus-Pillen.
-                                      : glow          ? themePalette().frameRaye.withAlpha (0.54f)
-                                                      : themePalette().frameMain.withAlpha (0.55f);
-        if (! isComicTheme())
         {
             // Runde 108: Soft-Chip wie die Schalter. Blau = gekoppelt (Sync,
             // Takte) - so steht es in der Farbregel, die der User freigegeben hat.
@@ -4120,11 +4001,6 @@ public:
             // wieder wie in Runde 64 - normal Gold, bei aktivem PAIR Blau.
             drawSoftChip (g, bounds, goldBox ? pairAccentColour() : themePalette().frameRaye,
                           glow || goldBox, boxSectionOff, box.isMouseOver (true), false);
-        }
-        else
-        {
-            g.setColour (boxOutline);
-            g.drawRoundedRectangle (bounds, boxCorner, 1.35f);
         }
 
         if (box.getProperties().getWithDefault ("noArrow", false))

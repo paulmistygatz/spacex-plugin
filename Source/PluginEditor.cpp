@@ -5779,9 +5779,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // behaelt sein bisheriges Verhalten.
     auto applyTitleDim = [] (juce::Label& label, juce::Colour fullColour, bool isOn)
     {
-        const juce::Colour offCol = isComicTheme()
-                                  ? fullColour.withAlpha (0.34f)   // Pop: bei Aus dunkler (User)
-                                  : sectionOffFill().interpolatedWith (fullColour, 0.34f).brighter (0.22f).withAlpha (0.88f);
+        const juce::Colour offCol = sectionOffFill().interpolatedWith (fullColour, 0.34f).brighter (0.22f).withAlpha (0.88f);
         juce::Colour want = isOn ? fullColour : offCol;
         // Hover-Feedback auf dem Sektionsnamen (User: der Name ist klickbar,
         // hatte aber als einziges Element keinerlei Rueckmeldung). Laeuft hier
@@ -5796,19 +5794,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Familie, User: "section header zu viele unterschiedliche Farben").
     {
         const auto pal = themePalette();
-        const bool pop = isComicTheme();
         // Moon (User): Titel von Galaxy bis Vision leicht blaeulich, damit sie
         // sich - aehnlich wie eingeschaltete Polarity-Knoepfe - dezent vom
         // Rest abheben. Flat: minimal staerker abgehoben als bisher.
         // Sci-Fi: eigene Titelfarbe je Variante (siehe ThemePalette::title).
         const juce::Colour tWarm = pal.frameMain.brighter (0.25f).interpolatedWith (pal.knob, 0.35f);   // an: Hauch Akzent (User)
-        const juce::Colour tMain = pop ? juce::Colour (0xffb968ff)
-                                 : isSciFiTheme() ? pal.titleColour()
+        const juce::Colour tMain = isSciFiTheme() ? pal.titleColour()
                                  : isMoonTheme()  ? tWarm.interpolatedWith (juce::Colour (0xff9fc4ff), 0.45f)
                                  : isFlatTheme()  ? tWarm.brighter (0.16f).interpolatedWith (juce::Colour (0xffbcd0e8), 0.22f)
                                                   : tWarm;
         const juce::Colour tGrn  = tMain;
-        applyTitleDim (lcrTitleLabel,        pop ? pal.frameGalaxy : tMain, isLcrOn && ! uiBypassed);   // Galaxy: kein eigener Titelton mehr (User: hat den Glow)
+        applyTitleDim (lcrTitleLabel,        tMain, isLcrOn && ! uiBypassed);   // Galaxy: kein eigener Titelton mehr (User: hat den Glow)
         applyTitleDim (driftTitleLabel,      tMain,           isDriftOn && ! uiBypassed);
         applyTitleDim (polTitleLabel,        tMain,           isPolOn && ! uiBypassed);
         applyTitleDim (widthBoostTitleLabel, tGrn,            isWidthBoostOn && ! uiBypassed);
@@ -6384,21 +6380,6 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // Bereich im Vergleich zu allen anderen Elementen zu eng am Rand
     // platziert (User-Feedback "sieht nicht gut aus, Randabstand").
     auto titleBar = juce::Rectangle<int> (kOuterMargin, kOuterMargin, kDesignW - kOuterMargin * 2, kTitleBarH);
-    // Pop: der Kopf bekommt denselben Kasten wie der Footer - ohne ihn wirkt
-    // er "draufgesetzt" (User). MUSS vor dem Logo gezeichnet werden, sonst
-    // liegt der Kasten darueber.
-    if (isComicTheme())
-    {
-        auto hb = juce::Rectangle<int> (kOuterMargin, kOuterMargin,
-                                        kDesignW - kOuterMargin * 2, kTitleBarH).expanded (6, 6).toFloat();
-        g.setColour (comicInk());
-        g.fillRoundedRectangle (hb.translated (4.0f, 4.0f), 12.0f);
-        g.setColour (juce::Colour (0xff2a2450));
-        g.fillRoundedRectangle (hb, 12.0f);
-        g.setColour (comicInk());
-        g.drawRoundedRectangle (hb, 12.0f, 3.0f);
-    }
-
     auto logoArea = titleBar.removeFromLeft (kTitleBarH).reduced (5).toFloat();
     drawLogo (g, logoArea);
 
@@ -6672,7 +6653,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Pop hat seinen eigenen Look und bleibt aussen vor.
         auto onGlow = [&] (float corner)
         {
-            if (! on || isComicTheme()) return;
+            if (! on) return;
             for (int layer = 3; layer >= 1; --layer)
             {
                 const float expand = 1.5f + 2.5f * (float) layer;
@@ -6829,17 +6810,6 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             }
             return;
         }
-        if (isComicTheme())
-        {
-            // Konturen, Versatz-Schatten, satte Flaeche in Sektionsfarbe.
-            g.setColour (comicInk());
-            g.fillRoundedRectangle (rf.translated (5.0f, 5.0f), 12.0f);
-            g.setColour ((on ? juce::Colour (0xff1e1a3a) : juce::Colour (0xff14112a)).interpolatedWith (col, (on ? 0.34f : 0.05f) * pulse));   // aus: dunkler, kaum Farbe (User)
-            g.fillRoundedRectangle (rf, 12.0f);
-            g.setColour (comicInk());
-            g.drawRoundedRectangle (rf, 12.0f, 3.0f);
-            return;
-        }
         if (usesFlatPanels())
         {
             // Sci-Fi / Moon: ruhige, gefuellte Flaeche (aus dem "subtil"-
@@ -6899,10 +6869,9 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     // Sektionsfarben: Pop behaelt seine bunten Rahmen, alle anderen Themes
     // eine Familie aus der Theme-Palette (Galaxy und RAYE bleiben eigen).
     const auto pal = themePalette();
-    const bool perSection = isComicTheme();
-    const juce::Colour cPurple = perSection ? juce::Colour (0xffb968ff) : pal.frameMain;
-    const juce::Colour cGreen  = perSection ? juce::Colour (0xff5be3c7) : pal.frameMain;
-    const juce::Colour cGalaxy = perSection ? pal.frameGalaxy : pal.frameMain;   // Galaxy ohne eigenen Rahmenton (User: hat den Glow)
+    const juce::Colour cPurple = pal.frameMain;
+    const juce::Colour cGreen  = pal.frameMain;
+    const juce::Colour cGalaxy = pal.frameMain;   // Galaxy ohne eigenen Rahmenton (User: hat den Glow)
     drawGroup (groupLcrArea,        groupColour (LCRMSAudioProcessor::SOLO_GALAXY,     cGalaxy),         lcrFrameOn,        soloState == LCRMSAudioProcessor::SOLO_GALAXY, 3.4f);
     drawGroup (groupDriftArea,      groupColour (LCRMSAudioProcessor::SOLO_TIMEWARP,   cPurple),         driftFrameOn,      soloState == LCRMSAudioProcessor::SOLO_TIMEWARP, 3.4f);
     drawGroup (groupPolArea,        groupColour (LCRMSAudioProcessor::SOLO_POLARITY,   cPurple),         polFrameOn,        soloState == LCRMSAudioProcessor::SOLO_POLARITY);
@@ -6911,41 +6880,8 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
     drawGroup (groupPosArea,        groupColour (LCRMSAudioProcessor::SOLO_POSITION,   cGreen),          posFrameOn,        soloState == LCRMSAudioProcessor::SOLO_POSITION);
     // Runde 110 (User): ein Rahmenstil fuer alle - Phaser hatte als einzige
     // Sektion einen goldenen Rahmen. Pop behaelt seine bunten Rahmen.
-    drawGroup (groupRayArea,        groupColour (LCRMSAudioProcessor::SOLO_RAY,        perSection ? pal.frameRaye : cPurple), rayFrameOn, soloState == LCRMSAudioProcessor::SOLO_RAY);
+    drawGroup (groupRayArea,        groupColour (LCRMSAudioProcessor::SOLO_RAY,        cPurple), rayFrameOn, soloState == LCRMSAudioProcessor::SOLO_RAY);
 
-    // Pop: Footer in zwei Kaesten wie die Sektionen (Meter..Vol, PRISM) -
-    // sonst wirkt er "draufgesetzt" (User).
-    if (isComicTheme())
-    {
-        auto boxOf = [] (std::initializer_list<juce::Component*> cs)
-        {
-            juce::Rectangle<int> u;
-            for (auto* c : cs) u = u.isEmpty() ? c->getBounds() : u.getUnion (c->getBounds());
-            return u.expanded (10, 8);
-        };
-        auto drawBox = [&] (juce::Rectangle<int> b)
-        {
-            if (b.isEmpty()) return;
-            auto rf = b.toFloat();
-            g.setColour (comicInk());
-            g.fillRoundedRectangle (rf.translated (4.0f, 4.0f), 12.0f);
-            g.setColour (juce::Colour (0xff2a2450));
-            g.fillRoundedRectangle (rf, 12.0f);
-            g.setColour (comicInk());
-            g.drawRoundedRectangle (rf, 12.0f, 3.0f);
-        };
-        // Ein Kasten um alle Footer-Elemente inkl. Beschriftungen und IN/OUT-
-        // Meter (User: "lieber einen Kasten, alle Labels drinnen").
-        drawBox (boxOf ({ &volInputMeter, &volOutputMeter, &inputMeterLabel, &outputMeterLabel,
-                          &monoCheckButton, &monoCheckLabel, &monoDryButton, &monoDryLabel,
-                          &mixSlider, &mixLabel, &volSlider, &volLabel,
-                          &panSlider, &panLabel,   // Runde 93 (User): Pan stand ausserhalb des Kastens
-                          &prismOnButton, &prismBand }));
-        // Das "?" unten links bekommt einen eigenen kleinen Kasten. Er darf
-        // den Rahmen darueber ueberlappen - das sieht in Pop absichtlich so
-        // aus (User).
-        drawBox (helpButton.getBounds().expanded (5, 4));
-    }
 
     // RAYE-Pair: goldene Klammer um Speed/Sync/Bars in Hyperdrive - die
     // sichtbare Bruecke zwischen den beiden Sektionen, solange die Kopplung
@@ -6976,8 +6912,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             default: m = { (float) groupWidthBoostArea.getCentreX(), 0.5f * (float) (groupWidthBoostArea.getBottom() + groupFlowArea.getY()) }; break;
         }
         // Marker dezent in der Theme-Familie (User) - Pop behaelt sein Lila.
-        const juce::Colour polCol = isComicTheme() ? juce::Colour (0xffb968ff)
-                                                   : themePalette().frameMain.interpolatedWith (themePalette().knob, 0.30f);
+        const juce::Colour polCol = themePalette().frameMain.interpolatedWith (themePalette().knob, 0.30f);
         // Runde 110 (User): sah aus wie ein verirrter Knopf. Jetzt ein Punkt
         // auf einer feinen Linie - liest sich als "hier in der Kette".
         g.setColour (polCol.withAlpha (0.35f));
@@ -7018,7 +6953,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // die Latenz melden, nicht die Sektion ueberstrahlen.
             const float pulse = 0.42f;
             auto glowRect = groupLcrArea.toFloat().reduced (3.0f);
-            const juce::Colour glowCol (isComicTheme() ? juce::Colour (0xffffb648) : themePalette().frameRaye);   // Theme-Farbe (User); Pop Amber
+            const juce::Colour glowCol (themePalette().frameRaye);   // Theme-Farbe (User)
             for (int layer = 3; layer >= 1; --layer)
             {
                 const float expand = 2.0f + 2.4f * (float) layer;
@@ -7098,13 +7033,12 @@ void LCRMSAudioProcessorEditor::setUiTheme (int theme, bool persist)
         (int) (mutateCategoryValue > 0 ? themePalette().knob : juce::Colour (0xff7b808b)).getARGB());
     categoryButton.repaint();
     catDots.repaint();
-    prismOnButton.getProperties().set ("powerColour", (int) (isComicTheme() ? 0xff8a6ab8u : themePalette().prism.getARGB()));
+    prismOnButton.getProperties().set ("powerColour", (int) themePalette().prism.getARGB());
     mixSlider.getProperties().set ("footerKnob", true);
     volSlider.getProperties().set ("footerKnob", true);
     {
         const auto pal = themePalette();
-        if (isComicTheme()) viewPanel.setHeadColours (juce::Colour (0xffb968ff), juce::Colour (0xff5be3c7), juce::Colour (0xff6bb8ff));
-        else                viewPanel.setHeadColours (pal.knob, pal.knob.withAlpha (0.85f), pal.knob.withAlpha (0.85f));   // eine Farbe (User)
+        viewPanel.setHeadColours (pal.knob, pal.knob.withAlpha (0.85f), pal.knob.withAlpha (0.85f));   // eine Farbe (User)
     }
     if (persist)
     {
