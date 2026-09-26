@@ -387,13 +387,13 @@ public:
         else
         {
             // Runde 174 (User, Entwurf E4): die Bahn einer eingeschalteten
-            // Sektion traegt am Anfang 30 % Theme-Farbe und laeuft zum Ende
+            // Sektion traegt am Anfang 19 % Theme-Farbe (User: 30 % minus ein Drittel) und laeuft zum Ende
             // hin ins normale Ringgrau aus - der Knopf wirkt "bereit" und
             // zeigt die Richtung, auch bei 0 %.
             const float tr = radius - trackThickness;
             const juce::Point<float> pS (centre.x + tr * std::sin (rotaryStartAngle), centre.y - tr * std::cos (rotaryStartAngle));
             const juce::Point<float> pE (centre.x + tr * std::sin (rotaryEndAngle),   centre.y - tr * std::cos (rotaryEndAngle));
-            g.setGradientFill (juce::ColourGradient (ringOnCol.interpolatedWith (themePalette().knob, 0.30f), pS,
+            g.setGradientFill (juce::ColourGradient (ringOnCol.interpolatedWith (themePalette().knob, 0.19f), pS,
                                                      ringOnCol, pE, false));
         }
         g.strokePath (track, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
