@@ -2165,7 +2165,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
          "Auto Gain (AG) matches the level, so bypass is a fair comparison.");
 
     add (area ({ &presetPrevButton, &presetNameButton, &presetNextButton, &globalSaveSizeButton }), "Presets", "Presets",
-         "35 presets, set by ear on real sessions, sorted in folders. "
+         "Presets set by ear on real sessions, sorted in folders. "
          "The arrows step through the current folder, Save lets you pick one.");
 
     add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
