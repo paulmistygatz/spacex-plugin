@@ -1101,7 +1101,15 @@ private:
     public:
         struct Step { juce::Rectangle<int> target; juce::String eyebrow, head, text;
                       std::vector<juce::Rectangle<int>> dims {};   // Runde 174: im Loch liegend, gehoert aber nicht zum Schritt - wird mitverschleiert
+                      std::vector<int> forceOn {};                 // Runde 174: diese Sektionen (SOLO_*) waehrend des Schritts als "an" zeichnen
         };
+        // Runde 174: Sektionen, die der aktuelle Schritt als "an" zeigt - nur Optik.
+        std::vector<int> currentForceOn() const
+        {
+            if (! isVisible()) return {};
+            if (const auto* st = current()) return st->forceOn;
+            return {};
+        }
         std::vector<Step> steps;
         int index = 0;
         std::function<void()> onFinish;

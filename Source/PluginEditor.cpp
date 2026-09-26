@@ -2091,6 +2091,12 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
             tourOverlay.steps.push_back ({ target, eyebrow, head, text });
     };
 
+    // Runde 174: welche Sektion ein Schritt als "an" zeigt.
+    auto forceOn = [this] (std::initializer_list<int> sections)
+    {
+        if (! tourOverlay.steps.empty())
+            tourOverlay.steps.back().forceOn.assign (sections.begin(), sections.end());
+    };
     // Runde 173 (User: "kurz und knapp, keine Doktorarbeit - aber ein bisschen
     // mehr darf es sein; ab und zu erwaehnen, dass die Modi sorgfaeltig
     // ausgesucht sind"). Wuerfel heisst ueberall "Smart dice".
@@ -2121,26 +2127,32 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and lock",
          "Click a section name to switch it on or off. Cmd-click solos it. "
          "The lock keeps the Smart dice away from that section.");
+    forceOn ({ LCRMSAudioProcessor::SOLO_GALAXY });
 
     add (groupLcrArea, "Section 1", L ("LCR Matrix", "Galaxy"),
          L ("L/R", "Orbit") + " sets how much of the sides you keep, " + L ("C-Weight", "Gravity")
          + " how firmly the centre is held, " + L ("HF Regain", "Regain") + " brings back the highs the split takes away.");
+    forceOn ({ LCRMSAudioProcessor::SOLO_GALAXY });
 
     add (groupPolArea, "Section 2", L ("Polarity", "Eclipse"),
          "Flips the phase of L, R or both - PRE or POST decides where in the chain. "
          "The biggest single change in the plugin, so check Mono.");
+    forceOn ({ LCRMSAudioProcessor::SOLO_POLARITY });
 
     add (groupDriftArea, "Section 3", L ("Micropitch", "Parallax"),
          "Makes a mono sound wide. The four styles look simple, but each is its own hand-tuned mix "
          "of time and pitch tricks. Pick one, turn Amount.");
+    forceOn ({ LCRMSAudioProcessor::SOLO_TIMEWARP });
 
     add (groupWidthBoostArea, "Section 4", L ("Mid-Side", "Dimension"),
          L ("Width", "Size") + " and " + L ("Sides", "Boost") + " open the image. The Sides EQ curves look plain, "
          "but each was picked by ear to solve a real mix problem. The small fader sets how strong.");
+    forceOn ({ LCRMSAudioProcessor::SOLO_DIMENSION });
 
     add (groupFlowArea.getUnion (groupRayArea), "Sections 5 + 6", L ("Autopan and Phaser", "Hyperdrive and Raye"),
          L ("Autopan", "Hyperdrive") + " moves the sound left and right - the note syncs it to the song. "
          "The phaser moves the image, not the tone. LINK ties it to the " + L ("Autopan", "Hyperdrive") + ".");
+    forceOn ({ LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::SOLO_RAY });
 
     add (area ({ &goniometer }), "Look", "The starfield",
          "Your stereo image, live - it reacts to what SpaceX does. Click it for the goniometer. "
@@ -5431,10 +5443,15 @@ void LCRMSAudioProcessorEditor::timerCallback()
             }
     }
 
+    // Runde 174 (User: "bitte immer on zeigen"): zeigt die Tour gerade auf
+    // eine Sektion, wird sie als "an" gezeichnet - rein optisch, am Klang und
+    // an den Parametern aendert sich nichts.
+    const auto tourForceOn = tourOverlay.currentForceOn();
     auto syncFrameOn = [&] (bool& frameFlag, const char* paramId, int soloValue) -> bool
     {
         const bool rawOn = processor.apvts.getRawParameterValue (paramId)->load() > 0.5f;
-        const bool effectiveOn = rawOn && (! soloActive || currentSolo == soloValue);
+        const bool tourOn = std::find (tourForceOn.begin(), tourForceOn.end(), soloValue) != tourForceOn.end();
+        const bool effectiveOn = (rawOn && (! soloActive || currentSolo == soloValue)) || tourOn;
         if (frameFlag != effectiveOn) { frameFlag = effectiveOn; needsRepaint = true; }
         return effectiveOn;
     };
