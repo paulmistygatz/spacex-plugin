@@ -590,19 +590,10 @@ void LCRMSAudioProcessorEditor::runMutate (bool mayDisableSections)
         }
     }
 
-    // ---- MIX: optional (Menue "Mutate Changes Mix") ----
-    // Glocke um 85 %, Streuung +-30 -> meistens 70-95 %, selten unter 55 %,
-    // nie unter 40 % (User: "eher seltener unter 50 %, meistens 70-80 %").
-    {
-        auto* mixP = processor.apvts.getParameter (LCRMSAudioProcessor::ID_MIX);
-        if (mixP != nullptr && ! isMixLocked()
-            && juce::PropertiesFile (LCRMSAudioProcessor::appPropertiesOptions()).getBoolValue ("mutateChangesMix", false))
-        {
-            const float bell = (rng.nextFloat() + rng.nextFloat() + rng.nextFloat()) / 3.0f - 0.5f;
-            const float pct  = juce::jlimit (40.0f, 100.0f, 85.0f + bell * 60.0f);
-            mixP->setValueNotifyingHost (mixP->convertTo0to1 (pct));
-        }
-    }
+    // ---- MIX: wird nie gewuerfelt ----
+    // Runde 174 (User: "Random soll Mix Regler nie aendern"). Die alte Option
+    // "Mutate Changes Mix" hatte keinen Menuepunkt mehr, ein alter Eintrag in
+    // den Einstellungen konnte sie aber noch einschalten.
 
     // ---- RAY: selten dabei, und wenn, dann meist leicht ----
     // User-Vorgabe: "Phaser ... auch randomisiert werden. Glockenkurve
