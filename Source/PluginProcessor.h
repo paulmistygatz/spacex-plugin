@@ -943,6 +943,10 @@ private:
     //     eingeblendet - ein Leeren kann nie mehr knacken.
     std::atomic<bool> pendingTailClear { false };
     float resumeFadeGain = 1.0f;
+    // Review 1.0.1: nach dem Leeren kommt mit Galaxy erst nach der Latenz
+    // wieder Signal - so lange wartet das Einblenden, sonst verpufft es in der
+    // Stille und das Signal setzt danach hart ein (zweiter Knacks).
+    int   resumeHoldSamples = 0;
     void clearIfProcessingWasSuspended (int numSamples) noexcept
     {
         const juce::uint32 now = juce::Time::getMillisecondCounter();
@@ -960,13 +964,23 @@ private:
         {
             clearDspTails();
             resumeFadeGain = 0.0f;
+            resumeHoldSamples = juce::jmax (0, lastReportedLatency);
         }
     }
     void applyResumeFade (juce::AudioBuffer<float>& buffer, int numSamples) noexcept
     {
         if (resumeFadeGain >= 1.0f || currentSampleRate <= 0.0) return;
-        const float to = juce::jmin (1.0f, resumeFadeGain + (float) numSamples / (0.020f * (float) currentSampleRate));
-        buffer.applyGainRamp (0, numSamples, resumeFadeGain, to);
+        int start = 0;
+        if (resumeHoldSamples > 0)
+        {
+            start = juce::jmin (numSamples, resumeHoldSamples);
+            buffer.clear (0, start);   // dort liegt ohnehin nur die leere Pipeline
+            resumeHoldSamples -= start;
+        }
+        const int n = numSamples - start;
+        if (n <= 0) return;
+        const float to = juce::jmin (1.0f, resumeFadeGain + (float) n / (0.020f * (float) currentSampleRate));
+        buffer.applyGainRamp (start, n, resumeFadeGain, to);
         resumeFadeGain = to;
     }
 

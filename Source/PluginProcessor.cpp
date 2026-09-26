@@ -1153,6 +1153,18 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         currentRayLfo.store (0.0f, std::memory_order_relaxed);
         updateVisualMeters (buffer.getReadPointer (0), buffer.getReadPointer (1), numSamples);
         wasFullyBypassed = true;
+        // Review 1.0.1: ein Leeren (Host-Reset/Luecke) im Bypass liess
+        // resumeFadeGain auf 0 stehen - beim Ausschalten des Bypass fiel das
+        // Signal dann auf null (Knacks). Mit Latenz startet auch die Bypass-
+        // Leitung neu und wird eingeblendet; ohne Latenz ist das Original
+        // gar nicht betroffen, dann entfaellt das Einblenden.
+        if (lastReportedLatency > 0)
+            applyResumeFade (buffer, numSamples);
+        else
+        {
+            resumeFadeGain = 1.0f;
+            resumeHoldSamples = 0;
+        }
         return;
     }
 
