@@ -597,6 +597,10 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // Review 1.0.1: Lebenszeichen fuer den verzoegerten Standard-Zustand im
+    // Konstruktor (Timer::callAfterDelay) - siehe dort.
+    std::shared_ptr<bool> aliveToken { std::make_shared<bool> (true) };
+
     // Reicht das Signal um lastReportedLatency Samples verzoegert durch
     // (eigener Ringpuffer), damit die PDC-Kompensation des Hosts beim
     // Bypass (Host-Bypass ODER Logo-Klick-Bypass) korrekt bleibt.

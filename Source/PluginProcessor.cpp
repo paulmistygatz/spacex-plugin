@@ -197,9 +197,12 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     factoryState = apvts.copyState();
     apvts.addParameterListener (ID_GALAXY_ACTIVATE, this);
 
-    juce::Timer::callAfterDelay (60, [this]
+    juce::Timer::callAfterDelay (60, [this, alive = std::weak_ptr<bool> (aliveToken)]
     {
-        if (hasReceivedExternalState)
+        // Review 1.0.1: Hosts erzeugen und zerstoeren Instanzen beim Scannen
+        // oft innerhalb weniger Millisekunden (auch pluginval). Dann ist
+        // 'this' hier schon geloescht - frueher ein Use-after-free.
+        if (alive.expired() || hasReceivedExternalState)
             return;
 
         juce::PropertiesFile props (appPropertiesOptions());
