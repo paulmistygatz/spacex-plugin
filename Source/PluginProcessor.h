@@ -687,6 +687,7 @@ private:
     float rayAL = 0.0f, rayAR = 0.0f, rayAStepL = 0.0f, rayAStepR = 0.0f;
     int   rayCoefCountdown = 0;
     bool  rayCoefValid = false;
+    bool  rayStatesClear = false;   // Review 1.0.1: Aus-Zustand schon geleert
     float offsetPanCachePos = -9.0f, offsetPanCacheL = 1.0f, offsetPanCacheR = 1.0f;
     juce::SmoothedValue<float> rayLifeSmoothed;   // LIFE skaliert auch RAYE (Runde 39)
 

@@ -2355,6 +2355,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
             if (rayGain > 0.0001f && offFade > 0.0005f)
             {
+                rayStatesClear = false;
                 // LFO: entweder eigene Phase oder an Hyperdrive gekoppelt
                 // (Pair). Rechter Kanal eine Viertelperiode voraus -> die
                 // Kerben kreisen durchs Stereobild statt nur zu wobbeln.
@@ -2456,14 +2457,17 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
                 l = l + (wetL - l) * rayGain * offFade;
                 r = r + (wetR - r) * rayGain * offFade;
             }
-            else
+            else if (! rayStatesClear)
             {
                 // Aus: Zustaende leer halten, damit beim Einschalten nichts
-                // Altes nachklingt.
+                // Altes nachklingt. Review 1.0.1: einmal reicht - vorher lief
+                // das bei ausgeschaltetem Phaser (Standard: Amount 0) fuer
+                // jedes Sample erneut.
                 for (int k = 0; k < kRayStages; ++k) { rayApL[k] = 0.0f; rayApR[k] = 0.0f; }
                 rayFbL = rayFbR = 0.0f;
                 rayCoefValid = false;
                 rayCoefCountdown = 0;
+                rayStatesClear = true;
             }
 
             rayPhase += rayPhaseInc;
