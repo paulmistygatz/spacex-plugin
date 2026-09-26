@@ -19,6 +19,14 @@ if [ ! -f build/CMakeCache.txt ]; then
 fi
 cmake --build build --config Release --parallel
 
+# Review 1.0.1: Als Release legt JUCE das Plugin unter .../Release/VST3 ab. Der
+# alte Ordner .../VST3 (ohne Release) stammt noch vom Build ohne Optimierung und
+# wird nicht mehr aktualisiert - also zuerst den Release-Pfad nehmen.
+if [ -d "build/LCRMSPlugin_artefacts/Release/VST3/$NAME" ]; then
+    SRC="build/LCRMSPlugin_artefacts/Release/VST3/$NAME"
+fi
+echo "==> Quelle: $SRC"
+
 # Alte Fassung erst weg, sonst bleiben geloeschte Dateien im Bundle liegen.
 sudo rm -rf "$DST/$NAME"
 sudo mkdir -p "$DST"

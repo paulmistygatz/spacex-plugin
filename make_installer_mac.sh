@@ -32,8 +32,10 @@ MANUAL_SRC="docs/SpaceXManual_EN.pdf"
 MANUAL_DST="SpaceX Manual (EN).pdf"
 
 # ---- Plugin finden -----------------------------------------------------
-VST3="build/LCRMSPlugin_artefacts/VST3/$PRODUCT.vst3"
-[ -d "$VST3" ] || VST3="build/LCRMSPlugin_artefacts/Release/VST3/$PRODUCT.vst3"
+# Review 1.0.1: zuerst den Release-Build nehmen. .../VST3 ohne Release ist ein
+# alter Build ohne Optimierung (vor der Umstellung auf Release).
+VST3="build/LCRMSPlugin_artefacts/Release/VST3/$PRODUCT.vst3"
+[ -d "$VST3" ] || VST3="build/LCRMSPlugin_artefacts/VST3/$PRODUCT.vst3"
 if [ ! -d "$VST3" ]; then
     echo "==> Plugin noch nicht gebaut - baue Release ..."
     cmake --build build --config Release
