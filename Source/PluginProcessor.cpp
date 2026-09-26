@@ -1683,7 +1683,6 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     // ===== SEITEN-EQ (Runde 105, ersetzt DEPTH) =====
     // Runde 125: Pauls Pro-Q-Kurven (DSP/SideEq.h), Fader + An/Aus.
-    updateMsEqCoeffs (false, numSamples);
     msEqLcrMove.setTargetValue (pMsEqLcr->load() > 0.5f ? 1.0f : 0.0f);
     // Ist der EQ aus und ausgeklungen, laeuft gar nichts (Null-Test sauber).
     // Runde 133: FLAT ist "aus" wie der Schalter - die Filter duerfen ruhen.
@@ -1692,7 +1691,13 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     else
         msEqHoldSamples = juce::jmax (0, msEqHoldSamples - numSamples);
     const bool msEqActive = msEqHoldSamples > 0;
-    if (! msEqActive)
+    // Review 1.0.1: die vier Filterentwuerfe (log2/exp2/sin/cos/pow) nur, wenn
+    // der EQ auch rechnet. Bei FLAT (Standard) liefen sie bisher in jedem
+    // Block. Die Werte gleiten waehrend der 0,4-s-Nachlaufzeit ohnehin auf
+    // FLAT, von dort startet das naechste Einschalten wie bisher.
+    if (msEqActive)
+        updateMsEqCoeffs (false, numSamples);
+    else
         clearMsEqStates();
     // Runde 115: die LCR-Filter laufen nur, solange der Schalter an ist oder
     // gerade ueberblendet wird. Danach werden sie geleert, damit beim
