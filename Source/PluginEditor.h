@@ -16,6 +16,7 @@ enum SpaceXSettingsId
     idShowModulation,
     idDisableModMovement,
     idReduceAnimations,
+    idLrOrbit,          // Runde 174: L/R als Orbit statt Balken
     idSaveSizeDefault,
     idSaveStateDefault,
     idOpenPresetFolder,
@@ -105,6 +106,7 @@ public:
              galaxyStart = false, keepSolo = true, modVis = true, showHz = false, advMod = false,
              techLabels = false;
         float bright = 0.0f;   // Runde 174
+        bool  lrOrbit = false; // Runde 174
     };
     SettingsSnapshot settingsSnap;
     void captureSettingsSnapshot();
@@ -534,7 +536,7 @@ private:
         // Runde 102 (User): "Bass Protect auch aus den Settings", "Labels
         // Option weg" (sie steht jetzt unter den Themes) und "Show Advanced
         // Modulation raus" - uebrig bleiben zwei echte Schalter.
-        static constexpr int kBehav   = 2;
+        static constexpr int kBehav   = 3;   // Runde 174: + L/R Orbit
 
         juce::Label title, themeHead, layoutHead, behavHead, brightHead;
         // Runde 174 (User): Brightness-Regler unter der Vorschau.
@@ -560,7 +562,7 @@ private:
         static const int* themeIds()  { static const int a[kThemes]  = { idThemeDay, idThemeDark, idThemePurple }; return a; }
         static const int* layoutIds() { static const int a[kLayouts] = { idLayoutFrames, idLayoutEasy, idTechnicalLabels }; return a; }
         // Runde 58 (User): umgekehrte Reihenfolge.
-        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation }; return a; }
+        static const int* behavIds()  { static const int a[kBehav]   = { idGalaxyDefault, idShowModulation, idLrOrbit }; return a; }
 
         SettingsPanelComponent()
         {
@@ -606,7 +608,8 @@ private:
             // "Keep Solo When Off" mit Solo. Tote Menuepunkte sind genau die
             // Art Ballast, die wir gerade abbauen.
             static const char* const behavNames[kBehav]   = { "LCR On Startup (Latency)",
-                                                              "Show Modulation" };
+                                                              "Show Modulation",
+                                                              "L/R Orbit" };
 
             auto setup = [this] (juce::TextButton& b, const char* txt, int id)
             {
@@ -647,6 +650,7 @@ private:
             saveBtn.setTooltip ("Keep the changes and close");
 
             behavBtn[1].setTooltip ("Shows the moving dots that mark what the modulation is doing right now");
+            behavBtn[2].setTooltip ("Shows L/R in LCR MATRIX as orbiting planets instead of bars");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
             labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");

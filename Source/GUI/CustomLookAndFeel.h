@@ -66,6 +66,8 @@ inline int&  uiLayoutRef()      { static int m = 0; return m; }
 // Sternenfeld), siehe paintOverContent - jedes Element hebt sich im selben
 // Verhaeltnis, An/Aus-Zustaende bleiben untereinander exakt gleich.
 inline float& uiBrightnessRef() { static float b = 0.0f; return b; }
+// Runde 174 (User, Beta-Vergleich): L/R als Orbit statt als Balken (Settings).
+inline bool& uiLrOrbitRef() { static bool b = false; return b; }
 inline bool  layoutFrameless()  { return uiLayoutRef() == 1; }
 inline bool  layoutOutline()    { return uiLayoutRef() == 2; }
 // Aus-Zustand der Icons (Power/Solo/Lock/Mod/...): im Comic dunkle Tinte,
@@ -3758,41 +3760,134 @@ public:
         {
             auto b = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height);
             const float top = b.getY() + 4.0f, bottom = b.getBottom() - 4.0f, h = bottom - top;
-            const float bw  = juce::jmax (6.0f, b.getWidth() / 3.9f);   // Balken fuellen die Breite (Layout setzt sie passend)
-            const float gap = bw * 0.45f;
             const float cx  = b.getCentreX();
             const float valT = juce::jlimit (0.0f, 1.0f, (float) slider.valueToProportionOfLength (slider.getValue()));
-            // Runde 174 (User: "gehen nur zur Haelfte runter"): die Seiten
-            // nutzen fast den ganzen Weg. Bei 0 % stehen L, C und R gleich
-            // niedrig (Original), nach oben kommen die Seiten dazu.
-            constexpr float kBase = 0.12f;                     // Hoehe von C = Seiten bei 0 %
+            const double tSec = juce::Time::getMillisecondCounterHiRes() * 0.001;   // fuer die leise Animation
+            const bool modLive = ! offVisual && (bool) slider.getProperties().getWithDefault ("modLiveActive", false);
+            const float liveT  = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
+            const juce::Colour cNeutral = offVisual ? knobRingOffColour()
+                                                    : themePalette().frameMain.interpolatedWith (juce::Colour (0xffc9c5be), 0.35f);
+            // Weicher Leuchtpunkt (radialer Verlauf) - fuer Staub und Monde.
+            auto glowDot = [&] (float gx, float gy, float r, juce::Colour c, float a)
+            {
+                if (a <= 0.003f || r <= 0.1f) return;
+                juce::ColourGradient gr (c.withAlpha (a), gx, gy, c.withAlpha (0.0f), gx + r, gy, true);
+                gr.addColour (0.35, c.withAlpha (a * 0.55f));
+                g.setGradientFill (gr);
+                g.fillEllipse (gx - r, gy - r, r * 2.0f, r * 2.0f);
+            };
+
+            // ===== Stil "Orbit" (Settings > L/R Orbit, Runde 174, Beta-Vergleich) =====
+            // Bei 0 % sind C, L und R gleich gross (ausbalanciert). Aufdrehen:
+            // die Monde L und R wachsen und wandern ein Stueck nach aussen, C
+            // gibt sein Licht an sie ab und ist bei 100 % verschwunden. Die
+            // ganze Flaeche ist der Regler; eine leuchtende Kante zeigt den Wert.
+            if (uiLrOrbitRef())
+            {
+                const float R  = b.getWidth() * 0.5f;
+                const float cy = top + h * 0.46f;
+                const float sp = R * (0.50f + 0.20f * valT);
+                const float sR = R * (0.18f + 0.12f * valT);
+                const float cR = R * 0.18f * (1.0f - valT);
+                const auto gold = offVisual ? knobValueOffColour() : accent;
+                const auto blue = offVisual ? knobValueOffColour() : glowAccent;
+
+                // Griff-Flaeche mit Pegel-Schleier und leuchtender Kante
+                const auto area = juce::Rectangle<float> (b.getX() + 2.0f, top, b.getWidth() - 4.0f, h);
+                const float vy  = juce::jmap (valT, bottom, top);
+                g.setColour (juce::Colours::white.withAlpha (0.025f));
+                g.fillRoundedRectangle (area, 9.0f);
+                g.setColour (juce::Colours::white.withAlpha (offVisual ? 0.04f : 0.07f));
+                g.drawRoundedRectangle (area.reduced (0.5f), 9.0f, 1.0f);
+                {
+                    juce::Path clip; clip.addRoundedRectangle (area, 9.0f);
+                    g.saveState();
+                    g.reduceClipRegion (clip);
+                    if (! offVisual)
+                    {
+                        g.setGradientFill (juce::ColourGradient (blue.withAlpha (0.10f), 0.0f, bottom, gold.withAlpha (0.16f), 0.0f, vy, false));
+                        g.fillRect (area.getX(), vy, area.getWidth(), bottom - vy);
+                    }
+                    juce::ColourGradient edge (gold.withAlpha (0.0f), area.getX(), vy, gold.withAlpha (0.0f), area.getRight(), vy, false);
+                    edge.addColour (0.5, gold.withAlpha (offVisual ? 0.35f : 0.9f));
+                    g.setGradientFill (edge);
+                    g.fillRect (area.getX(), vy - 1.0f, area.getWidth(), 2.0f);
+                    g.restoreState();
+                }
+                g.setColour (offVisual ? knobValueOffColour() : juce::Colour (0xfff2f4f8));
+                g.fillRoundedRectangle (area.getX() - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+                g.fillRoundedRectangle (area.getRight() - 3.0f, vy - 3.0f, 6.0f, 6.0f, 2.0f);
+
+                // Umlaufbahn
+                g.setColour (juce::Colours::white.withAlpha (0.08f));
+                g.drawEllipse (cx - sp, cy - sp * 0.32f, sp * 2.0f, sp * 0.64f, 1.0f);
+                // Licht fliesst von C zu L und R
+                if (! offVisual && valT > 0.01f && valT < 0.995f)
+                    for (int s = -1; s <= 1; s += 2)
+                        for (int i = 0; i < 8; ++i)
+                        {
+                            const float p = (float) std::fmod (tSec * 0.45 * (0.6 + valT) + i / 8.0, 1.0);
+                            glowDot (cx + (float) s * sp * p, cy - std::sin (p * juce::MathConstants<float>::pi) * 5.0f * valT,
+                                     4.0f, gold, 0.35f * valT * (1.0f - std::abs (p - 0.5f)));
+                        }
+                // C
+                if (cR > 0.3f)
+                {
+                    if (! offVisual) glowDot (cx, cy, cR * 2.4f, gold, 0.5f * (1.0f - valT));
+                    g.setColour (gold.interpolatedWith (juce::Colours::white, 0.5f).withAlpha (0.1f + 0.8f * (1.0f - valT)));
+                    g.fillEllipse (cx - cR, cy - cR, cR * 2.0f, cR * 2.0f);
+                }
+                // L und R
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    const float mx = cx + (float) s * sp;
+                    const float my = cy + (offVisual ? 0.0f : (float) std::sin (tSec * 1.2 + s) * 1.2f);
+                    if (! offVisual) glowDot (mx, my, sR * 2.4f, blue, 0.30f + 0.35f * valT);
+                    g.setColour (blue.interpolatedWith (juce::Colours::white, 0.4f).withAlpha (offVisual ? 0.6f : 0.95f));
+                    g.fillEllipse (mx - sR, my - sR, sR * 2.0f, sR * 2.0f);
+                }
+                // Modulation: Punkt an der Kante rechts, auf der Live-Hoehe
+                if (modLive)
+                {
+                    const float ly = juce::jmap (liveT, bottom, top);
+                    g.setColour (juce::Colour (0xcc0a0b0e));
+                    g.fillEllipse (area.getRight() - 4.2f, ly - 4.2f, 8.4f, 8.4f);
+                    g.setColour (glowAccent);
+                    g.fillEllipse (area.getRight() - 2.9f, ly - 2.9f, 5.8f, 5.8f);
+                }
+                return;
+            }
+
+            // ===== Stil "Balken" (Standard, Entwurf 7 "Kombi mit mehr Luft") =====
+            // Bei 0 % stehen L, C und R gleich hoch (55 %). Aufdrehen: C sinkt
+            // auf null, L und R steigen bis ganz oben. Staub fliegt von C zu
+            // den Seiten, solange sich das Verhaeltnis verschiebt.
+            const float bw  = juce::jmax (6.0f, b.getWidth() / 3.9f);   // Balken fuellen die Breite (Layout setzt sie passend)
+            const float gap = bw * 0.45f;
+            constexpr float kBase = 0.55f;
             auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
+            const float cH  = h * kBase * (1.0f - valT);
             const float rad = juce::jmin (5.0f, bw * 0.35f);
             const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
-            const auto cCol    = offVisual ? knobRingOffColour()
-                                           : themePalette().frameMain.interpolatedWith (juce::Colour (0xffc9c5be), 0.35f);
-
             const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Blau, oben Gold
-            auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool capLine)
+            auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool side)
             {
                 const juce::Rectangle<float> tr (bx, top, bw, h);
                 g.setColour (juce::Colour (0xff23262c));
                 g.fillRoundedRectangle (tr, rad);
                 g.setColour (offVisual ? knobRingOffColour() : juce::Colour (0xff454952));
                 g.drawRoundedRectangle (tr.reduced (0.5f), rad, 1.0f);
+                if (fillH <= 0.2f) return;
                 juce::Path clip; clip.addRoundedRectangle (tr, rad);
                 g.saveState();
                 g.reduceClipRegion (clip);
-                if (fairyGrad && capLine && ! offVisual)
-                {
-                    // Runde 174 (User, Fairy Tale): unten Blau, nach oben Gold.
+                if (fairyGrad && side && ! offVisual)
                     g.setGradientFill (juce::ColourGradient (glowAccent.withAlpha (alpha), bx, bottom,
                                                              accent.withAlpha (alpha),     bx, top, false));
-                }
                 else
                     g.setColour (col.withAlpha (alpha));
                 g.fillRect (bx, bottom - fillH, bw, fillH);
-                if (capLine && ! offVisual)
+                if (side && ! offVisual)
                 {
                     g.setColour (juce::Colours::white.withAlpha (0.85f));
                     g.fillRect (bx, bottom - fillH - 1.0f, bw, 2.0f);
@@ -3801,20 +3896,23 @@ public:
             };
             const float xL = cx - bw * 1.5f - gap, xC = cx - bw * 0.5f, xR = cx + bw * 0.5f + gap;
             bar (xL, sideH (valT), sideCol, 0.90f, true);
-            // C ist KEIN Fader: keine Bahn, nur ein fester, ruhiger Sockel in
-            // Hoehe der Nulllage - damit niemand versucht, ihn zu ziehen.
-            {
-                const juce::Rectangle<float> cr (xC, bottom - h * kBase, bw, h * kBase);
-                g.setColour (cCol.withAlpha (offVisual ? 0.6f : 0.80f));
-                g.fillRoundedRectangle (cr, rad);
-            }
+            bar (xC, cH, cNeutral, offVisual ? 0.6f : 0.85f, false);
             bar (xR, sideH (valT), sideCol, 0.90f, true);
+            // Staub von C zu den Seiten (nur waehrend sich etwas verschiebt)
+            if (! offVisual && valT > 0.01f && valT < 0.99f)
+                for (int i = 0; i < 6; ++i)
+                {
+                    const float p = (float) std::fmod (tSec * 0.5 + i / 6.0, 1.0);
+                    const float s = (i % 2) ? 1.0f : -1.0f;
+                    const float dx = cx + s * (bw + gap) * p;
+                    const float dy = bottom - cH - 4.0f - std::sin (p * juce::MathConstants<float>::pi) * 14.0f;
+                    glowDot (dx, dy, 4.5f, themePalette().knob, 0.5f * valT * (1.0f - valT) * 4.0f * (1.0f - std::abs (p - 0.5f) * 1.4f));
+                }
 
             // Live-Modulation: wie an jedem Drehregler ein Punkt - hier oben
             // auf beiden Seitenbalken.
-            if (! offVisual && slider.getProperties().getWithDefault ("modLiveActive", false))
+            if (modLive)
             {
-                const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
                 const float ly = bottom - sideH (liveT);
                 for (float bx : { xL, xR })
                 {

@@ -1440,6 +1440,7 @@ void LCRMSAudioProcessorEditor::applyVisualsVisibility()
     uiLayoutRef() = juce::jlimit (0, 2, props.getIntValue ("uiLayout", 0));
     setUiTheme (props.getIntValue ("uiTheme4", (int) UiTheme::DayNight), false);
     uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, (float) props.getDoubleValue ("uiBrightness", 0.0));   // Runde 174
+    uiLrOrbitRef()    = props.getBoolValue ("lrOrbit", false);                                            // Runde 174
     applyLayoutMode();
     goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
     starVisualsOn       = ! props.getBoolValue ("spaceVisualsDisabledDefault", false);
@@ -2014,6 +2015,7 @@ void LCRMSAudioProcessorEditor::captureSettingsSnapshot()
     settingsSnap.advMod      = advancedModVisible;
     settingsSnap.techLabels  = technicalLabels;
     settingsSnap.bright      = uiBrightnessRef();
+    settingsSnap.lrOrbit     = uiLrOrbitRef();
     settingsSnap.autoGain    = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f;
     settingsSnap.bassGuard   = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f;
 }
@@ -2033,6 +2035,7 @@ void LCRMSAudioProcessorEditor::restoreSettingsSnapshot()
     flipIf (modulationVisualsEnabled,                       settingsSnap.modVis,      idShowModulation);
     flipIf (advancedModVisible,                             settingsSnap.advMod,      idShowAdvancedMod);
     flipIf (technicalLabels,                                settingsSnap.techLabels,  idTechnicalLabels);
+    flipIf (uiLrOrbitRef(),                                 settingsSnap.lrOrbit,     idLrOrbit);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_AUTO_GAIN)->load() > 0.5f,
                                                             settingsSnap.autoGain,    idAutoGain);
     flipIf (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_BASS_GUARD)->load() > 0.5f,
@@ -2255,6 +2258,7 @@ void LCRMSAudioProcessorEditor::refreshSettingsPanel()
     // Runde 71: die Layout-Knoepfe gibt es nicht mehr - jedes Theme hat sein
     // festes Layout. "Technical Labels" steht jetzt bei Behaviour.
     settingsPanel.behavBtn[1].setToggleState (modulationVisualsEnabled,  juce::dontSendNotification);
+    settingsPanel.behavBtn[2].setToggleState (uiLrOrbitRef(),            juce::dontSendNotification);
     settingsPanel.brightSlider.setValue (uiBrightnessRef(), juce::dontSendNotification);
     // "SpaceX Labels" ist die Umkehrung: angehakt = NICHT technisch.
     settingsPanel.labelBtn.setToggleState (! technicalLabels, juce::dontSendNotification);
@@ -2394,6 +2398,8 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     technicalLabels = true;
                     writeProps.saveIfNeeded();
                     applyBrightness (0.0f, true);   // Runde 174
+                    writeProps.setValue ("lrOrbit", false);
+                    uiLrOrbitRef() = false;
                     setUiTheme ((int) UiTheme::DayNight, true);   // Runde 174: Werkseinstellung = Day & Night
                     applyLabelStyle();
                     applyLayoutMode();
@@ -2470,6 +2476,13 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     starVisualsOn = ! starVisualsOn;
                     goniometer.setSpaceVisualsEnabled (starVisualsOn);
                     writeProps.setValue ("spaceVisualsDisabledDefault", ! starVisualsOn);
+                    break;
+                case idLrOrbit:
+                    uiLrOrbitRef() = ! uiLrOrbitRef();
+                    writeProps.setValue ("lrOrbit", uiLrOrbitRef());
+                    writeProps.saveIfNeeded();
+                    resized();          // Orbit braucht eine breitere Flaeche als die Balken
+                    content.repaint();
                     break;
                 case idShowModulation:
                     modulationVisualsEnabled = ! modulationVisualsEnabled;
@@ -5523,6 +5536,14 @@ void LCRMSAudioProcessorEditor::timerCallback()
     setSectionOff (posLockButton,        isPosOn);
     setSectionOff (rayLockButton,        isRayOn);
     setSectionOff (orbitSlider, isLcrOn);
+    // Runde 174: leise Animation im L/R-Regler (Staub bzw. Orbit) - nur wenn
+    // die Sektion an und sichtbar ist und gerade etwas zu sehen ist.
+    {
+        const double v = orbitSlider.valueToProportionOfLength (orbitSlider.getValue());
+        if (isLcrOn && ! uiBypassed && orbitSlider.isShowing()
+            && (uiLrOrbitRef() ? v > 0.01 : (v > 0.01 && v < 0.99)))
+            orbitSlider.repaint();
+    }
     setSectionOff (horizonSlider, isLcrOn);
     setSectionOff (driftSlider, isDriftOn);
     setSectionOff (bendSlider, isDriftOn);
@@ -8347,10 +8368,12 @@ void LCRMSAudioProcessorEditor::layoutContent()
         const int knobAreaH = lcrInner.getHeight() - 14;
         const int W         = lcrInner.getWidth();
         const int minGap    = 12;
-        int knobD = juce::jmin (knobAreaH, (W - 60 - 4 * minGap) / 2);
+        int knobD = uiLrOrbitRef() ? juce::jmin (knobAreaH, (int) ((float) (W - 4 * minGap) / 3.05f))   // Orbit ist so breit wie ein Regler
+                                   : juce::jmin (knobAreaH, (W - 60 - 4 * minGap) / 2);
         knobD = (kVariant == 0) ? juce::jlimit (34, 190, knobD) : juce::jmin (kBig, knobD);
         const float barW  = juce::jlimit (10.0f, 18.0f, (float) knobD * 0.19f);
-        const int   barsW = juce::roundToInt (barW * 3.9f);        // drei Balken + zwei Luecken (siehe drawLinearSlider, "lcrBars")
+        const int   barsW = uiLrOrbitRef() ? juce::roundToInt ((float) knobD * 1.05f)   // Orbit braucht Platz zur Seite
+                                           : juce::roundToInt (barW * 3.9f);            // drei Balken + zwei Luecken (siehe drawLinearSlider, "lcrBars")
         const int   g     = juce::jmax (minGap, (W - barsW - 2 * knobD) / 4);
         const int   x0    = lcrInner.getX() + juce::jmax (0, (W - barsW - 2 * knobD - 4 * g) / 2);
         const int   xBars = x0 + g, xK1 = xBars + barsW + g, xK2 = xK1 + knobD + g;
