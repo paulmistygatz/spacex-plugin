@@ -7439,8 +7439,18 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         g.saveState();
         // Nur aussparen, wenn nichts darueber liegt - sonst sah man ueber
         // dem Settings-Panel einen dunklen Kasten (User-Bug Runde 174).
-        const bool anyOverlay = settingsPanel.isVisible() || backPanel.isVisible()
-                             || tourOverlay.isVisible() || savePanel.isVisible();
+        bool anyOverlay = settingsPanel.isVisible() || backPanel.isVisible()
+                       || tourOverlay.isVisible() || savePanel.isVisible();
+        // Allgemein: liegt irgendein sichtbares Kind UEBER dem Sternenfeld
+        // (Tour, Panels, Backdrop, Willkommen ...), wird nicht ausgespart.
+        {
+            const int gi = content.getIndexOfChildComponent (&goniometer);
+            for (int i = gi + 1; gi >= 0 && i < content.getNumChildComponents() && ! anyOverlay; ++i)
+                if (auto* c = content.getChildComponent (i))
+                    if (c->isVisible() && c->getBounds().intersects (goniometer.getBounds())
+                        && ! goniometer.getBounds().contains (c->getBounds()))   // eigene Knoepfe IM Feld zaehlen nicht
+                        anyOverlay = true;
+        }
         if (goniometer.isVisible() && ! anyOverlay)
             g.excludeClipRegion (goniometer.getBounds());
         const auto lift = themePalette().plate.interpolatedWith (juce::Colours::white, 0.80f);
