@@ -7454,7 +7454,10 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
         if (goniometer.isVisible() && ! anyOverlay)
             g.excludeClipRegion (goniometer.getBounds());
         const auto lift = themePalette().plate.interpolatedWith (juce::Colours::white, 0.80f);
-        g.setColour (lift.withAlpha (0.11f * br));
+        // Runde 174 (User): Sci-Fi ist farbiger und wirkt schneller
+        // ausgewaschen - dort reicht der Regler nur bis 65 % des Maximums.
+        const float maxA = isSciFiTheme() ? 0.11f * 0.65f : 0.11f;
+        g.setColour (lift.withAlpha (maxA * br));
         g.fillAll();
         g.restoreState();
     }
