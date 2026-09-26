@@ -1741,7 +1741,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (presetNextButton,           "Next preset");
     tip (globalSaveSizeButton,       "Save: store the current settings as a preset. Name it Default to overwrite the default");
     tip (presetDeleteButton,         "Delete: remove the loaded preset");
-    tip (globalABButton,             "A / B: switch between two versions of your settings to compare them");
+    tip (globalABButton,             "A/B: switch between two versions of your settings to compare them");
     tip (abCopyButton,               "Copy: send the current settings to the other A/B slot");
     tip (globalResetButton,          "Reset: load the Default preset again");
     tip (logoButton,                 "SpaceX: click the logo for the back panel");
@@ -2169,8 +2169,8 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
          "The arrows step through the current folder.");
 
     add (area ({ &undoButton, &redoButton, &globalABButton, &abCopyButton, &presetMenuButton, &globalResetButton }),
-         "Compare", "Undo, A / B, Settings",
-         "Undo covers everything, the Smart dice included. A / B compares two versions. "
+         "Compare", "Undo, A/B, Settings",
+         "Undo covers everything, the Smart dice included. A/B compares two versions. "
          "Settings has themes and this tour.");
 
     add (area ({ &helpButton }).getUnion (hintBarArea), "Help", "Need help?",

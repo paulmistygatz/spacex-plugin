@@ -41,7 +41,7 @@ CONTROL = [
      "Your stereo image, live. Click it for the goniometer. The bar at the bottom is correlation - right of centre is mono-safe."),
     ("Presets",
      "Sorted in folders. The arrows step through the current folder, a star means you changed something, **Save** lets you "
-     "pick the folder. **A / B** compares two versions."),
+     "pick the folder. **A/B** compares two versions."),
     ("Settings",
      "Theme, LCR On Startup, Show Modulation, Save State as Default - plus the Tour, this manual and the Back Panel."),
     ("Help",
