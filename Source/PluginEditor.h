@@ -656,6 +656,7 @@ private:
             head (betaHead, "BETA  -  EXPERIMENTAL", 13.0f, juce::Colour (0xff8f96a4));
             for (auto* bb : { &betaOrbitBtn, &betaWedgeBtn, &betaThrBtn })
                 bb->getProperties().set ("btnFontPx", 11.5);
+            betaWedgeBtn.setVisible (false);   // Runde 180 (User): Option "Width Wedge" raus, Keil im Knopf ist Standard
             setup (cancelBtn, "Cancel", idCancelSettings);
             setup (saveBtn,   "Save",   idSaveSettings);
             cancelBtn.setTooltip ("Undo everything changed since opening and close");
@@ -882,9 +883,8 @@ private:
             {
                 auto r2 = betaRow.withX (px).withWidth (pwid);
                 const int gapB = 8;
-                const int w3 = (r2.getWidth() - 2 * gapB) / 3;
-                betaOrbitBtn.setBounds (r2.removeFromLeft (w3)); r2.removeFromLeft (gapB);
-                betaWedgeBtn.setBounds (r2.removeFromLeft (w3)); r2.removeFromLeft (gapB);
+                const int w2 = (r2.getWidth() - gapB) / 2;   // Runde 180: nur noch zwei Beta-Schalter
+                betaOrbitBtn.setBounds (r2.removeFromLeft (w2)); r2.removeFromLeft (gapB);
                 betaThrBtn.setBounds (r2);
             }
         }

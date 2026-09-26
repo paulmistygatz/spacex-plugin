@@ -1441,7 +1441,8 @@ void LCRMSAudioProcessorEditor::applyVisualsVisibility()
     setUiTheme (props.getIntValue ("uiTheme4", (int) UiTheme::DayNight), false);
     uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, (float) props.getDoubleValue ("uiBrightness", 0.0));   // Runde 174
     uiLrOrbitRef()    = props.getBoolValue ("lrOrbit", false);                                            // Runde 174
-    uiWidthWedgeRef() = props.getBoolValue ("widthWedge", false);                                         // Runde 175
+    uiWidthWedgeRef() = false;   // Runde 180 (User): Option entfernt - alter Settings-Wert wird ignoriert
+                                           // Runde 175
     applyLayoutMode();
     goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
     starVisualsOn       = ! props.getBoolValue ("spaceVisualsDisabledDefault", false);

@@ -337,35 +337,7 @@ public:
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f);
         auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         auto centre = bounds.getCentre();
-        // Runde 178 (User, Beta "Width Wedge"): der Ring verschwindet ganz,
-        // der Keil selbst ist der Regler (Ziehen wie bei jedem Knopf).
-        if (uiWidthWedgeRef() && (bool) slider.getProperties().getWithDefault ("widthWedge", false))
-        {
-            const bool off = (bool) slider.getProperties().getWithDefault ("sectionOff", false) || ! slider.isEnabled();
-            const auto area = bounds.reduced (2.0f);
-            // Runde 179 (User): kein Rahmen, keine 100 %-Kerben, kein Modulationspunkt
-            const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
-            const float len  = area.getHeight() * 0.80f;
-            const float yTip = area.getBottom() - area.getHeight() * 0.10f, yTop = yTip - len;
-            const float half = juce::jmin (area.getWidth() * 0.46f, 0.46f * w * len * 0.50f);
-            const auto wCol  = off ? knobValueOffColour() : accent;
-            juce::Path wedge;
-            wedge.startNewSubPath (centre.x, yTip);
-            wedge.lineTo (centre.x - half, yTop);
-            wedge.quadraticTo (centre.x, yTop - len * 0.06f, centre.x + half, yTop);
-            wedge.closeSubPath();
-            g.setGradientFill (juce::ColourGradient (wCol.withAlpha (0.95f), centre.x, yTip,
-                                                     (off ? wCol : wCol.interpolatedWith (glowAccent, juce::jlimit (0.0f, 1.0f, w - 1.0f))).withAlpha (0.28f),
-                                                     centre.x, yTop, false));
-            g.fillPath (wedge);
-            juce::Path edges;
-            edges.startNewSubPath (centre.x - half, yTop);
-            edges.lineTo (centre.x, yTip);
-            edges.lineTo (centre.x + half, yTop);
-            g.setColour (wCol.withAlpha (0.9f));
-            g.strokePath (edges, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            return;
-        }
+        // Runde 180 (User): Beta "Width Wedge" (Keil ohne Ring) entfernt.
         // Runde 113 (User): ist Autopan-Speed an den Phaser gekoppelt (LINK),
         // liegt ein leichter blauer Schein UM den Regler - ein weicher Ring,
         // hinter allem anderen gezeichnet. Pop behaelt seinen Tinten-Ring.
