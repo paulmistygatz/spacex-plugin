@@ -3838,11 +3838,14 @@ public:
         {
             auto b = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height);
             const float top = b.getY() + 4.0f, bottom = b.getBottom() - 4.0f, h = bottom - top;
-            const float bw  = juce::jlimit (8.0f, 18.0f, b.getWidth() * 0.24f);
+            const float bw  = juce::jmax (6.0f, b.getWidth() / 3.9f);   // Balken fuellen die Breite (Layout setzt sie passend)
             const float gap = bw * 0.45f;
             const float cx  = b.getCentreX();
             const float valT = juce::jlimit (0.0f, 1.0f, (float) slider.valueToProportionOfLength (slider.getValue()));
-            constexpr float kBase = 0.55f;                     // Hoehe von C = Seiten bei 0 %
+            // Runde 174 (User: "gehen nur zur Haelfte runter"): die Seiten
+            // nutzen fast den ganzen Weg. Bei 0 % stehen L, C und R gleich
+            // niedrig (Original), nach oben kommen die Seiten dazu.
+            constexpr float kBase = 0.12f;                     // Hoehe von C = Seiten bei 0 %
             auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
             const float rad = juce::jmin (5.0f, bw * 0.35f);
             const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
@@ -3870,7 +3873,13 @@ public:
             };
             const float xL = cx - bw * 1.5f - gap, xC = cx - bw * 0.5f, xR = cx + bw * 0.5f + gap;
             bar (xL, sideH (valT), sideCol, 0.90f, true);
-            bar (xC, h * kBase,    cCol,    0.75f, false);
+            // C ist KEIN Fader: keine Bahn, nur ein fester, ruhiger Sockel in
+            // Hoehe der Nulllage - damit niemand versucht, ihn zu ziehen.
+            {
+                const juce::Rectangle<float> cr (xC, bottom - h * kBase, bw, h * kBase);
+                g.setColour (cCol.withAlpha (offVisual ? 0.6f : 0.80f));
+                g.fillRoundedRectangle (cr, rad);
+            }
             bar (xR, sideH (valT), sideCol, 0.90f, true);
 
             // Live-Modulation: wie an jedem Drehregler ein Punkt - hier oben

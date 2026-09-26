@@ -8406,45 +8406,32 @@ void LCRMSAudioProcessorEditor::layoutContent()
         // Beschriftung. Deshalb: der Kegel bekommt seine Breite, der Rest wird
         // in ZWEI GLEICHE Spalten geteilt, beide Regler gleich gross, und die
         // Beschriftung nutzt die volle Spaltenbreite statt nur die des Reglers.
+        // Runde 174 (User: "Abstaende einheitlich, schoen"): L/R-Balken und
+        // die zwei Regler stehen jetzt mit GLEICHEN Luecken in der Sektion -
+        // links, dazwischen und rechts derselbe Abstand (space-evenly),
+        // gemessen an den sichtbaren Kanten, nicht an Spalten.
         const int knobAreaH = lcrInner.getHeight() - 14;
-        const int availW    = lcrInner.getWidth();
-        const int gap       = 8;
+        const int W         = lcrInner.getWidth();
+        const int minGap    = 12;
+        int knobD = juce::jmin (knobAreaH, (W - 60 - 4 * minGap) / 2);
+        knobD = (kVariant == 0) ? juce::jlimit (34, 190, knobD) : juce::jmin (kBig, knobD);
+        const float barW  = juce::jlimit (10.0f, 18.0f, (float) knobD * 0.19f);
+        const int   barsW = juce::roundToInt (barW * 3.9f);        // drei Balken + zwei Luecken (siehe drawLinearSlider, "lcrBars")
+        const int   g     = juce::jmax (minGap, (W - barsW - 2 * knobD) / 4);
+        const int   x0    = lcrInner.getX() + juce::jmax (0, (W - barsW - 2 * knobD - 4 * g) / 2);
+        const int   xBars = x0 + g, xK1 = xBars + barsW + g, xK2 = xK1 + knobD + g;
+        const int   labelY = lcrInner.getBottom() - 14;
+        const int   knobY  = lcrInner.getY() + juce::jmax (0, (labelY - lcrInner.getY() - knobD) / 2);
 
-        // Runde 48 (User): Orbit sass zu dicht am Rahmen - der ganze Block
-        // rueckt nach rechts, die Regler werden entsprechend etwas schmaler.
-        const int leftInset = 14;
-        lcrInner.removeFromLeft (leftInset);
-        const int orbitW = juce::jlimit (56, 90, juce::roundToInt ((float) (availW - leftInset) * 0.24f));   // Runde 174: drei Balken brauchen etwas mehr Breite
-        auto orbitCol = lcrInner.removeFromLeft (orbitW);
-        orbitLabel.setBounds (orbitCol.removeFromBottom (14));
-        lcrInner.removeFromLeft (gap);
-
-        const int colW  = juce::jmax (40, (lcrInner.getWidth() - gap) / 2);
-        const int knobD = (kVariant == 0) ? juce::jlimit (34, 190, juce::jmin (knobAreaH, colW))
-                                          : juce::jmin (kBig, juce::jmin (knobAreaH, colW));
-        // Runde 60 (User): der Orbit-Fader ist genauso hoch wie die Regler
-        // daneben und steht buendig mit ihnen - vorher nahm er die ganze
-        // Spaltenhoehe und wirkte dadurch verschoben.
-        // Runde 65 (User): der Fader wird nach OBEN laenger, die Unterkante
-        // bleibt buendig mit dem Regler daneben - vorher war der ganze Fader
-        // verschoben statt gewachsen.
-        {
-            auto orbitRect = orbitCol.withSizeKeepingCentre (orbitCol.getWidth(),
-                                                             juce::jmin (orbitCol.getHeight(), knobD));
-            orbitRect.setTop (orbitRect.getY() - 7);
-            orbitSlider.setBounds (orbitRect);
-        }
-
-        auto horCol = lcrInner.removeFromLeft (colW);
-        // Reihenfolge Orbit - Gravity - Air (User). Die mittlere Spalte
-        // traegt jetzt Gravity, die rechte Air.
-        gravityLabel.setBounds (horCol.removeFromBottom (14));
-        gravitySlider.setBounds (horCol.withSizeKeepingCentre (knobD, juce::jmin (horCol.getHeight(), knobD)));
-        lcrInner.removeFromLeft (gap);
-
-        auto gravCol = lcrInner;
-        horizonLabel.setBounds (gravCol.removeFromBottom (14));
-        horizonSlider.setBounds (gravCol.withSizeKeepingCentre (knobD, juce::jmin (gravCol.getHeight(), knobD)));
+        // L/R: so hoch wie die Regler, nach oben 7 px laenger (Runde 65),
+        // Unterkante buendig mit den Reglern.
+        orbitSlider.setBounds (xBars, knobY - 7, barsW, knobD + 7);
+        orbitLabel.setBounds  (xBars - g / 2, labelY, barsW + g, 14);
+        // Reihenfolge Orbit - Gravity - Air (User).
+        gravitySlider.setBounds (xK1, knobY, knobD, knobD);
+        gravityLabel.setBounds  (xK1 - g / 2, labelY, knobD + g, 14);
+        horizonSlider.setBounds (xK2, knobY, knobD, knobD);
+        horizonLabel.setBounds  (xK2 - g / 2, labelY, knobD + g, 14);
 
         // Der Starfield-Mond orientiert sich an der Reglergroesse dieser Sektion.
         goniometer.setGravityKnobDiameter ((float) knobD);
