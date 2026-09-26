@@ -947,6 +947,9 @@ private:
     //     eingeblendet - ein Leeren kann nie mehr knacken.
     std::atomic<bool> pendingTailClear { false };
     float resumeFadeGain = 1.0f;
+    // Review 1.0.1 (W2): Eingangspegel des letzten Blocks. Eingeblendet wird
+    // nach dem Leeren nur, wenn dabei ein laufendes Signal unterbrochen wurde.
+    float lastInputPeak = 0.0f;
     // Review 1.0.1: nach dem Leeren kommt mit Galaxy erst nach der Latenz
     // wieder Signal - so lange wartet das Einblenden, sonst verpufft es in der
     // Stille und das Signal setzt danach hart ein (zweiter Knacks).
@@ -967,8 +970,12 @@ private:
         if (doClear)
         {
             clearDspTails();
-            resumeFadeGain = 0.0f;
-            resumeHoldSamples = juce::jmax (0, lastReportedLatency);
+            // Review 1.0.1 (W2): nur einblenden, wenn gerade Signal lief (ueber
+            // -60 dBFS). Nach Stille - Export-Start, erste Note nach einer Pause -
+            // bleibt der Einsatz unangetastet, sonst verliert er 20 ms Attack.
+            const bool cut = lastInputPeak > 1.0e-3f;
+            resumeFadeGain    = cut ? 0.0f : 1.0f;
+            resumeHoldSamples = cut ? juce::jmax (0, lastReportedLatency) : 0;
         }
     }
     void applyResumeFade (juce::AudioBuffer<float>& buffer, int numSamples) noexcept

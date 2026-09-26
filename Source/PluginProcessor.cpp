@@ -1015,6 +1015,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // hier wird nur der rohe Block-Peak abgelegt.
     const float inputPeakForGuard = buffer.getMagnitude (0, numSamples);
     currentInputLevel.store (inputPeakForGuard, std::memory_order_relaxed);
+    lastInputPeak = inputPeakForGuard;   // Review 1.0.1 (W2): gilt fuer den naechsten Block
 
     // "Chaos"-Button: einmal pro Block pruefen, ob von der GUI ein Duck
     // angefordert wurde (siehe chaosTriggerRequested-Kommentar im Header).
