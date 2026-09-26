@@ -3772,6 +3772,7 @@ public:
             const auto cCol    = offVisual ? knobRingOffColour()
                                            : themePalette().frameMain.interpolatedWith (juce::Colour (0xffc9c5be), 0.35f);
 
+            const bool fairyGrad = isDarkNightTheme();   // "Fairy Tale"
             auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool capLine)
             {
                 const juce::Rectangle<float> tr (bx, top, bw, h);
@@ -3782,7 +3783,14 @@ public:
                 juce::Path clip; clip.addRoundedRectangle (tr, rad);
                 g.saveState();
                 g.reduceClipRegion (clip);
-                g.setColour (col.withAlpha (alpha));
+                if (fairyGrad && capLine && ! offVisual)
+                {
+                    // Runde 174 (User, Fairy Tale): unten Blau, nach oben Gold.
+                    g.setGradientFill (juce::ColourGradient (glowAccent.withAlpha (alpha), bx, bottom,
+                                                             accent.withAlpha (alpha),     bx, top, false));
+                }
+                else
+                    g.setColour (col.withAlpha (alpha));
                 g.fillRect (bx, bottom - fillH, bw, fillH);
                 if (capLine && ! offVisual)
                 {
