@@ -5816,9 +5816,13 @@ void LCRMSAudioProcessorEditor::timerCallback()
             slider.getProperties().set ("modLiveActive", active);
             if (active)
             {
-                const float t = (float) slider.getNormalisableRange().convertTo0to1 (liveValue);
-                slider.getProperties().set ("modLiveValue", juce::jlimit (0.0f, 1.0f, t));
-                slider.repaint();
+                const float t = juce::jlimit (0.0f, 1.0f, (float) slider.getNormalisableRange().convertTo0to1 (liveValue));
+                const float old = slider.getProperties().getWithDefault ("modLiveValue", -1.0f);
+                slider.getProperties().set ("modLiveValue", t);
+                // Review 1.0.1: nur neu zeichnen, wenn der Punkt sich bewegt oder
+                // erscheint - vorher 20x pro Sekunde, auch bei stehender DAW.
+                if (! wasActive || std::abs (t - old) > 1.0e-4f)
+                    slider.repaint();
             }
             else if (wasActive)
             {
@@ -6106,8 +6110,12 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Live-Position fuer den Flow-Ring (leuchtender Punkt) aktualisieren.
     {
         const float livePos = processor.currentPanPos.load (std::memory_order_relaxed);
-        movementSlider.getProperties().set ("movementLivePos", livePos);
-        movementSlider.repaint();
+        const float oldPos  = movementSlider.getProperties().getWithDefault ("movementLivePos", 0.0f);
+        if (std::abs (livePos - oldPos) > 1.0e-4f)   // Review 1.0.1: nur bei Bewegung neu zeichnen
+        {
+            movementSlider.getProperties().set ("movementLivePos", livePos);
+            movementSlider.repaint();
+        }
     }
 
     // Mono-Check-Icon kontinuierlich neu zeichnen, solange es aktiv ist -

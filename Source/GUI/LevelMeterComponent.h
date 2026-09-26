@@ -120,10 +120,21 @@ private:
         else
             peakHold *= 0.97f;
 
-        repaint();
+        // Review 1.0.1: nur neu zeichnen, wenn sich die Anzeige sichtbar
+        // aendert (dieselben Schwellen wie in paint()) - bei Stille liefen
+        // sonst 30 Repaints pro Sekunde je Meter.
+        const float lvlNow  = displayLevel > 0.01f ? displayLevel : 0.0f;
+        const float peakNow = peakHold > 0.02f ? peakHold : 0.0f;
+        if (std::abs (lvlNow - paintedLevel) > 0.0005f || std::abs (peakNow - paintedPeak) > 0.0005f)
+        {
+            paintedLevel = lvlNow;
+            paintedPeak  = peakNow;
+            repaint();
+        }
     }
 
     std::atomic<float>& level;
+    float paintedLevel = 0.0f, paintedPeak = 0.0f;   // zuletzt gezeichneter Stand
     float displayLevel = 0.0f;
     float peakHold = 0.0f;       // Runde 110
     int   peakHoldFrames = 0;
