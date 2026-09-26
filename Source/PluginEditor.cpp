@@ -7437,7 +7437,11 @@ void LCRMSAudioProcessorEditor::paintOverContent (juce::Graphics& g)
     if (const float br = uiBrightnessRef(); br > 0.001f)
     {
         g.saveState();
-        if (goniometer.isVisible())
+        // Nur aussparen, wenn nichts darueber liegt - sonst sah man ueber
+        // dem Settings-Panel einen dunklen Kasten (User-Bug Runde 174).
+        const bool anyOverlay = settingsPanel.isVisible() || backPanel.isVisible()
+                             || tourOverlay.isVisible() || savePanel.isVisible();
+        if (goniometer.isVisible() && ! anyOverlay)
             g.excludeClipRegion (goniometer.getBounds());
         const auto lift = themePalette().plate.interpolatedWith (juce::Colours::white, 0.80f);
         g.setColour (lift.withAlpha (0.11f * br));
