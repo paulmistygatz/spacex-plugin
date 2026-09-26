@@ -415,10 +415,23 @@ public:
                               0.0f, rotaryStartAngle, rotaryEndAngle, true);
         // Etwas heller als die getönten Gruppenrahmen dahinter, damit der
         // unlackierte Ring nicht optisch verschwindet.
-        g.setColour (offVisual ? knobRingOffColour()   // aus: kaum heller als die Off-Fuellfarbe der Sektion (User, alle Themes)
-                   : isComicTheme() ? juce::Colour (0xff5a5390)
-                   : isSciFiTheme() ? juce::Colour (0xff3a2f5a)   // Sci-Fi an: dunkles Violett statt Grau (User, Option A)
-                                    : juce::Colour (0xff454952));
+        const juce::Colour ringOnCol = isComicTheme() ? juce::Colour (0xff5a5390)
+                                     : isSciFiTheme() ? juce::Colour (0xff3a2f5a)   // Sci-Fi an: dunkles Violett statt Grau (User, Option A)
+                                                      : juce::Colour (0xff454952);
+        if (offVisual || isComicTheme())
+            g.setColour (offVisual ? knobRingOffColour() : ringOnCol);   // aus: kaum heller als die Off-Fuellfarbe der Sektion (User, alle Themes)
+        else
+        {
+            // Runde 174 (User, Entwurf E4): die Bahn einer eingeschalteten
+            // Sektion traegt am Anfang 30 % Theme-Farbe und laeuft zum Ende
+            // hin ins normale Ringgrau aus - der Knopf wirkt "bereit" und
+            // zeigt die Richtung, auch bei 0 %.
+            const float tr = radius - trackThickness;
+            const juce::Point<float> pS (centre.x + tr * std::sin (rotaryStartAngle), centre.y - tr * std::cos (rotaryStartAngle));
+            const juce::Point<float> pE (centre.x + tr * std::sin (rotaryEndAngle),   centre.y - tr * std::cos (rotaryEndAngle));
+            g.setGradientFill (juce::ColourGradient (ringOnCol.interpolatedWith (themePalette().knob, 0.30f), pS,
+                                                     ringOnCol, pE, false));
+        }
         g.strokePath (track, juce::PathStrokeType (trackThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         // "Movement"-Ring: statt eines normalen Zeigers waechst der Ring
