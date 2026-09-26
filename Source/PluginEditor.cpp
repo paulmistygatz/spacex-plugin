@@ -6670,7 +6670,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setGradientFill (wash);
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.38f : 0.28f) * pulse));   // Runde 174: aus 0.10 -> 0.28
+            g.setColour (col.withAlpha ((on ? 0.40f : 0.28f) * pulse));   // Runde 174: aus 0.10 -> 0.28, an 0.38 -> 0.40
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.4f : 1.0f);
             return;
         }
@@ -6716,7 +6716,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // Runde 174 (User): der Aus-Rahmen soll aussehen wie frueher im
             // DAW-Bypass - Schimmer fast wie "an" und ein Hauch der beiden
             // Saum-Striche. Fuellung, Farbhauch und Glow bleiben "an".
-            g.setColour (juce::Colours::white.withAlpha (on ? 0.09f : 0.085f));
+            g.setColour (juce::Colours::white.withAlpha (on ? 0.096f : 0.085f));   // Runde 174c: an +6 %
             g.drawRoundedRectangle (rf, 10.0f, 1.0f);
             if (! on)
             {
@@ -6730,12 +6730,12 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
             // ist der einzige Hebel, der uebrig bleibt, ohne alles abzudunkeln.
             if (isMoonTheme() && on)
             {
-                g.setColour (col.withAlpha (0.34f * pulse));
+                g.setColour (col.withAlpha (0.36f * pulse));   // Runde 174c: +6 %
                 g.drawRoundedRectangle (rf, 10.0f, 1.3f);
             }
             if (on)
             {
-                g.setColour (col.withAlpha (0.05f * pulse));
+                g.setColour (col.withAlpha (0.053f * pulse));   // Runde 174c: +6 %
                 g.drawRoundedRectangle (rf.expanded (1.0f), 11.0f, 1.5f);
                 g.drawRoundedRectangle (rf.expanded (2.0f), 12.0f, 1.5f);
             }
@@ -6816,7 +6816,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                 g.setColour (surf.withAlpha (isSciFiTheme() ? 0.34f : 0.62f));
                 g.fillRoundedRectangle (rf, 10.0f);
             }
-            g.setColour (col.withAlpha ((on ? 0.42f : 0.32f) * pulse));   // Runde 174: aus 0.10 -> 0.32
+            g.setColour (col.withAlpha ((on ? 0.45f : 0.32f) * pulse));   // Runde 174: aus 0.10 -> 0.32, an 0.42 -> 0.45
             g.drawRoundedRectangle (rf, 10.0f, on ? 1.6f : 1.0f);
             return;
         }
@@ -6824,7 +6824,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Sektionen liessen sich schlecht voneinander abgrenzen. Mittelweg:
         // deutlich heller als frueher (0.10), aber klar unter dem An-Rahmen;
         // Fuellung und Glow bleiben der eingeschalteten Sektion vorbehalten.
-        const float lineA = (on ? 0.45f : 0.34f) * pulse;
+        const float lineA = (on ? 0.48f : 0.34f) * pulse;   // Runde 174c: an 0.45 -> 0.48 (User: "ein Ticken leuchtender")
         onGlow (10.0f);
         if (on)
         {
