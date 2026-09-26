@@ -844,6 +844,7 @@ void LCRMSAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     bypassDryR.assign ((size_t) juce::jmax (1, samplesPerBlock), 0.0f);
     bypassBlend.reset (sampleRate, 0.025);   // ~25 ms Ueberblendung
     bypassBlend.setCurrentAndTargetValue (isBypassedNow() ? 1.0f : 0.0f);
+    bypassHoldSamples = 0;
 
     // Auto Gain: K-Gewichtung aufsetzen und Regelung zuruecksetzen. Die
     // ersten 0,5 s laufen mit kurzer Zeitkonstante, damit ein Offline-Bounce
@@ -1104,7 +1105,20 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Umschalten sofort das passende Signal da ist; Wet und Original werden
     // ueber ~25 ms ueberblendet (User: "bypass plugin ruckelt/knackt").
     const bool wantBypass = isBypassedNow();
-    bypassBlend.setTargetValue (wantBypass ? 1.0f : 0.0f);
+    // Review 1.0.1: Beim Verlassen des vollen Bypass sind die Puffer der
+    // Verarbeitung leer (siehe wasFullyBypassed unten). Mit Galaxy kommt erst
+    // nach der gemeldeten Latenz wieder Signal heraus, eingeschwungen ist die
+    // Engine nach etwa der doppelten Zeit (~170 ms bei 48 kHz). So lange bleibt
+    // das latenzgleiche Original stehen, dann wird wie gewohnt uebergeblendet.
+    // Vorher: rund 85 ms Aussetzer plus Knacks beim Ausschalten des Bypass.
+    if (wantBypass)
+        bypassHoldSamples = 0;
+    else if (wasFullyBypassed)
+        bypassHoldSamples = 2 * juce::jmax (0, lastReportedLatency);
+    const bool holdOriginal = ! wantBypass && bypassHoldSamples > 0;
+    bypassBlend.setTargetValue ((wantBypass || holdOriginal) ? 1.0f : 0.0f);
+    if (holdOriginal)
+        bypassHoldSamples -= numSamples;
     if ((int) bypassDryL.size() < numSamples)
     {
         bypassDryL.resize ((size_t) numSamples, 0.0f);
@@ -1147,7 +1161,7 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     if (wasFullyBypassed)
     {
         wasFullyBypassed = false;
-        clearProcessingState();
+        clearProcessingState (false);   // Review 1.0.1: Bypass-Leitung ist aktuell, behalten
     }
 
     auto* left  = buffer.getWritePointer (0);
@@ -2756,9 +2770,9 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 }
 
 // Siehe wasFullyBypassed im Header.
-void LCRMSAudioProcessor::clearProcessingState() noexcept
+void LCRMSAudioProcessor::clearProcessingState (bool alsoBypassLine) noexcept
 {
-    clearDspTails();
+    clearDspTails (alsoBypassLine);
     // Auto Gain danach neu einpegeln - die alten Energien stammen von vor
     // dem Bypass und passen nicht mehr.
     kwInHpL = {}; kwInShelfL = {}; kwInHpR = {}; kwInShelfR = {};
@@ -2768,7 +2782,7 @@ void LCRMSAudioProcessor::clearProcessingState() noexcept
     autoGainMeasureSamples = (int) (currentSampleRate * 1.0);
 }
 
-void LCRMSAudioProcessor::clearDspTails() noexcept
+void LCRMSAudioProcessor::clearDspTails (bool alsoBypassLine) noexcept
 {
     lcrExtractor.reset();
     delayL.reset();
@@ -2790,8 +2804,11 @@ void LCRMSAudioProcessor::clearDspTails() noexcept
     std::fill (lcrDryDelayR.begin(), lcrDryDelayR.end(), 0.0f);
     lcrDryWritePos = 0;
     // Runde 144: auch der Bypass-Latenzpuffer haelt sonst alten Klang.
-    std::fill (bypassDelayL.begin(), bypassDelayL.end(), 0.0f);
-    std::fill (bypassDelayR.begin(), bypassDelayR.end(), 0.0f);
+    if (alsoBypassLine)
+    {
+        std::fill (bypassDelayL.begin(), bypassDelayL.end(), 0.0f);
+        std::fill (bypassDelayR.begin(), bypassDelayR.end(), 0.0f);
+    }
 }
 
 void LCRMSAudioProcessor::passthroughWithLatencyCompensation (juce::AudioBuffer<float>& buffer)

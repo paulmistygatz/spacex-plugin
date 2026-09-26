@@ -918,11 +918,13 @@ private:
     // sich entladen wuerde"). Deshalb wird beim Verlassen des Bypass alles
     // Zustandsbehaftete geleert; die 25-ms-Ueberblendung deckt den Neustart.
     bool wasFullyBypassed = false;
-    void clearProcessingState() noexcept;
+    // Review 1.0.1: alsoBypassLine = false beim Verlassen des vollen Bypass -
+    // die Bypass-Latenzleitung laeuft dort weiter mit und ist nicht veraltet.
+    void clearProcessingState (bool alsoBypassLine = true) noexcept;
     // Nur die DSP-Zustaende (Delays, Filter, Phaser, STFT) - OHNE Auto Gain.
     // Wird nach laengerer Stille aufgerufen; Auto Gain soll dabei seinen
     // Wert behalten, sonst pumpt der Pegel beim Weiterspielen.
-    void clearDspTails() noexcept;
+    void clearDspTails (bool alsoBypassLine = true) noexcept;
     double silentSeconds = 0.0;
     bool   silenceCleared = false;
     // Runde 144: Zeitpunkt des letzten Blocks. Hat der Host die Verarbeitung
@@ -1023,6 +1025,9 @@ private:
     // bypassDryL/R = latenzgleiches Original des aktuellen Blocks.
     juce::AudioParameterBool* hostBypassParam = nullptr;
     juce::SmoothedValue<float> bypassBlend;
+    // Review 1.0.1: nach dem vollen Bypass bleibt das Original so lange stehen,
+    // bis die geleerte Galaxy-Verarbeitung wieder eingeschwungen ist.
+    int bypassHoldSamples = 0;
     std::vector<float> bypassDryL, bypassDryR;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LCRMSAudioProcessor)
