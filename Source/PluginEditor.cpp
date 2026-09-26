@@ -2156,8 +2156,8 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     forceOn ({ LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::SOLO_RAY });
 
     add (area ({ &goniometer }), "Look", "The starfield",
-         "Your stereo image, live - it reacts to what SpaceX does. Click it for the goniometer. "
-         "The bar at the bottom shows how mono-safe you are.");
+         "Your stereo image, live - it reacts to what SpaceX does. Click the field for the goniometer, "
+         "the sun to switch the view, the gear for the view settings. The bar at the bottom shows how mono-safe you are.");
 
     add (area ({ &volInputMeter, &volOutputMeter, &monoCheckButton, &monoDryButton, &mixSlider,
                  &panSlider, &volSlider, &autoGainButton }), "Listen", "Output",
