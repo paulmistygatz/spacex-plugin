@@ -960,7 +960,9 @@ private:
         const juce::uint32 prev = gapLastMs;
         gapLastMs = now;
         bool doClear = pendingTailClear.exchange (false, std::memory_order_relaxed);
-        if (prev != 0 && currentSampleRate > 0.0)
+        // Review W9: beim Offline-Export zaehlt die Wanduhr nicht - ein langsamer
+        // Block ist dort keine Pause.
+        if (prev != 0 && currentSampleRate > 0.0 && ! isNonRealtime())
         {
             const double blockMs = 1000.0 * (double) numSamples / currentSampleRate;
             const double limitMs = juce::jmax (3000.0, 8.0 * blockMs);
