@@ -1438,7 +1438,7 @@ void LCRMSAudioProcessorEditor::applyVisualsVisibility()
     juce::PropertiesFile props (LCRMSAudioProcessor::appPropertiesOptions());
     // Neuer Schluessel "uiTheme3" (7 Themes, andere Indizes): Standard Sci-Fi (User).
     uiLayoutRef() = juce::jlimit (0, 2, props.getIntValue ("uiLayout", 0));
-    setUiTheme (props.getIntValue ("uiTheme4", 3), false);
+    setUiTheme (props.getIntValue ("uiTheme4", (int) UiTheme::DayNight), false);
     uiBrightnessRef() = juce::jlimit (0.0f, 1.0f, (float) props.getDoubleValue ("uiBrightness", 0.0));   // Runde 174
     applyLayoutMode();
     goniometerVisualsOn = ! props.getBoolValue ("goniometerDisabledDefault", false);
@@ -2394,6 +2394,7 @@ void LCRMSAudioProcessorEditor::handleSettingsAction (int result)
                     technicalLabels = true;
                     writeProps.saveIfNeeded();
                     applyBrightness (0.0f, true);   // Runde 174
+                    setUiTheme ((int) UiTheme::DayNight, true);   // Runde 174: Werkseinstellung = Day & Night
                     applyLabelStyle();
                     applyLayoutMode();
                     resized();
