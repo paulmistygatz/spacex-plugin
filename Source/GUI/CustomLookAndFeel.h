@@ -3772,7 +3772,7 @@ public:
             const auto cCol    = offVisual ? knobRingOffColour()
                                            : themePalette().frameMain.interpolatedWith (juce::Colour (0xffc9c5be), 0.35f);
 
-            const bool fairyGrad = isDarkNightTheme();   // "Fairy Tale"
+            const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Blau, oben Gold
             auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool capLine)
             {
                 const juce::Rectangle<float> tr (bx, top, bw, h);
