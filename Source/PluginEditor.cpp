@@ -3091,7 +3091,10 @@ void LCRMSAudioProcessorEditor::setLcrAnalyzerView (bool on)
     lcrAnalyzerView = on;
     processor.apvts.state.setProperty ("lcrAnalyzerView", on, nullptr);
     lcrViewToggle.setAnalyzer (on);
-    resized();
+    // Runde 183 (User-Bug "schaltet nicht um"): resized() legt nur die
+    // skalierte content-Flaeche neu an - bei gleicher Groesse laeuft
+    // layoutContent() dann gar nicht. Deshalb direkt aufrufen.
+    layoutContent();
     content.repaint();
 }
 

@@ -355,11 +355,23 @@ public:
         {
             const auto b = juce::Rectangle<float> (r.getX() + (float) i * (w + 3.0f), r.getY(), w, r.getHeight());
             const bool on = (i == 1) == analyzer;
-            g.setColour (on ? gold.withAlpha (0.10f) : juce::Colour (0xff1c1e24));
-            g.fillRoundedRectangle (b, 5.0f);
-            g.setColour (on ? gold.withAlpha (0.45f) : juce::Colours::white.withAlpha (hover ? 0.18f : 0.10f));
-            g.drawRoundedRectangle (b, 5.0f, 1.0f);
-            g.setColour (on ? gold : juce::Colour (0xff8f96a4));
+            // Runde 183 (User): Sektion aus = dieselbe gedimmte Farbe wie alle Regler.
+            if (off)
+            {
+                g.setColour (juce::Colours::white.withAlpha (on ? 0.03f : 0.0f));
+                g.fillRoundedRectangle (b, 5.0f);
+                g.setColour (knobRingOffColour());
+                g.drawRoundedRectangle (b, 5.0f, 1.0f);
+                g.setColour (on ? knobValueOffColour() : knobRingOffColour().brighter (0.15f));
+            }
+            else
+            {
+                g.setColour (on ? gold.withAlpha (0.10f) : juce::Colour (0xff1c1e24));
+                g.fillRoundedRectangle (b, 5.0f);
+                g.setColour (on ? gold.withAlpha (0.45f) : juce::Colours::white.withAlpha (hover ? 0.18f : 0.10f));
+                g.drawRoundedRectangle (b, 5.0f, 1.0f);
+                g.setColour (on ? gold : juce::Colour (0xff8f96a4));
+            }
             const auto c = b.getCentre();
             const float s = juce::jmin (b.getWidth(), b.getHeight()) * 0.30f;
             if (i == 0)
