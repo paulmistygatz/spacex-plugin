@@ -5668,17 +5668,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 125: EQ aus -> Feld, Punkte und Fader gedimmt wie eine Sektion;
     // der An/Aus-Schalter selbst dimmt nur mit der Sektion.
     const bool msEqOnNow = true;   // Runde 159: kein An/Aus mehr - "aus" ist FLAT
-    // Runde 185 (User): sitzt der EQ in LCR, ist er unten grau - bedient wird
-    // er dann oben in der Kurve (bleibt unten aber weiter anfassbar).
-    const bool eqToLcrParam = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_LCR)->load() > 0.5f;
-    const bool msEqLive  = isWidthBoostOn && ! eqToLcrParam && msEqOnNow;
+    // Runde 187 (User): zurueck zu Runde 116 - sitzt der EQ in LCR, bleibt er
+    // unten aktiv und wird blau. So geht beides: unten wie gewohnt oder oben
+    // in der Kurve (Runde 185 hatte ihn unten grau gemacht).
+    const bool msEqLive  = (isWidthBoostOn || eqInLcrLive) && msEqOnNow;
     setSectionOff (msEqButton,      msEqLive);
     // Runde 159 (User): bei FLAT tut der Fader nichts - dann grau und
     // nicht bedienbar, so sieht man sofort "hier passiert nichts".
     const bool msEqFlatNow = sideeq::isFlat ((int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
     setSectionOff (msEqAmtSlider,   msEqLive && ! msEqFlatNow);
     // Runde 161 (User): bei FLAT grau, aber weiter bewegbar (vorwaehlen).
-    setSectionOff (msEqPowerButton, isWidthBoostOn && ! eqToLcrParam);
+    setSectionOff (msEqPowerButton, isWidthBoostOn || eqInLcrLive);
     // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
     setSectionOff (lcrEqButton, isLcrOn);
     {
