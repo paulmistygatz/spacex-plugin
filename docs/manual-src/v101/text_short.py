@@ -6,8 +6,9 @@ SECTIONS_INTRO = "Every section: click the name to switch it on or off, Cmd-clic
 SECTIONS = [
     ("LCR Matrix",
      "Splits the image into a real centre and real sides - not just mid-side. Runs while **LCR** is armed in the header, "
-     "which adds latency. **LCR** sets how much of the sides you keep - the bars show centre and sides, **C-Weight** how firmly the centre is held, "
-     "**HF Regain** brings back the highs the split takes away. **EQ → LCR** puts the Sides EQ on this split."),
+     "which adds latency. **LCR** sets how much of the centre goes out - the bars show centre and sides, **C-Weight** how firmly the centre is held, "
+     "**HF Regain** brings back the centre's highs. **EQ → LCR** puts the Sides EQ on this split. The icons in the header switch to a frequency view: "
+     "gold is the centre, blue is left and right."),
     ("Polarity",
      "Flips the phase of the left or right side. **PRE / POST** decides whether that happens before or after Micropitch and "
      "Mid-Side - two different sounds. The biggest single change in the plugin, so check Mono."),

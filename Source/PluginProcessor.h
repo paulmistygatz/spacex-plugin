@@ -188,6 +188,8 @@ public:
     std::atomic<float> currentGravityLivePercent { 50.0f };
     std::atomic<float> currentOrbitLivePercent { 0.0f };
     std::atomic<float> currentRegainLivePercent { 0.0f };   // Runde 131: HF Regain moduliert
+    // Runde 182 (1.0.2): LCR-Kurve im Editor liest den Analyzer der Engine.
+    StereoSTFTExtractor& getLcrExtractor() noexcept { return lcrExtractor; }
     std::atomic<float> currentRayAmountLive     { 0.0f };   // Runde 131: Phaser Amount moduliert
     std::atomic<float> currentOffsetLivePercent { 0.0f };
     std::atomic<float> currentPosWidthLivePercent { 100.0f };

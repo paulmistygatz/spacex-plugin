@@ -1674,6 +1674,8 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (gravitySlider, "C-Weight: how strongly the centre is separated from the sides" + knob);
     tip (horizonSlider, "HF Regain: brings back the highs the split takes away. 0 = off" + knob);
     tip (lcrEqButton,   juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR: the Sides EQ works on centre and sides of the LCR Matrix instead of mid and side"));
+    tip (lcrViewToggle, "View: knobs or the frequency view with analyzer");
+    tip (lcrGraph,      juce::String::fromUTF8 ("Gold = centre, blue = left/right · drag up/down: LCR · white handle: HF Regain · chip: C-Weight"));
 
     // POLARITY
     tip (polLButton,     juce::String::fromUTF8 ("L: flip the phase of the left channel · Cmd-click: only left"));
@@ -3082,6 +3084,15 @@ void LCRMSAudioProcessorEditor::openManual()
                              (size_t) SpaceXManualData::SpaceXManual_EN_pdfSize);
     if (pdf.existsAsFile())
         pdf.startAsProcess();
+}
+
+void LCRMSAudioProcessorEditor::setLcrAnalyzerView (bool on)
+{
+    lcrAnalyzerView = on;
+    processor.apvts.state.setProperty ("lcrAnalyzerView", on, nullptr);
+    lcrViewToggle.setAnalyzer (on);
+    resized();
+    content.repaint();
 }
 
 void LCRMSAudioProcessorEditor::saveCurrentStateAsDefault()
@@ -4809,6 +4820,14 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (lcrEqButton);
     lcrEqAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_LCR, lcrEqButton);
 
+    // Runde 182 (1.0.2, User): Umschalter Regler <-> Frequenz-Ansicht. Die
+    // Wahl gehoert zur Instanz und wird mit dem Projekt gespeichert.
+    content.addChildComponent (lcrGraph);
+    content.addAndMakeVisible (lcrViewToggle);
+    lcrViewToggle.onToggle = [this] { setLcrAnalyzerView (! lcrAnalyzerView); };
+    lcrAnalyzerView = (bool) processor.apvts.state.getProperty ("lcrAnalyzerView", false);
+    lcrViewToggle.setAnalyzer (lcrAnalyzerView);
+
     styleRotary (elevateSlider, false);
     content.addAndMakeVisible (elevateSlider);
     styleLabel (elevateLabel, "Elevate");
@@ -5590,6 +5609,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
             horizonSlider.repaint();
     }
     setSectionOff (horizonSlider, isLcrOn);
+    setSectionOff (lcrGraph,      isLcrOn);
+    setSectionOff (lcrViewToggle, isLcrOn);
+    // Runde 182 (1.0.2): C-Weight zeigt sich an den Balkenbreiten.
+    {
+        const float cw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_SENS)->load() * 0.01f;
+        if (std::abs ((float) orbitSlider.getProperties().getWithDefault ("cWeight", 0.5f) - cw) > 0.002f)
+        {
+            orbitSlider.getProperties().set ("cWeight", cw);
+            orbitSlider.repaint();
+        }
+    }
     setSectionOff (driftSlider, isDriftOn);
     setSectionOff (bendSlider, isDriftOn);
     setSectionOff (driftBalanceButton, isDriftOn);
@@ -8439,6 +8469,22 @@ void LCRMSAudioProcessorEditor::layoutContent()
         gravityLabel.setBounds  (xK1 - g / 2, labelY, knobD + g, 14);
         horizonSlider.setBounds (xK2, knobY, knobD, knobD);
         horizonLabel.setBounds  (xK2 - g / 2, labelY, knobD + g, 14);
+
+        // Runde 182 (1.0.2): Frequenz-Ansicht nimmt die Flaeche der zwei Regler.
+        for (juce::Component* c : { (juce::Component*) &gravitySlider, (juce::Component*) &gravityLabel,
+                                    (juce::Component*) &horizonSlider, (juce::Component*) &horizonLabel })
+            c->setVisible (! lcrAnalyzerView);
+        lcrGraph.setBounds (juce::Rectangle<int> (xK1 - g / 2, lcrInner.getY(),
+                                                  lcrInner.getRight() - (xK1 - g / 2), lcrInner.getHeight()));
+        lcrGraph.setVisible (lcrAnalyzerView);
+        lcrGraph.setActive (lcrAnalyzerView);
+        {
+            const auto eb = lcrEqButton.getBounds();
+            const int  th = juce::jlimit (16, 24, eb.getHeight() > 0 ? eb.getHeight() - 2 : 20);
+            const int  tw = th * 2 + 6;
+            const int  tx = (eb.getWidth() > 0 ? eb.getX() : lcrInner.getRight()) - 10 - tw;
+            lcrViewToggle.setBounds (tx, (eb.getHeight() > 0 ? eb.getCentreY() : lcrInner.getY() - 12) - th / 2, tw, th);
+        }
 
         // Der Starfield-Mond orientiert sich an der Reglergroesse dieser Sektion.
         goniometer.setGravityKnobDiameter ((float) knobD);

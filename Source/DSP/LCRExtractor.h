@@ -2,6 +2,7 @@
 #include "FastMath.h"   // nur fuer SPACEX_CPU_OPT
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <memory>
@@ -131,9 +132,62 @@ public:
 
         maskDirty.store (true);
         updateSmoothingCoeff();
+
+        // Runde 182 (1.0.2): Analyzer-Baender (logarithmisch 20 Hz..20 kHz).
+        // Einmal hier berechnet, im Audio-Thread nur noch nachgeschlagen.
+        {
+            const float binHz = (float) (sampleRate / (double) fftSize);
+            anaBand.assign (nb, -1);
+            anaCount.fill (0);
+            for (size_t b = 1; b < nb; ++b)
+            {
+                const float f = (float) b * binHz;
+                if (f < 20.0f || f >= 20000.0f) continue;
+                const int band = juce::jlimit (0, kAnaBands - 1, (int) (std::log (f / 20.0f) / std::log (1000.0f) * (float) kAnaBands));
+                anaBand[b] = band;
+                ++anaCount[(size_t) band];
+            }
+            float sumW = 0.0f;
+            for (auto w : window) sumW += w;
+            const float half = juce::jmax (1.0e-6f, sumW * 0.5f);
+            anaNorm = 1.0f / (half * half);   // Vollaussteuerungs-Sinus = 0 dB
+            for (auto& v : anaC) v.store (-1.0f);
+            for (auto& v : anaS) v.store (-1.0f);
+        }
     }
 
     int getLatencySamples() const { return fftSize; }
+
+    // --- Analyzer (Runde 182, 1.0.2) -------------------------------------------
+    // Nur fuer die Anzeige in der LCR-Kurve. Laeuft nur, solange der Editor die
+    // Kurve zeigt (setAnalyzerEnabled). Pro Band: Leistung des erkannten
+    // Centers (ohne Bandmaske und ohne LCR-Regler - beides rechnet der Editor
+    // dazu) und der Seiten (L-only/R-only gemittelt). -1 = Band ohne Bin.
+    static constexpr int kAnaBands = 64;
+    void  setAnalyzerEnabled (bool b) noexcept   { analyzerOn.store (b, std::memory_order_relaxed); }
+    float getAnaCentre (int i) const noexcept    { return anaC[(size_t) i].load (std::memory_order_relaxed); }
+    float getAnaSides  (int i) const noexcept    { return anaS[(size_t) i].load (std::memory_order_relaxed); }
+    int   getAnaFrame() const noexcept           { return anaFrame.load (std::memory_order_relaxed); }
+    static float anaBandHz (int i) noexcept      { return 20.0f * std::pow (1000.0f, ((float) i + 0.5f) / (float) kAnaBands); }
+
+    // Dieselbe Bandmaske wie rebuildMask(), als Funktion fuer die Anzeige.
+    static float maskValue (float f, float loHzIn, float hiHzIn, double sr) noexcept
+    {
+        const float edge = 1.41421356f;
+        float m = 1.0f;
+        if (loHzIn > 20.5f)
+        {
+            const float a = loHzIn / edge;
+            if (f <= a)          m = 0.0f;
+            else if (f < loHzIn) m = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::pi * std::log (f / a) / std::log (edge));
+        }
+        if (hiHzIn < (float) (0.49 * sr) && m > 0.0f)
+        {
+            const float r = f / hiHzIn;
+            m *= 1.0f / std::sqrt (1.0f + r * r * r * r);
+        }
+        return m;
+    }
 
     // --- Parameter (Message-Thread) -----------------------------------------
 
@@ -353,6 +407,8 @@ private:
         const float thrLo   = kSens < 0.0f ? 0.8f * -kSens : 0.0f;
         const float thrHi   = kSens > 0.0f ? 1.0f - 0.8f * kSens : 1.0f;
         const float thrInv  = 1.0f / juce::jmax (0.05f, thrHi - thrLo);
+        const bool  anaActive = analyzerOn.load (std::memory_order_relaxed) && ! anaBand.empty();
+        if (anaActive) { accC.fill (0.0f); accS.fill (0.0f); }
 
         // --- Gain pro Bin aus GEGLAETTETEN Spektren --------------------------
         // Das ist der Kern des Umbaus: nicht der Gain wird geglaettet,
@@ -398,7 +454,29 @@ private:
                 g = std::pow (g, power);
            #endif
             }
+            if (anaActive)
+            {
+                const int band = anaBand[s];
+                if (band >= 0)
+                {
+                    const float hg  = 0.5f * g;
+                    const float cr  = hg * (lre + rre), ci = hg * (lim + rim);
+                    const float lr_ = lre - cr, li_ = lim - ci, rr_ = rre - cr, ri_ = rim - ci;
+                    accC[(size_t) band] += cr * cr + ci * ci;
+                    accS[(size_t) band] += 0.5f * (lr_ * lr_ + li_ * li_ + rr_ * rr_ + ri_ * ri_);
+                }
+            }
             gain[s] = g * mask[s];
+        }
+        if (anaActive)
+        {
+            for (int i = 0; i < kAnaBands; ++i)
+            {
+                const int n = anaCount[(size_t) i];
+                anaC[(size_t) i].store (n > 0 ? accC[(size_t) i] / (float) n * anaNorm : -1.0f, std::memory_order_relaxed);
+                anaS[(size_t) i].store (n > 0 ? accS[(size_t) i] / (float) n * anaNorm : -1.0f, std::memory_order_relaxed);
+            }
+            anaFrame.fetch_add (1, std::memory_order_relaxed);
         }
 
         // --- Glaettung ueber die Frequenz (vorwaerts + rueckwaerts) ----------
@@ -476,4 +554,13 @@ private:
 
     float loHz = 20.0f, hiHz = 22000.0f;
     std::atomic<bool> maskDirty { true };
+
+    // Analyzer (Runde 182)
+    std::atomic<bool> analyzerOn { false };
+    std::atomic<int>  anaFrame { 0 };
+    std::vector<int>  anaBand;
+    std::array<int,   kAnaBands> anaCount {};
+    std::array<float, kAnaBands> accC {}, accS {};
+    std::array<std::atomic<float>, kAnaBands> anaC, anaS;
+    float anaNorm = 1.0f;
 };

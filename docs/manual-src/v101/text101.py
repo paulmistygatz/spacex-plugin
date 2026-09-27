@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # SpaceX 1.0.1 - manual text (EN). The UI is the truth, not this file.
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 INTRO_LEAD = ("Depth, fullness and dimension - without a single millisecond of reverb tail. "
               "No wash, no mud, nothing you have to EQ back out afterwards.")

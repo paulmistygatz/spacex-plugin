@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "GUI/CustomLookAndFeel.h"
 #include "GUI/GoniometerComponent.h"
+#include "GUI/LcrGraph.h"   // Runde 182 (1.0.2): LCR-Kurve mit Analyzer
 #include "GUI/LevelMeterComponent.h"
 #include "SpaceXManualData.h"   // eingebettete Anleitung + Theme-Vorschaubilder
 
@@ -2369,6 +2370,11 @@ private:
     // Frage "bis wohin" beantwortet.
     juce::Slider horizonSlider;
     juce::Label horizonLabel;
+    // Runde 182 (1.0.2): Frequenz-Ansicht statt C-Weight/HF-Regain-Regler.
+    LcrGraphComponent lcrGraph { processor };
+    LcrViewToggle     lcrViewToggle;
+    bool lcrAnalyzerView = false;
+    void setLcrAnalyzerView (bool on);
     juce::TextButton galaxyModButton;
     juce::Slider galaxyModDepthSlider;
 

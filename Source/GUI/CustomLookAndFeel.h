@@ -3955,15 +3955,21 @@ public:
             // den Seiten, solange sich das Verhaeltnis verschiebt.
             const float bw  = juce::jmax (6.0f, (b.getWidth() - 12.0f) / 3.9f);   // Balken fuellen die Breite, 6 px Rand fuer die Kerben
             const float gap = bw * 0.45f;
+            // Runde 182 (1.0.2, User): C-Weight zeigt sich an den Balkenbreiten.
+            // 50 % = alle gleich breit, streng = schmale Mitte, grosszuegig = breite
+            // Mitte. Gesamtbreite bleibt gleich, nicht uebertrieben (+-30 %).
+            const float cWeight = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("cWeight", 0.5f));
+            const float bwC = bw * (0.7f + 0.6f * cWeight);
+            const float bwS = (3.0f * bw - bwC) * 0.5f;
             constexpr float kBase = 0.55f;
             auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
             const float cH  = h * kBase * (1.0f - valT);
             const float rad = juce::jmin (5.0f, bw * 0.35f);
             const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
             const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Gold, oben Blau
-            auto bar = [&] (float bx, float fillH, juce::Colour col, float alpha, bool side)
+            auto bar = [&] (float bx, float bwX, float fillH, juce::Colour col, float alpha, bool side)
             {
-                const juce::Rectangle<float> tr (bx, top, bw, h);
+                const juce::Rectangle<float> tr (bx, top, bwX, h);
                 g.setColour (juce::Colour (0xff23262c));
                 g.fillRoundedRectangle (tr, rad);
                 g.setColour (offVisual ? knobRingOffColour() : juce::Colour (0xff454952));
@@ -3979,19 +3985,19 @@ public:
                                                              glowAccent.withAlpha (alpha), bx, top, false));
                 else
                     g.setColour (col.withAlpha (alpha));
-                g.fillRect (bx, bottom - fillH, bw, fillH);
+                g.fillRect (bx, bottom - fillH, bwX, fillH);
                 g.restoreState();
             };
-            const float xL = cx - bw * 1.5f - gap, xC = cx - bw * 0.5f, xR = cx + bw * 0.5f + gap;
-            bar (xL, sideH (valT), sideCol, 0.90f, true);
-            bar (xC, cH, cNeutral, offVisual ? 0.6f : 0.85f, false);
-            bar (xR, sideH (valT), sideCol, 0.90f, true);
+            const float xL = cx - bwC * 0.5f - gap - bwS, xC = cx - bwC * 0.5f, xR = cx + bwC * 0.5f + gap;
+            bar (xL, bwS, sideH (valT), sideCol, 0.90f, true);
+            bar (xC, bwC, cH, cNeutral, offVisual ? 0.6f : 0.85f, false);
+            bar (xR, bwS, sideH (valT), sideCol, 0.90f, true);
             // Runde 178 (User, wie im Entwurf): Griff-Linie quer ueber alle drei
             // Balken auf Wert-Hoehe - feine goldene Linie mit zwei hellen Kerben.
             // Man sieht, wo man greift, und die ganze Flaeche ist der Regler.
             {
                 const float vy = juce::jmap (valT, bottom, top);
-                const float gx0 = xL - 4.0f, gx1 = xR + bw + 4.0f;
+                const float gx0 = xL - 4.0f, gx1 = xR + bwS + 4.0f;
                 juce::ColourGradient edge (accent.withAlpha (0.0f), gx0, vy, accent.withAlpha (0.0f), gx1, vy, false);
                 edge.addColour (0.5, (offVisual ? knobValueOffColour() : themePalette().knob).withAlpha (offVisual ? 0.35f : 0.9f));
                 g.setGradientFill (edge);
@@ -4006,7 +4012,7 @@ public:
                 {
                     const float p = (float) std::fmod (tSec * 0.5 + i / 6.0, 1.0);
                     const float s = (i % 2) ? 1.0f : -1.0f;
-                    const float dx = cx + s * (bw + gap) * p;
+                    const float dx = cx + s * ((bwC + bwS) * 0.5f + gap) * p;
                     const float dy = bottom - cH - 4.0f - std::sin (p * juce::MathConstants<float>::pi) * 14.0f;
                     glowDot (dx, dy, 4.5f, themePalette().knob, 0.5f * valT * (1.0f - valT) * 4.0f * (1.0f - std::abs (p - 0.5f) * 1.4f));
                 }
@@ -4018,7 +4024,7 @@ public:
                 const float ly = bottom - sideH (liveT);
                 for (float bx : { xL, xR })
                 {
-                    const float dx = bx + bw * 0.5f;
+                    const float dx = bx + bwS * 0.5f;
                     g.setColour (juce::Colour (0xcc0a0b0e));
                     g.fillEllipse (dx - 4.2f, ly - 4.2f, 8.4f, 8.4f);
                     g.setColour (glowAccent);

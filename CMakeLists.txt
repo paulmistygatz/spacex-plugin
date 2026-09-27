@@ -19,7 +19,7 @@ if (APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version" FORCE)
 endif()
 
-project(LCRMSPlugin VERSION 1.0.1 LANGUAGES C CXX)
+project(LCRMSPlugin VERSION 1.0.2 LANGUAGES C CXX)
 
 # Review 1.0.1: Ohne Build-Typ baut ein Makefile-/Ninja-Generator OHNE
 # Optimierung (-O0) - "cmake --build ... --config Release" wirkt nur bei
