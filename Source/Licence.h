@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <atomic>
 
 // ===== SERIENNUMMER =====
 //
@@ -128,6 +129,11 @@ namespace spacex
             return false;
         return s.substring (4, 12) == payloadFromName (name);
     }
+
+    // Runde 188 (User: "die Serials tun oft nicht"): eine Aktivierung gilt
+    // sofort fuer ALLE offenen Instanzen im selben Programm - vorher blieben
+    // die anderen bis zum Neuladen des Projekts im Demo-Modus.
+    inline std::atomic<bool>& licensedInProcess() { static std::atomic<bool> b { false }; return b; }
 
     // Zur Anzeige: SPX1-XXXX-XXXX-CCCC
     inline juce::String formatSerial (const juce::String& raw)

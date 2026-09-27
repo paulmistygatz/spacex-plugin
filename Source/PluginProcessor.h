@@ -120,6 +120,7 @@ public:
         props.setValue ("licence", spacex::normaliseSerial (serial));
         props.saveIfNeeded();
         licensed.store (true, std::memory_order_relaxed);
+        spacex::licensedInProcess().store (true, std::memory_order_relaxed);
     }
 
     // Host-Bypass als echter Parameter: dann ruft der VST3-Wrapper bei

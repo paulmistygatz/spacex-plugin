@@ -91,6 +91,8 @@ LCRMSAudioProcessor::LCRMSAudioProcessor()
     {
         juce::PropertiesFile props (appPropertiesOptions());
         licensed.store (spacex::isValidSerial (props.getValue ("licence")), std::memory_order_relaxed);
+        if (licensed.load (std::memory_order_relaxed))
+            spacex::licensedInProcess().store (true, std::memory_order_relaxed);
         StereoSTFTExtractor::thresholdModeGlobal().store (props.getBoolValue ("cWeightThreshold", false));   // Runde 177 (Beta)
     }
     pGalaxyActivate = apvts.getRawParameterValue (ID_GALAXY_ACTIVATE);
@@ -2692,6 +2694,8 @@ void LCRMSAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // Absichtlich ganz am Ende und VOR der Pegelanzeige: das OUT-Meter soll
     // das Absenken mitmachen, sonst wirkt es wie ein Fehler statt wie eine
     // Ansage. Rampe ueber den Block, damit nichts knackt.
+    if (! licensed.load (std::memory_order_relaxed) && spacex::licensedInProcess().load (std::memory_order_relaxed))
+        licensed.store (true, std::memory_order_relaxed);   // Runde 188: in einer anderen Instanz aktiviert
     if (! licensed.load (std::memory_order_relaxed))
     {
         constexpr double kPeriodSec = 50.0;   // Abstand zwischen zwei Absenkungen
