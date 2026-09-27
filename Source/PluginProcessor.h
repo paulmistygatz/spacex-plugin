@@ -117,7 +117,7 @@ public:
     void storeLicence (const juce::String& serial)
     {
         juce::PropertiesFile props (appPropertiesOptions());
-        props.setValue ("licence", spacex::normaliseSerial (serial));
+        props.setValue ("licence", spacex::extractSerial (serial));
         props.saveIfNeeded();
         licensed.store (true, std::memory_order_relaxed);
         spacex::licensedInProcess().store (true, std::memory_order_relaxed);

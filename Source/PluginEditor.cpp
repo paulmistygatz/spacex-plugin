@@ -3281,7 +3281,8 @@ void LCRMSAudioProcessorEditor::styleNameDialog (juce::AlertWindow& w)
     w.setColour (juce::AlertWindow::backgroundColourId, pal.plate.interpolatedWith (juce::Colours::white, 0.05f));
     w.setColour (juce::AlertWindow::outlineColourId,    pal.frameMain.withAlpha (0.38f));
     w.setColour (juce::AlertWindow::textColourId,       juce::Colour (0xffdfe3ea));
-    if (auto* te = w.getTextEditor ("name"))
+    for (auto* te : { w.getTextEditor ("owner"), w.getTextEditor ("name") })   // Runde 188: auch das Namensfeld
+    if (te != nullptr)
     {
         te->setColour (juce::TextEditor::backgroundColourId,     pal.plate.darker (0.35f));
         te->setColour (juce::TextEditor::textColourId,           juce::Colour (0xffdfe3ea));
@@ -3302,7 +3303,12 @@ void LCRMSAudioProcessorEditor::styleNameDialog (juce::AlertWindow& w)
     {
         if (safe == nullptr) return;
         safe->toFront (true);
-        if (auto* te = safe->getTextEditor ("name"))
+        // Runde 188: gibt es ein Namensfeld (Aktivierung), bekommt DAS den
+        // Fokus - vorher stand der Cursor oft im Seriennummernfeld, und der
+        // eingefuegte Name landete dort.
+        auto* te = safe->getTextEditor ("owner");
+        if (te == nullptr) te = safe->getTextEditor ("name");
+        if (te != nullptr)
         {
             te->grabKeyboardFocus();
             te->selectAll();
@@ -3332,7 +3338,10 @@ void LCRMSAudioProcessorEditor::promptActivate()
     // aus ihm ab, das Plugin prueft sie gegen den eingetippten Namen (siehe
     // Licence.h). Dadurch steht auf dem Back Panel nie ein erfundener Name.
     presetNameDialog->addTextEditor ("owner", juce::String(), "Your name");
-    presetNameDialog->addTextEditor ("name", juce::String(), "SPX1-XXXX-XXXX-XXXX");
+    presetNameDialog->addTextEditor ("name", juce::String(), "Serial number");
+    // Runde 188: Platzhalter im Feld, damit man sieht, was wohin gehoert.
+    if (auto* te = presetNameDialog->getTextEditor ("owner")) te->setTextToShowWhenEmpty ("e.g. Jane Doe", juce::Colour (0xff6d7280));
+    if (auto* te = presetNameDialog->getTextEditor ("name"))  te->setTextToShowWhenEmpty ("SPX1-XXXX-XXXX-XXXX", juce::Colour (0xff6d7280));
     if (auto* te = presetNameDialog->getTextEditor ("owner"))
     {
         te->setSelectAllWhenFocused (true);
@@ -3363,6 +3372,17 @@ void LCRMSAudioProcessorEditor::promptActivate()
         if (result != 1)
             return;
 
+        // Runde 188 (User: "die Serials tun oft nicht", Windows und Mac):
+        // Name und Nummer vertauscht eingefuegt? Dann einfach tauschen.
+        if (! spacex::isValidSerial (entered) && spacex::isValidSerial (owner))
+            std::swap (entered, owner);
+        // Nummer steht mit im Namensfeld (alles in ein Feld kopiert)?
+        if (! spacex::isValidSerial (entered) && entered.trim().isEmpty() && owner.containsIgnoreCase ("SPX1"))
+        {
+            entered = owner;
+            owner   = owner.upToFirstOccurrenceOf ("SPX1", false, true).trim();
+        }
+
         if (! spacex::isValidSerial (entered))
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
@@ -3374,13 +3394,14 @@ void LCRMSAudioProcessorEditor::promptActivate()
         // "Registered to" waere wertlos. Ohne Namen (leeres Feld) gilt wie
         // bisher allein die Pruefsumme - dafuer gibt es die Zufallsnummern
         // fuer Tester.
+        // Runde 188: passt der Name nicht, trotzdem aktivieren - die Nummer
+        // ist ja gueltig. Nur der Name kommt dann nicht aufs Back Panel
+        // (sonst koennte man dort Beliebiges eintragen).
+        bool nameRejected = false;
         if (owner.isNotEmpty() && ! spacex::serialMatchesName (entered, owner))
         {
-            juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                "SpaceX", "Name and serial number do not match.\n\n"
-                          "Please type your name exactly as it appears in your order, "
-                          "or leave the name empty.");
-            return;
+            nameRejected = true;
+            owner = {};
         }
 
         processor.storeLicence (entered);
@@ -3392,7 +3413,10 @@ void LCRMSAudioProcessorEditor::promptActivate()
         refreshSettingsPanel();
         content.repaint();
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
-            "SpaceX", owner.isNotEmpty() ? "Activated. Thank you, " + owner + "."
+            "SpaceX", nameRejected ? juce::String ("Activated. Thank you for supporting independent plugins.\n\n"
+                                                   "The name did not match this serial, so it is not shown on the back panel. "
+                                                   "Type it exactly as in your order to add it later.")
+                    : owner.isNotEmpty() ? "Activated. Thank you, " + owner + "."
                                          : juce::String ("Activated. Thank you for supporting independent plugins."));
     }), false);
 }

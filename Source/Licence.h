@@ -58,6 +58,20 @@ namespace spacex
         return out;
     }
 
+    // Runde 188 (User: Copy & Paste klappte oft nicht): aus allem, was
+    // eingefuegt wurde, die eigentliche Nummer herausziehen - auch wenn
+    // "Serial: " davor oder ein Satz dahinter mitkopiert wurde. Sucht das
+    // Praefix SPX1 und nimmt die 12 Zeichen danach. Ohne Praefix bleibt es
+    // bei der normalen Normalisierung.
+    inline juce::String extractSerial (const juce::String& raw)
+    {
+        const auto s = normaliseSerial (raw);
+        const int at = s.indexOf ("SPX1");
+        if (at >= 0 && s.length() >= at + 16)
+            return s.substring (at, at + 16);
+        return s;
+    }
+
     inline juce::String checksumFor (const juce::String& payload8)
     {
         const juce::uint64 h = serialHash (payload8);
@@ -109,7 +123,7 @@ namespace spacex
 
     inline bool isValidSerial (const juce::String& raw)
     {
-        const auto s = normaliseSerial (raw);
+        const auto s = extractSerial (raw);
         if (s.length() != 16 || ! s.startsWith ("SPX1"))
             return false;
         const auto payload = s.substring (4, 12);
@@ -124,7 +138,7 @@ namespace spacex
     // mit --name erzeugt wurden; zufaellige Nummern passen zu keinem Namen.)
     inline bool serialMatchesName (const juce::String& rawSerial, const juce::String& name)
     {
-        const auto s = normaliseSerial (rawSerial);
+        const auto s = extractSerial (rawSerial);
         if (s.length() != 16 || nameKey (name).isEmpty())
             return false;
         return s.substring (4, 12) == payloadFromName (name);
