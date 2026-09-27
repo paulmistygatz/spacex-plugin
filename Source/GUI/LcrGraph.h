@@ -47,7 +47,8 @@ public:
         const auto P     = plotArea();
         auto X = [&] (float f) { return P.getX() + (std::log10 (f) - kL20) / (kL20k - kL20) * P.getWidth(); };
         auto Y = [&] (float db) { return P.getY() + (kTopDb - db) / (kTopDb - kBotDb) * P.getHeight(); };
-        auto Ya = [&] (float db) { return P.getBottom() - (db + 66.0f) / 66.0f * P.getHeight() * 0.6f; };
+        auto Ya = [&] (float db) { return P.getBottom() - juce::jlimit (0.0f, 1.0f, (db + 100.0f) / 80.0f) * P.getHeight() * 0.7f; };
+        auto tilt = [] (float f) { return 4.5f * std::log2 (f / 1000.0f); };
 
         // Raster + Beschriftung
         g.setFont (juce::Font (juce::FontOptions (10.0f)));
@@ -68,9 +69,9 @@ public:
             const float lin = juce::jmax (1.0e-4f, 1.0f - st.blend * StereoSTFTExtractor::maskValue (f, st.loHz, st.hiHz, st.sr));
             float d = 20.0f * std::log10 (lin);
             if (st.eqLcr) d += sideeq::responseDb (st.curve, false, f, st.sr);
-            return juce::jmax (kBotDb - 3.0f, d);
+            return juce::jmax (kBotDb + 1.0f, d);   // ganz raus = sichtbar am Boden
         };
-        auto lrDb = [&] (float f) { return st.eqLcr ? juce::jmax (kBotDb - 3.0f, sideeq::responseDb (st.curve, true, f, st.sr)) : 0.0f; };
+        auto lrDb = [&] (float f) { return st.eqLcr ? juce::jmax (kBotDb + 1.0f, sideeq::responseDb (st.curve, true, f, st.sr)) : 0.0f; };
 
         g.saveState();
         g.reduceClipRegion (P.toNearestInt().withTrimmedTop (-6));
@@ -96,13 +97,14 @@ public:
                                                          col.withAlpha (alpha), 0.0f, P.getBottom() - P.getHeight() * 0.5f, false));
                 g.fillPath (pth);
             };
-            spectrum (smS, [&] (float f) { return lrDb (f); }, blue, 0.22f);
-            spectrum (smC, [&] (float f) { return cDb (f); },  gold, 0.34f);
+            spectrum (smS, [&] (float f) { return lrDb (f) + tilt (f); }, blue, 0.26f);
+            spectrum (smC, [&] (float f) { return (cDb (f) <= kBotDb + 1.5f ? -60.0f : cDb (f)) + tilt (f); }, gold, 0.38f);
         }
 
         auto curvePath = [&] (std::function<float (float)> fn, float xFrom, float xTo)
         {
             juce::Path pth;
+            bool started = false;
             const int n = 200;
             for (int i = 0; i <= n; ++i)
             {
@@ -110,7 +112,7 @@ public:
                 const float x = X (f);
                 if (x < xFrom - 2.0f || x > xTo + 2.0f) continue;
                 const float y = Y (fn (f));
-                if (pth.isEmpty()) pth.startNewSubPath (x, y); else pth.lineTo (x, y);
+                if (! started) { pth.startNewSubPath (x, y); started = true; } else pth.lineTo (x, y);
             }
             return pth;
         };
@@ -149,17 +151,25 @@ public:
         g.setColour (gold);
         g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)).withExtraKerningFactor (0.06f));
         g.drawText ("C-WEIGHT " + juce::String (juce::roundToInt (st.weight * 100.0f)) + " %", chip, juce::Justification::centred);
+        // Frequenz direkt ueber dem Griff (Kopfzeile bleibt frei fuer Sides EQ)
         g.setColour (off ? dimTx : juce::Colour (0xffe9ebef));
         g.setFont (juce::Font (juce::FontOptions (10.0f)));
-        g.drawText (st.regainOff ? juce::String ("HF Regain Off") : "HF Regain " + hzText (st.hiHz),
-                    juce::Rectangle<float> (chip.getRight() + 10.0f, chip.getY(), 130.0f, chip.getHeight()), juce::Justification::centredLeft);
+        {
+            const auto P2 = plotArea();
+            const float tx = juce::jlimit (P2.getX() + 30.0f, P2.getRight() - 30.0f, hr.getCentreX());
+            const float ty = hr.getY() - 14.0f < P2.getY() ? hr.getBottom() + 2.0f : hr.getY() - 14.0f;
+            g.drawText (st.regainOff ? juce::String ("Off") : hzText (st.hiHz),
+                        juce::Rectangle<float> (tx - 30.0f, ty, 60.0f, 12.0f), juce::Justification::centred);
+        }
         if (st.eqLcr)
         {
             static const char* names[] = { "TIGHT", "CLEAR", "FOCUS" };
             g.setColour (blue);
             g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)).withExtraKerningFactor (0.06f));
-            g.drawText (juce::String ("SIDES EQ  ") + names[juce::jlimit (0, 2, st.mode)] + "  " + juce::String (juce::roundToInt (st.amt * 100.0f)) + " %",
-                        juce::Rectangle<float> (P.getRight() - 170.0f, chip.getY(), 170.0f, chip.getHeight()), juce::Justification::centredRight);
+            const float left = chip.getRight() + 8.0f;
+            g.drawFittedText (juce::String ("SIDES EQ  ") + names[juce::jlimit (0, 2, st.mode)] + "  " + juce::String (juce::roundToInt (st.amt * 100.0f)) + " %",
+                              juce::Rectangle<float> (left, chip.getY(), P.getRight() - left, chip.getHeight()).toNearestInt(),
+                              juce::Justification::centredRight, 1, 0.8f);
         }
     }
 
@@ -221,7 +231,7 @@ public:
 private:
     static constexpr int   kB     = StereoSTFTExtractor::kAnaBands;
     static constexpr float kL20   = 1.30103f, kL20k = 4.30103f;
-    static constexpr float kTopDb = 9.0f, kBotDb = -27.0f;
+    static constexpr float kTopDb = 6.0f, kBotDb = -30.0f;
     enum class Mode { none, sep, weight, regain };
 
     struct State
@@ -252,9 +262,9 @@ private:
     juce::Rectangle<float> plotArea() const
     {
         auto r = getLocalBounds().toFloat();
-        r.removeFromTop (28.0f);      // Kopfzeile
+        r.removeFromTop (26.0f);      // Kopfzeile
         r.removeFromBottom (16.0f);   // Hz-Beschriftung
-        r.removeFromLeft (24.0f);     // dB-Beschriftung
+        r.removeFromLeft (22.0f);     // dB-Beschriftung
         r.removeFromRight (4.0f);
         return r;
     }
