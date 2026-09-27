@@ -34,8 +34,17 @@ public:
         if (on == active) return;
         active = on;
         proc.getLcrExtractor().setAnalyzerEnabled (on);
-        if (on) startTimerHz (30); else stopTimer();
-        if (! on) { smC.fill (-120.0f); smS.fill (-120.0f); }
+        if (on)
+        {
+            const auto t = targets();              // beim Oeffnen nicht animieren
+            dispBlend = t.blend; dispLogHi = t.logHi;
+            startTimerHz (30);
+        }
+        else
+        {
+            stopTimer();
+            smC.fill (-120.0f); smS.fill (-120.0f);
+        }
     }
 
     void paint (juce::Graphics& g) override
@@ -45,8 +54,8 @@ public:
         const auto blue  = off ? knobValueOffColour() : themePalette().mod;
         const auto dimTx = juce::Colour (0xff5d6069);
         const auto P     = plotArea();
-        auto X = [&] (float f) { return P.getX() + (std::log10 (f) - kL20) / (kL20k - kL20) * P.getWidth(); };
-        auto Y = [&] (float db) { return P.getY() + (kTopDb - db) / (kTopDb - kBotDb) * P.getHeight(); };
+        auto X  = [&] (float f) { return P.getX() + (std::log10 (f) - kL20) / (kL20k - kL20) * P.getWidth(); };
+        auto Y  = [&] (float db) { return P.getY() + (kTopDb - db) / (kTopDb - kBotDb) * P.getHeight(); };
         auto Ya = [&] (float db) { return P.getBottom() - juce::jlimit (0.0f, 1.0f, (db + 100.0f) / 80.0f) * P.getHeight() * 0.7f; };
         auto tilt = [] (float f) { return 4.5f * std::log2 (f / 1000.0f); };
 
@@ -57,7 +66,7 @@ public:
             g.setColour (juce::Colours::white.withAlpha (0.05f));
             g.fillRect (P.getX(), Y (d), P.getWidth(), 1.0f);
             g.setColour (dimTx);
-            g.drawText (juce::String ((int) d), juce::Rectangle<float> (P.getX() - 24.0f, Y (d) - 6.0f, 20.0f, 12.0f), juce::Justification::centredRight);
+            g.drawText (juce::String ((int) d), juce::Rectangle<float> (P.getX() - 22.0f, Y (d) - 6.0f, 19.0f, 12.0f), juce::Justification::centredRight);
         }
         for (float f : { 100.0f, 1000.0f, 10000.0f })
             g.drawText (f >= 1000.0f ? juce::String ((int) (f / 1000.0f)) + "k" : juce::String ((int) f),
@@ -68,10 +77,10 @@ public:
         {
             const float lin = juce::jmax (1.0e-4f, 1.0f - st.blend * StereoSTFTExtractor::maskValue (f, st.loHz, st.hiHz, st.sr));
             float d = 20.0f * std::log10 (lin);
-            if (st.eqLcr) d += sideeq::responseDb (st.curve, false, f, st.sr);
+            if (st.eqCurve) d += sideeq::responseDb (st.curve, false, f, st.sr);
             return juce::jmax (kBotDb + 1.0f, d);   // ganz raus = sichtbar am Boden
         };
-        auto lrDb = [&] (float f) { return st.eqLcr ? juce::jmax (kBotDb + 1.0f, sideeq::responseDb (st.curve, true, f, st.sr)) : 0.0f; };
+        auto lrDb = [&] (float f) { return st.eqCurve ? juce::jmax (kBotDb + 1.0f, sideeq::responseDb (st.curve, true, f, st.sr)) : 0.0f; };
 
         g.saveState();
         g.reduceClipRegion (P.toNearestInt().withTrimmedTop (-6));
@@ -81,7 +90,7 @@ public:
         {
             auto spectrum = [&] (const std::array<float, kB>& arr, std::function<float (float)> post, juce::Colour col, float alpha)
             {
-                juce::Path pth; bool started = false;
+                juce::Path pth; bool started = false; float lastX = 0.0f;
                 for (int i = 0; i < kB; ++i)
                 {
                     const float f = StereoSTFTExtractor::anaBandHz (i);
@@ -89,9 +98,10 @@ public:
                     const float x = X (f), y = Ya (arr[(size_t) i] + post (f));
                     if (! started) { pth.startNewSubPath (x, P.getBottom()); pth.lineTo (x, y); started = true; }
                     else pth.lineTo (x, y);
+                    lastX = x;
                 }
                 if (! started) return;
-                pth.lineTo (pth.getCurrentPosition().x, P.getBottom());
+                pth.lineTo (lastX, P.getBottom());
                 pth.closeSubPath();
                 g.setGradientFill (juce::ColourGradient (col.withAlpha (alpha * 0.1f), 0.0f, P.getBottom(),
                                                          col.withAlpha (alpha), 0.0f, P.getBottom() - P.getHeight() * 0.5f, false));
@@ -117,59 +127,52 @@ public:
             return pth;
         };
         // Blau (L/R)
-        g.setColour (blue.withAlpha (st.eqLcr ? 0.95f : 0.35f));
+        g.setColour (blue.withAlpha (st.eqCurve ? 0.95f : 0.35f));
         g.strokePath (curvePath (lrDb, P.getX(), P.getRight()), juce::PathStrokeType (2.0f));
-        // Gold (C): unter dem Bass Guard gedimmt, dort bleibt alles unangetastet
-        const float xg = st.loHz > 20.5f ? X (st.loHz * 0.98f) : P.getX();
+        // Gold (C): Bass-Guard-Bereich samt Flanke gedimmt, leuchtend erst ab
+        // der Bandgrenze - unten ist das dann eine gerade Linie (User).
+        const float xg = st.loHz > 20.5f ? X (st.loHz) : P.getX();
         if (xg > P.getX())
         {
             g.setColour (juce::Colours::white.withAlpha (0.025f));
-            g.fillRect (P.getX(), P.getY(), xg - P.getX(), P.getHeight());
+            g.fillRect (P.getX(), P.getY(), X (st.loHz / 1.41421356f) - P.getX(), P.getHeight());
             g.setColour (juce::Colour (0x59aaa091));
             g.strokePath (curvePath (cDb, P.getX(), xg), juce::PathStrokeType (1.4f));
         }
         {
             const auto cp = curvePath (cDb, xg, P.getRight());
-            g.setColour (gold.withAlpha (0.18f + 0.22f * st.weight));   // Schein = C-Weight
-            g.strokePath (cp, juce::PathStrokeType (4.0f + 6.0f * st.weight, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.setColour (gold.withAlpha (0.14f + 0.18f * st.weight));   // Schein = C-Weight
+            g.strokePath (cp, juce::PathStrokeType (3.0f + 6.0f * st.weight, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             g.setColour (gold);
             g.strokePath (cp, juce::PathStrokeType (2.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
         g.restoreState();
 
         // Griff HF Regain
-        const auto hr = handleRect (st);
         g.setColour (off ? knobValueOffColour() : juce::Colour (0xfff2f4f8));
-        g.fillRoundedRectangle (hr, 4.0f);
+        g.fillRoundedRectangle (handleRect (st), 4.0f);
 
-        // Kopfzeile: C-WEIGHT-Chip, Regain-Frequenz, Sides EQ (nur Anzeige)
-        const auto chip = chipRect();
-        g.setColour (juce::Colour (0xff1c1e24));
-        g.fillRoundedRectangle (chip, chip.getHeight() * 0.5f);
-        g.setColour (gold.withAlpha (0.45f));
-        g.drawRoundedRectangle (chip.reduced (0.5f), chip.getHeight() * 0.5f, 1.0f);
-        g.setColour (gold);
-        g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)).withExtraKerningFactor (0.06f));
-        g.drawText ("C-WEIGHT " + juce::String (juce::roundToInt (st.weight * 100.0f)) + " %", chip, juce::Justification::centred);
-        // Frequenz direkt ueber dem Griff (Kopfzeile bleibt frei fuer Sides EQ)
-        g.setColour (off ? dimTx : juce::Colour (0xffe9ebef));
-        g.setFont (juce::Font (juce::FontOptions (10.0f)));
+        // Kopfzeile: C-WEIGHT links, rechts Sides EQ (Modus + Staerke) wenn EQ -> LCR
+        auto pill = [&] (juce::Rectangle<float> r, const juce::String& txt, juce::Colour col, bool hot)
         {
-            const auto P2 = plotArea();
-            const float tx = juce::jlimit (P2.getX() + 30.0f, P2.getRight() - 30.0f, hr.getCentreX());
-            const float ty = hr.getY() - 14.0f < P2.getY() ? hr.getBottom() + 2.0f : hr.getY() - 14.0f;
-            g.drawText (st.regainOff ? juce::String ("Off") : hzText (st.hiHz),
-                        juce::Rectangle<float> (tx - 30.0f, ty, 60.0f, 12.0f), juce::Justification::centred);
+            g.setColour (juce::Colour (0xff1c1e24).withAlpha (0.9f));
+            g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+            g.setColour (col.withAlpha (hot ? 0.45f : 0.28f));
+            g.drawRoundedRectangle (r.reduced (0.5f), r.getHeight() * 0.5f, 1.0f);
+            g.setColour (col.withAlpha (0.85f));
+            g.setFont (juce::Font (juce::FontOptions (9.0f, juce::Font::bold)).withExtraKerningFactor (0.05f));
+            g.drawText (txt, r, juce::Justification::centred);
+        };
+        {
+            g.setColour (gold.withAlpha (mode == Mode::weight ? 0.9f : 0.55f));
+            g.setFont (juce::Font (juce::FontOptions (9.0f, juce::Font::bold)).withExtraKerningFactor (0.05f));
+            g.drawText ("C-WEIGHT " + juce::String (juce::roundToInt (st.weight * 100.0f)) + " %", chipRect(), juce::Justification::centredLeft);
         }
-        if (st.eqLcr)
+        if (st.eqParam)
         {
-            static const char* names[] = { "TIGHT", "CLEAR", "FOCUS" };
-            g.setColour (blue);
-            g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)).withExtraKerningFactor (0.06f));
-            const float left = chip.getRight() + 8.0f;
-            g.drawFittedText (juce::String ("SIDES EQ  ") + names[juce::jlimit (0, 2, st.mode)] + "  " + juce::String (juce::roundToInt (st.amt * 100.0f)) + " %",
-                              juce::Rectangle<float> (left, chip.getY(), P.getRight() - left, chip.getHeight()).toNearestInt(),
-                              juce::Justification::centredRight, 1, 0.8f);
+            static const char* names[] = { "TIGHT", "CLEAR", "FOCUS", "FLAT" };
+            pill (eqModeRect(), names[juce::jlimit (0, 3, st.mode)], blue, false);
+            pill (eqAmtRect(),  juce::String (juce::roundToInt (st.amt * 100.0f)) + " %", sideeq::isFlat (st.mode) ? dimTx : blue, mode == Mode::eqAmt);
         }
     }
 
@@ -178,7 +181,9 @@ public:
     {
         const auto m = hitMode (e.position);
         setMouseCursor (m == Mode::regain ? juce::MouseCursor::LeftRightResizeCursor
-                                          : juce::MouseCursor::UpDownResizeCursor);
+                       : m == Mode::eqMode ? juce::MouseCursor::PointingHandCursor
+                                           : juce::MouseCursor::UpDownResizeCursor);
+        updateTip (m);
     }
     void mouseDown (const juce::MouseEvent& e) override
     {
@@ -186,6 +191,17 @@ public:
         if (mode == Mode::none) return;
         auto* prm = paramFor (mode);
         if (prm == nullptr) { mode = Mode::none; return; }
+        if (mode == Mode::eqMode)
+        {   // Klick = weiter, Cmd-Klick = zurueck (wie unten in MID-SIDE)
+            const int d  = sideeq::displayFromParam (readState().mode);
+            const int nd = (d + (e.mods.isCommandDown() ? 3 : 1)) % 4;
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost (prm->convertTo0to1 ((float) sideeq::paramFromDisplay (nd)));
+            prm->endChangeGesture();
+            mode = Mode::none;
+            repaint();
+            return;
+        }
         if (e.mods.isCommandDown())
         {
             prm->beginChangeGesture();
@@ -198,6 +214,7 @@ public:
         prm->beginChangeGesture();
         gestureOpen = true;
         if (mode == Mode::regain) dragRegainTo (e.position.x, *prm);
+        updateTip (mode);
     }
     void mouseDrag (const juce::MouseEvent& e) override
     {
@@ -208,7 +225,9 @@ public:
         const auto P = plotArea();
         if (mode == Mode::regain)      dragRegainTo (e.position.x, *prm);
         else if (mode == Mode::sep)    prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, startNorm + dy / juce::jmax (40.0f, P.getHeight())));
-        else if (mode == Mode::weight) prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, startNorm - dy / 200.0f));
+        else if (mode == Mode::weight || mode == Mode::eqAmt)
+                                       prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, startNorm - dy / 200.0f));
+        updateTip (mode);
         repaint();
     }
     void mouseUp (const juce::MouseEvent&) override
@@ -220,7 +239,9 @@ public:
     }
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
-        if (auto* prm = paramFor (hitMode (e.position)))
+        const auto m = hitMode (e.position);
+        if (m == Mode::eqMode) return;   // Doppelklick auf den Modus = zweimal weiter, kein Reset
+        if (auto* prm = paramFor (m))
         {
             prm->beginChangeGesture();
             prm->setValueNotifyingHost (prm->getDefaultValue());
@@ -232,66 +253,87 @@ private:
     static constexpr int   kB     = StereoSTFTExtractor::kAnaBands;
     static constexpr float kL20   = 1.30103f, kL20k = 4.30103f;
     static constexpr float kTopDb = 6.0f, kBotDb = -30.0f;
-    enum class Mode { none, sep, weight, regain };
+    static constexpr float kOffHi = 40000.0f;   // Anzeige fuer "HF Regain aus" (stetig gegen 19,6 kHz)
+    enum class Mode { none, sep, weight, regain, eqMode, eqAmt };
 
     struct State
     {
-        float blend = 0, weight = .5f, loHz = 120, hiHz = 96000, amt = 0; double sr = 48000;
-        bool regainOff = true, eqLcr = false; int mode = 3; sideeq::Curve curve {};
+        float blend = 0, weight = .5f, loHz = 120, hiHz = kOffHi, amt = 0; double sr = 48000;
+        bool eqParam = false, eqCurve = false; int mode = 3; sideeq::Curve curve {};
     };
+    struct Targets { float blend, logHi; };
+
+    Targets targets() const
+    {
+        auto& ap = proc.apvts;
+        const float air = ap.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_HORIZON)->load();
+        const float hi  = air < 0.5f ? kOffHi : 20000.0f * std::pow (0.025f, air * 0.01f);   // wie im Prozessor
+        return { juce::jlimit (0.0f, 1.0f, ap.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_BLEND)->load() * 0.01f),
+                 std::log (hi) };
+    }
 
     State readState() const
     {
         State s;
         auto& ap = proc.apvts;
         auto raw = [&] (const char* id) { return ap.getRawParameterValue (id)->load(); };
-        s.sr     = proc.getSampleRate() > 0 ? proc.getSampleRate() : 48000.0;
-        s.blend  = juce::jlimit (0.0f, 1.0f, raw (LCRMSAudioProcessor::ID_LCR_BLEND) * 0.01f);
-        s.weight = juce::jlimit (0.0f, 1.0f, raw (LCRMSAudioProcessor::ID_LCR_SENS) * 0.01f);
-        s.loHz   = raw (LCRMSAudioProcessor::ID_BASS_GUARD) > 0.5f ? 120.0f : 20.0f;
-        const float air = raw (LCRMSAudioProcessor::ID_LCR_HORIZON);
-        s.regainOff = air < 0.5f;
-        s.hiHz   = s.regainOff ? 96000.0f : 20000.0f * std::pow (0.025f, air * 0.01f);   // wie im Prozessor
-        s.mode   = juce::jlimit (0, sideeq::kModes - 1, (int) std::round (raw (LCRMSAudioProcessor::ID_MS_EQ)));
-        s.amt    = juce::jlimit (0.0f, 1.0f, raw (LCRMSAudioProcessor::ID_MS_EQ_AMT) * 0.01f);
-        s.eqLcr  = raw (LCRMSAudioProcessor::ID_MS_EQ_LCR) > 0.5f && ! sideeq::isFlat (s.mode);
-        s.curve  = sideeq::evaluate (s.mode, s.amt, true);
+        s.sr      = proc.getSampleRate() > 0 ? proc.getSampleRate() : 48000.0;
+        s.blend   = dispBlend;                    // geglaettet: Linie und Griff springen nicht
+        s.hiHz    = std::exp (dispLogHi);
+        s.weight  = juce::jlimit (0.0f, 1.0f, raw (LCRMSAudioProcessor::ID_LCR_SENS) * 0.01f);
+        s.loHz    = raw (LCRMSAudioProcessor::ID_BASS_GUARD) > 0.5f ? 120.0f : 20.0f;
+        s.mode    = juce::jlimit (0, sideeq::kModes - 1, (int) std::round (raw (LCRMSAudioProcessor::ID_MS_EQ)));
+        s.amt     = juce::jlimit (0.0f, 1.0f, raw (LCRMSAudioProcessor::ID_MS_EQ_AMT) * 0.01f);
+        s.eqParam = raw (LCRMSAudioProcessor::ID_MS_EQ_LCR) > 0.5f;
+        s.eqCurve = s.eqParam && ! sideeq::isFlat (s.mode);
+        s.curve   = sideeq::evaluate (s.mode, s.amt, true);
         return s;
     }
 
     juce::Rectangle<float> plotArea() const
     {
         auto r = getLocalBounds().toFloat();
-        r.removeFromTop (26.0f);      // Kopfzeile
+        r.removeFromTop (4.0f);       // Runde 185: keine eigene Kopfzeile mehr
         r.removeFromBottom (16.0f);   // Hz-Beschriftung
         r.removeFromLeft (22.0f);     // dB-Beschriftung
         r.removeFromRight (4.0f);
         return r;
     }
-    juce::Rectangle<float> chipRect() const { return { plotArea().getX(), 3.0f, 100.0f, 18.0f }; }
+    // Runde 185 (User: C-Weight zu dominant): alles klein oben IN der Flaeche,
+    // ueber der 0-dB-Linie - kein eigener Streifen, die Kurve bekommt die Hoehe.
+    juce::Rectangle<float> chipRect()   const { return { plotArea().getX() + 2.0f, plotArea().getY() + 1.0f, 74.0f, 14.0f }; }
+    juce::Rectangle<float> eqAmtRect()  const { return { plotArea().getRight() - 38.0f, plotArea().getY() + 1.0f, 38.0f, 14.0f }; }
+    juce::Rectangle<float> eqModeRect() const { return { plotArea().getRight() - 38.0f - 3.0f - 46.0f, plotArea().getY() + 1.0f, 46.0f, 14.0f }; }
     juce::Rectangle<float> handleRect (const State& st) const
     {
         const auto P = plotArea();
-        const float f = st.regainOff ? 20000.0f : juce::jlimit (500.0f, 20000.0f, st.hiHz);
+        const float f = juce::jlimit (500.0f, 20000.0f, st.hiHz);
         const float x = P.getX() + (std::log10 (f) - kL20) / (kL20k - kL20) * P.getWidth();
-        const float lin = juce::jmax (1.0e-4f, 1.0f - st.blend * StereoSTFTExtractor::maskValue (juce::jmin (f, 19000.0f), st.loHz, st.hiHz, st.sr));
-        const float db = juce::jmax (kBotDb, 20.0f * std::log10 (lin));
-        const float y = P.getY() + (kTopDb - db) / (kTopDb - kBotDb) * P.getHeight();
+        // Hoehe = Mitte der Flanke (Maske 0,707 an der Grenze) - so bleibt der
+        // Griff auch beim Ein-/Ausschalten von HF Regain an seinem Platz.
+        const float lin = juce::jmax (1.0e-4f, 1.0f - st.blend * 0.7071f);
+        const float db  = juce::jmax (kBotDb, 20.0f * std::log10 (lin));
+        const float y   = P.getY() + (kTopDb - db) / (kTopDb - kBotDb) * P.getHeight();
         return { x - 5.0f, juce::jlimit (P.getY(), P.getBottom() - 22.0f, y - 11.0f), 10.0f, 22.0f };
     }
     Mode hitMode (juce::Point<float> p) const
     {
+        const auto st = readState();
         if (chipRect().expanded (2.0f).contains (p)) return Mode::weight;
-        const auto hr = handleRect (readState());
+        if (st.eqParam && eqModeRect().expanded (2.0f).contains (p)) return Mode::eqMode;
+        if (st.eqParam && eqAmtRect().expanded (2.0f).contains (p))  return Mode::eqAmt;
+        const auto hr = handleRect (st);
         if (std::abs (p.x - hr.getCentreX()) < 11.0f && p.y > plotArea().getY() - 4.0f && p.y < plotArea().getBottom() + 4.0f) return Mode::regain;
         if (plotArea().expanded (4.0f).contains (p)) return Mode::sep;
         return Mode::none;
     }
     juce::RangedAudioParameter* paramFor (Mode m) const
     {
-        const char* id = m == Mode::sep ? LCRMSAudioProcessor::ID_LCR_BLEND
+        const char* id = m == Mode::sep    ? LCRMSAudioProcessor::ID_LCR_BLEND
                        : m == Mode::weight ? LCRMSAudioProcessor::ID_LCR_SENS
-                       : m == Mode::regain ? LCRMSAudioProcessor::ID_LCR_HORIZON : nullptr;
+                       : m == Mode::regain ? LCRMSAudioProcessor::ID_LCR_HORIZON
+                       : m == Mode::eqMode ? LCRMSAudioProcessor::ID_MS_EQ
+                       : m == Mode::eqAmt  ? LCRMSAudioProcessor::ID_MS_EQ_AMT : nullptr;
         return id != nullptr ? proc.apvts.getParameter (id) : nullptr;
     }
     void dragRegainTo (float x, juce::RangedAudioParameter& prm)
@@ -303,14 +345,40 @@ private:
             v = juce::jlimit (0.0f, 100.0f, std::log (juce::jlimit (500.0f, 20000.0f, f) / 20000.0f) / std::log (0.025f) * 100.0f);
         prm.setValueNotifyingHost (prm.convertTo0to1 (v));
     }
+    // Die Hz-Zahl steht nicht in der Grafik (User), sondern wie beim Drehregler
+    // in der Hinweiszeile unten - ueber den Tooltip.
+    void updateTip (Mode m)
+    {
+        juce::String t;
+        if (m == Mode::regain)
+        {
+            const float air = proc.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_HORIZON)->load();
+            t = air < 0.5f ? juce::String ("HF Regain Off: drag left to bring back the centre's highs")
+                           : "HF Regain " + hzText (20000.0f * std::pow (0.025f, air * 0.01f)) + ": drag left to bring back the centre's highs";
+        }
+        else if (m == Mode::weight) t = "C-Weight: how strongly the centre is separated from the sides";
+        else if (m == Mode::eqMode) t = juce::String::fromUTF8 ("Sides EQ: Flat, Tight, Clear, Focus \xc2\xb7 Cmd-click: previous");
+        else if (m == Mode::eqAmt)  t = "Sides EQ strength: drag up or down";
+        else t = baseTip;
+        if (getTooltip() != t) setTooltip (t);
+    }
     static juce::String hzText (float f)
     {
         if (f >= 1000.0f) return juce::String (f / 1000.0f, f >= 10000.0f ? 1 : 2) + " kHz";
         return juce::String (juce::roundToInt (f)) + " Hz";
     }
 
+public:
+    void setBaseTooltip (const juce::String& t) { baseTip = t; setTooltip (t); }
+
+private:
     void timerCallback() override
     {
+        // Anzeige-Werte weich nachziehen (User: "soll deutlich smoother aussehen")
+        const auto t = targets();
+        dispBlend += (t.blend - dispBlend) * 0.35f;
+        dispLogHi += (t.logHi - dispLogHi) * 0.30f;
+
         auto& ex = proc.getLcrExtractor();
         const int fr = ex.getAnaFrame();
         const bool fresh = fr != lastFrame;
@@ -323,9 +391,9 @@ private:
             if (staleTicks < 8)   // Engine liefert noch (sonst langsam ausblenden)
             {
                 const float pc = ex.getAnaCentre (i), ps = ex.getAnaSides (i);
-                if (pc >= 0.0f) tc = 10.0f * std::log10 (pc + 1.0e-12f);
-                if (ps >= 0.0f) ts = 10.0f * std::log10 (ps + 1.0e-12f);
                 if (pc < 0.0f) { smC[(size_t) i] = -120.0f; smS[(size_t) i] = -120.0f; continue; }   // Band ohne Bin
+                tc = 10.0f * std::log10 (pc + 1.0e-12f);
+                ts = 10.0f * std::log10 (juce::jmax (0.0f, ps) + 1.0e-12f);
             }
             auto& c = smC[(size_t) i]; auto& s = smS[(size_t) i];
             c += (tc - c) * (tc > c ? 0.30f : 0.07f);   // ruhig: schnell hoch, langsam runter
@@ -340,8 +408,10 @@ private:
     bool active = false, hasAna = false, gestureOpen = false;
     Mode mode = Mode::none;
     float startNorm = 0.0f;
+    float dispBlend = 0.0f, dispLogHi = std::log (kOffHi);
     int lastFrame = 0, staleTicks = 99;   // Frame 0 = Engine hat noch nichts geliefert
     std::array<float, kB> smC {}, smS {};
+    juce::String baseTip;
 };
 
 // ============================================================================
@@ -375,12 +445,12 @@ public:
                 g.setColour (on ? knobValueOffColour() : knobRingOffColour().brighter (0.15f));
             }
             else
-            {
-                g.setColour (on ? gold.withAlpha (0.10f) : juce::Colour (0xff1c1e24));
+            {   // Runde 185 (User): dezenter als der EQ-Schalter daneben
+                g.setColour (on ? gold.withAlpha (0.07f) : juce::Colours::transparentBlack);
                 g.fillRoundedRectangle (b, 5.0f);
-                g.setColour (on ? gold.withAlpha (0.45f) : juce::Colours::white.withAlpha (hover ? 0.18f : 0.10f));
+                g.setColour (on ? gold.withAlpha (0.28f) : juce::Colours::white.withAlpha (hover ? 0.12f : 0.05f));
                 g.drawRoundedRectangle (b, 5.0f, 1.0f);
-                g.setColour (on ? gold : juce::Colour (0xff8f96a4));
+                g.setColour (on ? gold.withAlpha (0.85f) : juce::Colour (0xff6d7280));
             }
             const auto c = b.getCentre();
             const float s = juce::jmin (b.getWidth(), b.getHeight()) * 0.30f;

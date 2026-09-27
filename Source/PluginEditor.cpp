@@ -1675,7 +1675,7 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (horizonSlider, "HF Regain: brings back the highs the split takes away. 0 = off" + knob);
     tip (lcrEqButton,   juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR: the Sides EQ works on centre and sides of the LCR Matrix instead of mid and side"));
     tip (lcrViewToggle, "View: knobs or the frequency view with analyzer");
-    tip (lcrGraph,      juce::String::fromUTF8 ("Gold = centre, blue = left/right · drag up/down: LCR · white handle: HF Regain · chip: C-Weight"));
+    lcrGraph.setBaseTooltip (juce::String::fromUTF8 ("Gold = centre, blue = left/right \xc2\xb7 drag up/down: LCR \xc2\xb7 white handle: HF Regain"));
 
     // POLARITY
     tip (polLButton,     juce::String::fromUTF8 ("L: flip the phase of the left channel · Cmd-click: only left"));
@@ -5668,14 +5668,17 @@ void LCRMSAudioProcessorEditor::timerCallback()
     // Runde 125: EQ aus -> Feld, Punkte und Fader gedimmt wie eine Sektion;
     // der An/Aus-Schalter selbst dimmt nur mit der Sektion.
     const bool msEqOnNow = true;   // Runde 159: kein An/Aus mehr - "aus" ist FLAT
-    const bool msEqLive  = (isWidthBoostOn || eqInLcrLive) && msEqOnNow;
+    // Runde 185 (User): sitzt der EQ in LCR, ist er unten grau - bedient wird
+    // er dann oben in der Kurve (bleibt unten aber weiter anfassbar).
+    const bool eqToLcrParam = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ_LCR)->load() > 0.5f;
+    const bool msEqLive  = isWidthBoostOn && ! eqToLcrParam && msEqOnNow;
     setSectionOff (msEqButton,      msEqLive);
     // Runde 159 (User): bei FLAT tut der Fader nichts - dann grau und
     // nicht bedienbar, so sieht man sofort "hier passiert nichts".
     const bool msEqFlatNow = sideeq::isFlat ((int) std::round (processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_MS_EQ)->load()));
     setSectionOff (msEqAmtSlider,   msEqLive && ! msEqFlatNow);
     // Runde 161 (User): bei FLAT grau, aber weiter bewegbar (vorwaehlen).
-    setSectionOff (msEqPowerButton, isWidthBoostOn || eqInLcrLive);
+    setSectionOff (msEqPowerButton, isWidthBoostOn && ! eqToLcrParam);
     // Runde 116: EQ -> LCR haengt nur an LCR (wie LINK am Phaser).
     setSectionOff (lcrEqButton, isLcrOn);
     {
@@ -8483,7 +8486,7 @@ void LCRMSAudioProcessorEditor::layoutContent()
         lcrGraph.setActive (lcrAnalyzerView);
         {
             const auto eb = lcrEqButton.getBounds();
-            const int  th = juce::jlimit (16, 24, eb.getHeight() > 0 ? eb.getHeight() - 2 : 20);
+            const int  th = juce::jlimit (14, 20, eb.getHeight() > 0 ? eb.getHeight() - 6 : 18);   // Runde 185: kleiner
             const int  tw = th * 2 + 6;
             const int  tx = (eb.getWidth() > 0 ? eb.getX() : lcrInner.getRight()) - 10 - tw;
             lcrViewToggle.setBounds (tx, (eb.getHeight() > 0 ? eb.getCentreY() : lcrInner.getY() - 12) - th / 2, tw, th);
