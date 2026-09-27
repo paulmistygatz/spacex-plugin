@@ -50,7 +50,7 @@ namespace sideeq
         switch (mode)
         {
             case 1:  return { 500.0f, 0.6f, kOffHz, kOffQ, 12000.0f,   5.0f, 0.7f, 6000.0f, 0.0f, 0.3f };  // CLEAR
-            case 2:  return { 600.0f, 0.8f * kQ24a, 600.0f, 0.8f * kQ24b,
+            case 2:  return { 600.0f, 0.707f * kQ24a, 600.0f, 0.707f * kQ24b,   // Runde 181 (User): Pro-Q-Q 0.707 = Butterworth, kein Buckel mehr (vorher 0.8: +1,2 dB um 830 Hz)
                                                      8000.0f, -20.0f, 0.8f, 6000.0f, 3.0f, 0.3f };          // FOCUS (24 dB/Okt)
             case 3:  return curveA (3);                                                                     // FLAT
             default: return { 500.0f, 0.6f, kOffHz, kOffQ,  3000.0f,   0.0f, 0.5f, 6000.0f, 0.0f, 0.3f };  // TIGHT
