@@ -432,7 +432,7 @@ public:
             g.setColour (knobCapColour());
             g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
 
-            if (! offVisual)
+            if (false)   // Runde 186 (User): keine blauen Punkte mehr
             {
                 const float livePos = juce::jlimit (-1.0f, 1.0f, (float) slider.getProperties().getWithDefault ("movementLivePos", 0.0f));
                 const float dotAngle = midAngle + livePos * halfSweep;
@@ -449,22 +449,30 @@ public:
 
         const bool centerOut = slider.getProperties().getWithDefault ("centerOut", false);
 
+        // Runde 186 (User): keine Modulationspunkte mehr - der farbige Bogen
+        // selbst bewegt sich mit der Modulation, der Zeiger bleibt auf dem
+        // eingestellten Wert.
+        float arcAngle = angle;
+        if (! offVisual && (bool) slider.getProperties().getWithDefault ("modLiveActive", false))
+            arcAngle = rotaryStartAngle + juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f))
+                                          * (rotaryEndAngle - rotaryStartAngle);
+
         juce::Path value;
         if (centerOut)
         {
             const float midAngle = (rotaryStartAngle + rotaryEndAngle) * 0.5f;
-            const float fillStart = juce::jmin (midAngle, angle);
-            const float fillEnd   = juce::jmax (midAngle, angle);
+            const float fillStart = juce::jmin (midAngle, arcAngle);
+            const float fillEnd   = juce::jmax (midAngle, arcAngle);
             if (fillEnd - fillStart > 0.001f)
                 value.addCentredArc (centre.x, centre.y, radius - trackThickness, radius - trackThickness,
                                       0.0f, fillStart, fillEnd, true);
         }
-        else if (angle - rotaryStartAngle > 0.001f)
+        else if (arcAngle - rotaryStartAngle > 0.001f)
         {
             // Runde 46 (User): bei 0 KEIN Bogen - die runde Linienkappe
             // zeichnete sonst einen leuchtenden Punkt, der wie "1 %" aussah.
             value.addCentredArc (centre.x, centre.y, radius - trackThickness, radius - trackThickness,
-                                  0.0f, rotaryStartAngle, angle, true);
+                                  0.0f, rotaryStartAngle, arcAngle, true);
         }
         auto col = offVisual ? knobValueOffColour() : accent;
         if (! offVisual && slider.getProperties().getWithDefault ("footerKnob", false))
@@ -483,7 +491,9 @@ public:
         // voller Ring, sondern nur als blauer Wertebogen (blau = gekoppelt).
         if (! offVisual && (bool) slider.getProperties().getWithDefault ("pairedGold", false))
             col = pairAccentColour();
-        const bool hfSparkle = ! offVisual && (bool) slider.getProperties().getWithDefault ("hfSparkle", false);
+        // Runde 186 (User): HF Regain ohne Funken und ohne Blau - es geht ja
+        // nichts auf die Seiten, es kommt die Mitte zurueck.
+        const bool hfSparkle = false;
         if (hfSparkle && ! centerOut && angle - rotaryStartAngle > 0.001f)
         {
             // Runde 175 (User, HF Regain): der Bogen bleibt golden, nur vom
@@ -517,7 +527,7 @@ public:
         if (! offVisual && ! value.isEmpty())
         {
             const float tipR = radius - trackThickness;
-            const juce::Point<float> tip (centre.x + tipR * std::sin (angle), centre.y - tipR * std::cos (angle));
+            const juce::Point<float> tip (centre.x + tipR * std::sin (arcAngle), centre.y - tipR * std::cos (arcAngle));
             softIconGlow (g, tip, trackThickness * 2.2f, col, 0.9f);
         }
 
@@ -544,8 +554,8 @@ public:
             g.setColour (offVisual ? knobCentreOffColour() : knobCapColour());
             g.fillEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
             const float w    = juce::jlimit (0.5f, 2.0f, (float) slider.getValue() * 0.01f);
-            const float len  = inner * 1.25f;
-            const float yTip = centre.y + inner * 0.78f, yTop = yTip - len;   // Runde 178: etwas tiefer, Enden bleiben weg vom Ring
+            const float len  = inner * 1.25f * 0.93f;   // Runde 186 (User): Keil ~7 % kleiner
+            const float yTip = centre.y + inner * 0.78f * 0.93f, yTop = yTip - len;   // Runde 178: etwas tiefer, Enden bleiben weg vom Ring
             const float half = 0.46f * w * len * 0.55f;
             juce::Path clipC; clipC.addEllipse (centre.x - inner, centre.y - inner, inner * 2.0f, inner * 2.0f);
             g.saveState();
@@ -601,7 +611,7 @@ public:
         // live zeigt - gleicher visueller Stil wie der Live-Punkt beim
         // Flow-Regler (movementRing). Component-Properties "modLiveActive"
         // (bool) + "modLiveValue" (0..1, normalisierte Reglerposition).
-        if (! offVisual && slider.getProperties().getWithDefault ("modLiveActive", false))
+        if (false)   // Runde 186: Mod-Punkt ersetzt durch den mitlaufenden Bogen (siehe arcAngle)
         {
             const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
             const float liveAngle = rotaryStartAngle + liveT * (rotaryEndAngle - rotaryStartAngle);
@@ -3963,7 +3973,10 @@ public:
             const float bwS = (3.0f * bw - bwC) * 0.5f;
             constexpr float kBase = 0.55f;
             auto sideH = [&] (float t) { return h * (kBase + (1.0f - kBase) * t); };
-            const float cH  = h * kBase * (1.0f - valT);
+            // Runde 186 (User): Balken bewegen sich mit der Modulation, die
+            // Griff-Linie bleibt auf dem eingestellten Wert. Keine Punkte.
+            const float barT = modLive ? liveT : valT;
+            const float cH  = h * kBase * (1.0f - barT);
             const float rad = juce::jmin (5.0f, bw * 0.35f);
             const auto sideCol = offVisual ? knobValueOffColour() : accent.interpolatedWith (glowAccent, valT);
             const bool fairyGrad = isDarkNightTheme() || isDayNightTheme();   // Fairy Tale + Day & Night: unten Gold, oben Blau
@@ -3989,9 +4002,9 @@ public:
                 g.restoreState();
             };
             const float xL = cx - bwC * 0.5f - gap - bwS, xC = cx - bwC * 0.5f, xR = cx + bwC * 0.5f + gap;
-            bar (xL, bwS, sideH (valT), sideCol, 0.90f, true);
+            bar (xL, bwS, sideH (barT), sideCol, 0.90f, true);
             bar (xC, bwC, cH, cNeutral, offVisual ? 0.6f : 0.85f, false);
-            bar (xR, bwS, sideH (valT), sideCol, 0.90f, true);
+            bar (xR, bwS, sideH (barT), sideCol, 0.90f, true);
             // Runde 178 (User, wie im Entwurf): Griff-Linie quer ueber alle drei
             // Balken auf Wert-Hoehe - feine goldene Linie mit zwei hellen Kerben.
             // Man sieht, wo man greift, und die ganze Flaeche ist der Regler.
@@ -4017,9 +4030,8 @@ public:
                     glowDot (dx, dy, 4.5f, themePalette().knob, 0.5f * valT * (1.0f - valT) * 4.0f * (1.0f - std::abs (p - 0.5f) * 1.4f));
                 }
 
-            // Live-Modulation: wie an jedem Drehregler ein Punkt - hier oben
-            // auf beiden Seitenbalken.
-            if (modLive)
+            // Live-Modulation: seit Runde 186 ueber die Balkenhoehe (barT).
+            if (false)
             {
                 const float ly = bottom - sideH (liveT);
                 for (float bx : { xL, xR })
@@ -4109,7 +4121,7 @@ public:
         // 100%, bottom=Wert 0%, siehe Fuellung weiter oben im selben Stil)
         // abgebildet - unabhaengig von JUCEs sliderPos/minSliderPos/
         // maxSliderPos.
-        if (! offVisual && slider.getProperties().getWithDefault ("modLiveActive", false))
+        if (false)   // Runde 186: keine Mod-Punkte mehr
         {
             const float liveT = juce::jlimit (0.0f, 1.0f, (float) slider.getProperties().getWithDefault ("modLiveValue", 0.0f));
             const float liveY = juce::jmap (liveT, travelBot, travelTop);
