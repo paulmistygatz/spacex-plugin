@@ -3,6 +3,7 @@
 #endif
 #include "GoniometerComponent.h"
 #include "SpaceAssets.h"
+#include "ImageTypes.h"   // Runde 189: Windows/Direct2D
 
 // ===== FOTOS (Hintergrund + Gravity) =====
 const char* GoniometerComponent::photoName (int idx)
@@ -54,7 +55,7 @@ void GoniometerComponent::loadPhoto (int idx)
             { SpaceAssets::bg_nebula,    SpaceAssets::bg_nebulaSize    },
             { SpaceAssets::bg_purplesky, SpaceAssets::bg_purpleskySize },
         };
-        photoSrc = juce::ImageFileFormat::loadFrom (assets[idx - 1].d, (size_t) assets[idx - 1].n);
+        photoSrc = spacexgfx::toLayerType (juce::ImageFileFormat::loadFrom (assets[idx - 1].d, (size_t) assets[idx - 1].n));
     }
     rescalePhoto();
     repaint();
@@ -87,8 +88,8 @@ static juce::Image combineRgbAlpha (const unsigned char* rgbData, int rgbN, cons
     // setPixelColour pro Pixel (langsam - Formatumrechnung bei jedem Zugriff)
     // direkt ueber die Pixelzeiger. Gleiches Ergebnis: Alpha = Rotkanal des
     // Masken-Bilds, vormultipliziert.
-    juce::Image rgb   = juce::ImageFileFormat::loadFrom (rgbData, (size_t) rgbN);
-    juce::Image alpha = juce::ImageFileFormat::loadFrom (aData,   (size_t) aN);
+    juce::Image rgb   = spacexgfx::toLayerType (juce::ImageFileFormat::loadFrom (rgbData, (size_t) rgbN));
+    juce::Image alpha = spacexgfx::toLayerType (juce::ImageFileFormat::loadFrom (aData,   (size_t) aN));
     if (! rgb.isValid())
         return {};
     juce::Image out = rgb.convertedToFormat (juce::Image::ARGB);
@@ -349,8 +350,8 @@ void GoniometerComponent::resized()
     if (bounds.getWidth() > 0 && bounds.getHeight() > 0)
     {
         for (auto* im : { &fadeImage, &twinkleImage, &objectImage, &glowImage, &shootImage, &gravityImage, &traceImage })
-            *im = juce::Image (juce::Image::ARGB, bounds.getWidth(), bounds.getHeight(), true);
-        compositeImage = juce::Image (juce::Image::RGB, bounds.getWidth(), bounds.getHeight(), true);
+            *im = spacexgfx::makeLayer (juce::Image::ARGB, bounds.getWidth(), bounds.getHeight());
+        compositeImage = spacexgfx::makeLayer (juce::Image::RGB, bounds.getWidth(), bounds.getHeight());
     }
     rescalePhoto();
 }
@@ -2319,7 +2320,7 @@ void GoniometerComponent::timerCallback()
                     cache = img.rescaled (scaledWi, hh, juce::Graphics::mediumResamplingQuality);
                     if (mode == 3)   // Night immer horizontal gespiegelt (User)
                     {
-                        juce::Image flipped (juce::Image::ARGB, scaledWi, hh, true);
+                        juce::Image flipped = spacexgfx::makeLayer (juce::Image::ARGB, scaledWi, hh);
                         juce::Graphics fg (flipped);
                         fg.drawImageTransformed (cache, juce::AffineTransform::scale (-1.0f, 1.0f).translated ((float) scaledWi, 0.0f));
                         cache = flipped;

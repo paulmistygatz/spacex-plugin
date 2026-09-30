@@ -7223,7 +7223,7 @@ void LCRMSAudioProcessorEditor::drawThemePlate (juce::Graphics& g, juce::Rectang
     const int w = (int) std::ceil (plate.getWidth()), h = (int) std::ceil (plate.getHeight());
     if (themePlateFor != uiThemeIndex || themePlate.getWidth() != w || themePlate.getHeight() != h)
     {
-        themePlate = juce::Image (juce::Image::ARGB, juce::jmax (1, w), juce::jmax (1, h), true);
+        themePlate = spacexgfx::makeLayer (juce::Image::ARGB, w, h);   // Runde 189: CPU-Bild unter Windows
         juce::Graphics pg (themePlate);
         const auto full = juce::Rectangle<float> (0, 0, (float) w, (float) h);
         juce::Path clip; clip.addRoundedRectangle (full, corner);
@@ -7300,10 +7300,10 @@ void LCRMSAudioProcessorEditor::drawThemePlate (juce::Graphics& g, juce::Rectang
             blob (0.30f, 0.05f, 0.30f, juce::Colour (0xff8a78d8), 0.06f * bm);
             // Nebula-Foto ganz dezent hinter den Sektionen (rechte Haelfte),
             // nach links bis zur Plugin-Mitte und oben/unten ausblendend (User).
-            if (auto neb = juce::ImageFileFormat::loadFrom (SpaceAssets::bg_nebula, (size_t) SpaceAssets::bg_nebulaSize); neb.isValid())
+            if (auto neb = spacexgfx::toLayerType (juce::ImageFileFormat::loadFrom (SpaceAssets::bg_nebula, (size_t) SpaceAssets::bg_nebulaSize)); neb.isValid())
             {
                 const int hw = w / 2;
-                juce::Image half (juce::Image::ARGB, juce::jmax (1, hw), juce::jmax (1, h), true);
+                juce::Image half = spacexgfx::makeLayer (juce::Image::ARGB, hw, h);
                 {
                     juce::Graphics hg (half);
                     const float sc = juce::jmax ((float) hw / (float) neb.getWidth(), (float) h / (float) neb.getHeight());
@@ -7348,7 +7348,7 @@ void LCRMSAudioProcessorEditor::drawThemePlate (juce::Graphics& g, juce::Rectang
                         px[c] = (juce::uint8) juce::jlimit (0, (int) px[3], (int) px[c] + n);
                 }
             // Korn-Kachel fuer die Sektionsflaechen (wird gekachelt gefuellt).
-            grainTile = juce::Image (juce::Image::ARGB, 96, 96, true);
+            grainTile = spacexgfx::makeLayer (juce::Image::ARGB, 96, 96);
             juce::Image::BitmapData gt (grainTile, juce::Image::BitmapData::readWrite);
             for (int y = 0; y < gt.height; ++y)
                 for (int x = 0; x < gt.width; ++x)

@@ -3,7 +3,8 @@
 #include "PluginProcessor.h"
 #include "GUI/CustomLookAndFeel.h"
 #include "GUI/GoniometerComponent.h"
-#include "GUI/LcrGraph.h"   // Runde 182 (1.0.2): LCR-Kurve mit Analyzer
+#include "GUI/LcrGraph.h"
+#include "GUI/ImageTypes.h"   // Runde 182 (1.0.2): LCR-Kurve mit Analyzer
 #include "GUI/LevelMeterComponent.h"
 #include "SpaceXManualData.h"   // eingebettete Anleitung + Theme-Vorschaubilder
 
