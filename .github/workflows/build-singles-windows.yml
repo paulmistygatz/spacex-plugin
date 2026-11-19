@@ -1,0 +1,61 @@
+# Windows-Build der Einzel-Plugins (Ordner singles/).
+# Laeuft bei jedem Push auf main, der etwas unter singles/ aendert, oder von
+# Hand ueber "Run workflow". Ergebnis: Micropitch.vst3 + Installer (.exe)
+# als Download am Lauf.
+name: Windows Singles
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'singles/**', '.github/workflows/build-singles-windows.yml' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: Micropitch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: singles/build/_deps
+          key: juce-9.0.2-singles-${{ runner.os }}
+
+      - name: Configure
+        run: cmake -S singles -B singles/build -A x64
+
+      - name: Build
+        run: cmake --build singles/build --config Release --target Micropitch_VST3 --parallel
+
+      - name: Collect
+        shell: pwsh
+        run: |
+          $name  = "Micropitch.vst3"
+          $found = Get-ChildItem -Path singles\build\Micropitch_artefacts -Recurse -Directory -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $found) { throw "$name nicht gefunden" }
+          New-Item -ItemType Directory -Force -Path singles\out | Out-Null
+          Copy-Item -Recurse -Force -Path $found.FullName -Destination singles\out\
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path singles\CMakeLists.txt -Pattern 'project\(MistycatSingles VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup nicht gefunden" }
+          & $iscc "/DMyVersion=$ver" singles\installer\Micropitch.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC fehlgeschlagen" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Micropitch-VST3-Windows
+          path: singles/out/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Micropitch-Windows-Installer
+          path: singles/dist/*.exe
+          if-no-files-found: error
