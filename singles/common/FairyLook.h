@@ -128,6 +128,11 @@ namespace fairy
                 g.fillEllipse (centre.x - hr, centre.y - hr, hr * 2.0f, hr * 2.0f);
             }
 
+            // Gezeichnet wird die geglaettete Anzeige-Position (siehe
+            // fairy::KnobGlide) - so gleitet der Regler mit der Bildwiederhol-
+            // rate des Monitors statt von Mausereignis zu Mausereignis zu springen.
+            if (slider.getProperties().contains ("displayPos"))
+                sliderPos = (float) slider.getProperties()["displayPos"];
             const float angle = startAngle + sliderPos * (endAngle - startAngle);
             const float track = radius * 0.16f;
             const float tr = radius - track;
@@ -163,6 +168,15 @@ namespace fairy
 
             g.setColour (off ? centreOff() : knobCap());
             g.fillEllipse (centre.x - radius * 0.28f, centre.y - radius * 0.28f, radius * 0.56f, radius * 0.56f);
+        }
+
+        // Ecke zum Skalieren: drei feine Striche, dezent im Rahmenton.
+        void drawCornerResizer (juce::Graphics& g, int w, int h, bool isMouseOver, bool isMouseDragging) override
+        {
+            g.setColour (frameMain.withAlpha (isMouseOver || isMouseDragging ? 0.65f : 0.30f));
+            const float s = (float) juce::jmin (w, h);
+            for (float f : { 0.30f, 0.55f, 0.80f })
+                g.drawLine ((float) w - s * f, (float) h - 2.0f, (float) w - 2.0f, (float) h - s * f, 1.2f);
         }
 
         void drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height) override
@@ -283,5 +297,39 @@ namespace fairy
         {
             if (getLocalBounds().contains (e.getPosition()) && onClick) onClick();
         }
+    };
+
+    // ----- Weiches Nachgleiten der Regleranzeige -----
+    // Laeuft im Takt des Monitors (60/120 Hz, VBlank) und fuehrt die
+    // angezeigte Position mit einer kurzen Zeitkonstante dem echten Wert
+    // nach. Der Parameterwert selbst springt nicht und wird nicht verzoegert.
+    class KnobGlide
+    {
+    public:
+        explicit KnobGlide (juce::Component& owner) : vblank (&owner, [this] (double t) { tick (t); }) {}
+        void add (juce::Slider& s)
+        {
+            sliders.push_back (&s);
+            s.getProperties().set ("displayPos", (float) s.valueToProportionOfLength (s.getValue()));
+        }
+    private:
+        void tick (double t)
+        {
+            const double dt = lastT > 0.0 ? juce::jlimit (0.0, 0.1, t - lastT) : 1.0 / 60.0;
+            lastT = t;
+            const float k = 1.0f - (float) std::exp (-dt / 0.035);   // ~35 ms
+            for (auto* s : sliders)
+            {
+                const float target = (float) s->valueToProportionOfLength (s->getValue());
+                float cur = (float) s->getProperties().getWithDefault ("displayPos", target);
+                if (std::abs (target - cur) < 0.0005f) { if (cur != target) { s->getProperties().set ("displayPos", target); s->repaint(); } continue; }
+                cur += (target - cur) * k;
+                s->getProperties().set ("displayPos", cur);
+                s->repaint();
+            }
+        }
+        std::vector<juce::Slider*> sliders;
+        double lastT = 0.0;
+        juce::VBlankAttachment vblank;
     };
 }

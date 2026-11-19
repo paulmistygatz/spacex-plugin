@@ -39,12 +39,20 @@ private:
     void syncFromParams();
     void updateAmountLabel();
 
+    // Design-Masse (Skalierung 1.0). Das Fenster ist frei skalierbar, das
+    // Seitenverhaeltnis bleibt fest; gezeichnet wird alles in diesen Massen.
     static constexpr int kH = 240, kMargin = 12, kGonioW = 216, kGap = 4, kCardW = 280;
     static int widthFor (bool open) { return kMargin * 2 + kCardW + (open ? kGonioW + kGap : 0); }
+    static constexpr float kMinScale = 0.75f, kMaxScale = 2.5f;
+    void applyConstrainer();
+    void layoutContent();
+    float uiScale = 1.0f;
+    bool  applyingSize = false;
+    juce::ComponentBoundsConstrainer constrainer;
+    juce::Component content;
 
     MicropitchProcessor& proc;
     fairy::LookAndFeel lnf;
-    juce::TooltipWindow tooltips { this, 700 };
 
     fairy::Title       title;
     fairy::MeterToggle meterToggle;
@@ -57,7 +65,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
 
     juce::Rectangle<int> cardArea, gonioArea;
-    juce::Image plate;
+    juce::Image plate;      // Platte + Rahmen, in echter Pixelgroesse
+    float plateKey[4] { -1, -1, -1, -1 };
+    std::unique_ptr<fairy::KnobGlide> glide;
     bool meterOpen = false;
     bool sectionOn = true;
 

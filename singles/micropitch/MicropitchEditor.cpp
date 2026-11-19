@@ -3,12 +3,6 @@
 namespace
 {
     const char* const kModeNames[micropitch::kModes] = { "VELVET", "HALO", "ILLUSION", "DOUBLE" };
-    // Texte wie in SpaceX.
-    const char* const kModeTips[micropitch::kModes]  = {
-        "Velvet: the gentlest - soft and close, the centre barely moves",
-        "Halo: a soft ring around the sound - stays centred, holds up on a full mix",
-        "Illusion: sounds wider than it is, but stays tight",
-        "Double: the widest of the four, with the strongest character" };
 }
 
 // ===== Modusfeld (Zeichnung aus CustomLookAndFeel, pxDiagram) =====
@@ -68,27 +62,27 @@ MicropitchEditor::MicropitchEditor (MicropitchProcessor& p)
     : AudioProcessorEditor (&p), proc (p), gonio (p.meterFifo)
 {
     setLookAndFeel (&lnf);
+    content.setInterceptsMouseClicks (false, true);
+    addAndMakeVisible (content);
 
     title.text = "MICROPITCH";
-    title.setTooltip ("Micropitch: makes a mono sound wide with tiny time and pitch offsets. Click to switch it on or off.");
     title.onClick = [this]
     {
         if (auto* prm = proc.apvts.getParameter (MicropitchProcessor::ID_ON))
             prm->setValueNotifyingHost (prm->getValue() > 0.5f ? 0.0f : 1.0f);
         syncFromParams();
     };
-    addAndMakeVisible (title);
+    content.addAndMakeVisible (title);
 
     meterToggle.onClick = [this] { setMeterOpen (! meterOpen); };
-    addAndMakeVisible (meterToggle);
+    content.addAndMakeVisible (meterToggle);
 
     amountSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     amountSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    amountSlider.setTooltip ("Amount: how much of the selected style is applied");
     amountSlider.onValueChange = [this] { updateAmountLabel(); };
     amountSlider.onDragStart   = [this] { updateAmountLabel(); };
     amountSlider.onDragEnd     = [this] { updateAmountLabel(); };
-    addAndMakeVisible (amountSlider);
+    content.addAndMakeVisible (amountSlider);
     amountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         proc.apvts, MicropitchProcessor::ID_AMOUNT, amountSlider);
     amountSlider.setDoubleClickReturnValue (true, 0.0);
@@ -97,7 +91,7 @@ MicropitchEditor::MicropitchEditor (MicropitchProcessor& p)
     amountLabel.setFont (fairy::paramFont());
     amountLabel.setBorderSize (juce::BorderSize<int> (1, 0, 1, 0));
     amountLabel.setInterceptsMouseClicks (false, false);
-    addAndMakeVisible (amountLabel);
+    content.addAndMakeVisible (amountLabel);
 
     modeField.onClick = [this] (bool back)
     {
@@ -109,22 +103,25 @@ MicropitchEditor::MicropitchEditor (MicropitchProcessor& p)
         }
         syncFromParams();
     };
-    addAndMakeVisible (modeField);
+    content.addAndMakeVisible (modeField);
 
     modeDots.count = micropitch::kModes;
-    modeDots.setTooltip ("Click a dot to pick a style directly");
     modeDots.onPick = [this] (int i)
     {
         if (auto* prm = proc.apvts.getParameter (MicropitchProcessor::ID_MODE))
             prm->setValueNotifyingHost (prm->convertTo0to1 ((float) i));
         syncFromParams();
     };
-    addAndMakeVisible (modeDots);
+    content.addAndMakeVisible (modeDots);
 
-    addChildComponent (gonio);
+    content.addChildComponent (gonio);
 
+    glide = std::make_unique<fairy::KnobGlide> (*this);
+    glide->add (amountSlider);
+
+    uiScale = juce::jlimit (kMinScale, kMaxScale, (float) proc.apvts.state.getProperty (MicropitchProcessor::kUiScaleProp, 1.0f));
     meterOpen = proc.isMeterOpen();
-    setSize (widthFor (meterOpen), kH);
+    setResizable (true, true);
     setMeterOpen (meterOpen);
     syncFromParams();
     updateAmountLabel();
@@ -134,9 +131,19 @@ MicropitchEditor::MicropitchEditor (MicropitchProcessor& p)
 MicropitchEditor::~MicropitchEditor()
 {
     stopTimer();
+    glide.reset();
     proc.meterActive.store (false);
     gonio.setActive (false);
     setLookAndFeel (nullptr);
+}
+
+void MicropitchEditor::applyConstrainer()
+{
+    const double w = widthFor (meterOpen);
+    constrainer.setFixedAspectRatio (w / (double) kH);
+    constrainer.setSizeLimits (juce::roundToInt (w * kMinScale), juce::roundToInt (kH * kMinScale),
+                               juce::roundToInt (w * kMaxScale), juce::roundToInt (kH * kMaxScale));
+    setConstrainer (&constrainer);
 }
 
 void MicropitchEditor::setMeterOpen (bool open)
@@ -144,15 +151,19 @@ void MicropitchEditor::setMeterOpen (bool open)
     meterOpen = open;
     proc.setMeterOpen (open);
     meterToggle.open = open;
-    meterToggle.setTooltip (open ? "Hide the goniometer" : "Show the goniometer");
     meterToggle.repaint();
     gonio.setVisible (open);
     gonio.setActive (open);
     proc.meterActive.store (open);
-    if (getWidth() != widthFor (open))
-        setSize (widthFor (open), kH);
-    else
-        resized();
+
+    // Gleiche Skalierung, nur breiter bzw. schmaler.
+    applyingSize = true;
+    applyConstrainer();
+    const int w = juce::roundToInt ((float) widthFor (open) * uiScale), h = juce::roundToInt ((float) kH * uiScale);
+    if (getWidth() != w || getHeight() != h)
+        setSize (w, h);
+    applyingSize = false;
+    resized();
     repaint();
 }
 
@@ -169,13 +180,12 @@ void MicropitchEditor::syncFromParams()
         amountSlider.getProperties().set ("sectionOff", ! on);
         amountSlider.repaint();
         amountLabel.setColour (juce::Label::textColourId, on ? fairy::labelOn : fairy::labelOff());
-        repaint (cardArea);
+        repaint();
     }
     if (modeField.mode != mode || modeField.off != ! on)
     {
         modeField.mode = mode;
         modeField.off = ! on;
-        modeField.setTooltip (juce::String (kModeTips[mode]) + ". Click for the next one, Cmd-click to go back.");
         modeField.repaint();
     }
     if (modeDots.index != mode || modeDots.off != ! on)
@@ -204,17 +214,41 @@ void MicropitchEditor::timerCallback()
 
 void MicropitchEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff0c0e15));
-    if (plate.getWidth() != getWidth() || plate.getHeight() != getHeight())
-        plate = fairy::makePlate (getWidth(), getHeight(), 0.0f);
-    g.drawImageAt (plate, 0, 0);
-
-    if (meterOpen)
-        fairy::drawSectionFrame (g, gonioArea, true);
-    fairy::drawSectionFrame (g, cardArea, sectionOn);
+    // Platte und Rahmen werden einmal pro Groesse in echter Pixelaufloesung
+    // vorbereitet - beim Drehen am Regler wird davon nur ein Ausschnitt
+    // kopiert, statt alles neu zu zeichnen.
+    const float ds = juce::jmax (1.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    const float key[4] = { (float) getWidth(), (float) getHeight(), ds, (sectionOn ? 1.0f : 0.0f) + (meterOpen ? 2.0f : 0.0f) };
+    if (! plate.isValid() || ! std::equal (key, key + 4, plateKey))
+    {
+        const int pw = juce::roundToInt ((float) getWidth() * ds), ph = juce::roundToInt ((float) getHeight() * ds);
+        plate = fairy::makePlate (pw, ph, 0.0f);
+        juce::Graphics pg (plate);
+        pg.addTransform (juce::AffineTransform::scale (uiScale * ds));
+        if (meterOpen)
+            fairy::drawSectionFrame (pg, gonioArea, true);
+        fairy::drawSectionFrame (pg, cardArea, sectionOn);
+        std::copy (key, key + 4, plateKey);
+    }
+    g.drawImage (plate, getLocalBounds().toFloat());
 }
 
 void MicropitchEditor::resized()
+{
+    const int baseW = widthFor (meterOpen);
+    const float s = juce::jlimit (kMinScale, kMaxScale, (float) getHeight() / (float) kH);
+    if (! applyingSize && std::abs (s - uiScale) > 0.001f)
+    {
+        uiScale = s;
+        proc.apvts.state.setProperty (MicropitchProcessor::kUiScaleProp, uiScale, nullptr);
+    }
+    content.setBounds (0, 0, baseW, kH);
+    content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) baseW,
+                                                        (float) getHeight() / (float) kH));
+    layoutContent();
+}
+
+void MicropitchEditor::layoutContent()
 {
     gonioArea = { kMargin, kMargin, kGonioW, kH - 2 * kMargin };
     cardArea  = { meterOpen ? kMargin + kGonioW + kGap : kMargin, kMargin, kCardW, kH - 2 * kMargin };

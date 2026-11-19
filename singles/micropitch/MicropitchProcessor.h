@@ -45,6 +45,7 @@ public:
 
     // Aufgeklappt oder nicht - wird mit dem Projekt gespeichert.
     static constexpr auto kMeterOpenProp = "meterOpen";
+    static constexpr auto kUiScaleProp   = "uiScale";     // Fenstergroesse (1.0 = 304 bzw. 524 x 240)
     bool isMeterOpen() const     { return apvts.state.getProperty (kMeterOpenProp, false); }
     void setMeterOpen (bool b)   { apvts.state.setProperty (kMeterOpenProp, b, nullptr); }
 

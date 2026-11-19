@@ -17,7 +17,7 @@ namespace fairy
             setInterceptsMouseClicks (false, false);
             tmpL.resize (kMaxPull);
             tmpR.resize (kMaxPull);
-            for (auto& f : frames) f.reserve (1500);
+            for (auto& fr : frames) fr.reserve (1500);
         }
         ~Goniometer() override { stopTimer(); }
 
