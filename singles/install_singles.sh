@@ -40,3 +40,9 @@ for t in $TARGETS; do
 done
 
 killall -9 AudioComponentRegistrar 2>/dev/null || true
+
+# 20.11. (Paul): jedes Mal auch die Installer bauen - landen in
+# ~/PROJEKTE/CLAUDE/_Installer (je ein .pkg pro Plugin).
+echo ""
+echo "==> Installer fuer _Installer ..."
+./make_installers_singles.sh $TARGETS

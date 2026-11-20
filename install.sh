@@ -69,3 +69,9 @@ fi
 # Kurzer Selbsttest: beide Architekturen drin, und wie alt darf das Ziel-macOS
 # sein? Ohne das faellt "laeuft nur auf meinem Rechner" erst beim Kollegen auf.
 "$(dirname "$0")/tools/check_binary.sh" "$DST/$NAME/Contents/MacOS/SpaceX" 2>/dev/null || true
+
+# 20.11. (Paul): jedes Mal auch den Installer bauen - landet in
+# ~/PROJEKTE/CLAUDE/_Installer (SpaceX + alle Einzel-Plugins).
+echo ""
+echo "==> Installer fuer _Installer ..."
+"$(dirname "$0")/make_installer_mac.sh"
