@@ -44,6 +44,12 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      # 20.11. (Paul): der SpaceX-Installer bringt die sechs Einzel-Plugins mit.
+      - name: Build singles
+        run: |
+          cmake -S singles -B singles/build -A x64
+          cmake --build singles/build --config Release --parallel --target Micropitch_VST3 LCR_VST3 Polarity_VST3 MidSide_VST3 Autopan_VST3 Phaser_VST3
+
       - name: Collect
         shell: pwsh
         run: |
@@ -57,6 +63,12 @@ jobs:
           Write-Host "Gefunden: $($found.FullName)"
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Copy-Item -Recurse -Force -Path $found.FullName -Destination out\
+          New-Item -ItemType Directory -Force -Path out\singles | Out-Null
+          foreach ($n in @("Micropitch","LCR","Polarity","Mid-Side","Autopan","Phaser")) {
+            $s = Get-ChildItem -Path singles\build -Recurse -Directory -Filter "$n.vst3" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*Release*" } | Select-Object -First 1
+            if (-not $s) { throw "$n.vst3 nicht gefunden" }
+            Copy-Item -Recurse -Force -Path $s.FullName -Destination out\singles\
+          }
 
       # Installer (.exe) mit Inno Setup. Version kommt aus CMakeLists.txt.
       - name: Installer

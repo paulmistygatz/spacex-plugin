@@ -11,8 +11,12 @@
 # Anleitung genau dort zuerst. Nur wenn sie fehlt, wird die eingebettete
 # Fassung nach "Application Support" entpackt.
 #
+# Dazu (20.11., Paul): die sechs Einzel-Plugins aus singles/ (VST3 + AU)
+# - wer SpaceX kauft, bekommt die Module mit.
+#
 # Aufruf:     ./make_installer_mac.sh
-# Ergebnis:   dist/SpaceX <Version>.pkg (Version aus CMakeLists.txt)
+# Ergebnis:   ~/PROJEKTE/CLAUDE/_Installer/SpaceX <Version>.pkg
+#             (Sammelordner fuer alle Installer, Version aus CMakeLists.txt)
 #
 # Ohne Signatur laeuft das .pkg lokal problemlos; beim Empfaenger meldet
 # sich Gatekeeper (Rechtsklick -> Oeffnen, oder Systemeinstellungen ->
@@ -29,8 +33,13 @@ VERSION="$(sed -n 's/^project(LCRMSPlugin VERSION \([0-9.]*\).*/\1/p' CMakeLists
 IDENT_AU="com.paulmisty.spacex.au"
 IDENT_VST3="com.paulmisty.spacex.vst3"
 IDENT_DOCS="com.paulmisty.spacex.docs"
+IDENT_SINGLES="com.paulmisty.spacex.singles"
 INSTALLER_IDENTITY=""          # z. B. "Developer ID Installer: Paul Misty (TEAMID)"
 KEYCHAIN_PROFILE="notary-profile"
+
+# Sammelordner fuer alle fertigen Installer (Paul, 20.11.)
+INSTALLER_DIR="$HOME/PROJEKTE/CLAUDE/_Installer"
+SINGLES="Micropitch LCR Polarity MidSide Autopan Phaser"
 
 MANUAL_SRC="docs/SpaceXManual_EN.pdf"
 MANUAL_DST="SpaceX Manual (EN).pdf"
@@ -69,6 +78,25 @@ if [ "$HAVE_AU" = "1" ]; then
     cp -R "$AU" "dist/pkgroot-au/Library/Audio/Plug-Ins/Components/"
 fi
 
+# ---- Einzel-Plugins (singles/) ----------------------------------------
+echo "==> Baue die Einzel-Plugins ..."
+[ -f singles/build/CMakeCache.txt ] || cmake -S singles -B singles/build -DCMAKE_BUILD_TYPE=Release
+ST=""
+for t in $SINGLES; do ST="$ST ${t}_VST3 ${t}_AU"; done
+cmake --build singles/build --config Release --parallel --target $ST
+rm -rf dist/pkgroot-singles
+mkdir -p "dist/pkgroot-singles/Library/Audio/Plug-Ins/VST3" "dist/pkgroot-singles/Library/Audio/Plug-Ins/Components"
+for t in $SINGLES; do
+    ART="singles/build/${t}_artefacts"
+    [ -d "$ART/Release" ] && ART="$ART/Release"
+    V=$(ls -d "$ART"/VST3/*.vst3 | head -1)
+    [ -n "$V" ] || { echo "Fehler: $t.vst3 fehlt."; exit 1; }
+    cp -R "$V" "dist/pkgroot-singles/Library/Audio/Plug-Ins/VST3/"
+    A=$(ls -d "$ART"/AU/*.component 2>/dev/null | head -1 || true)
+    [ -n "$A" ] && cp -R "$A" "dist/pkgroot-singles/Library/Audio/Plug-Ins/Components/"
+    echo "    + $(basename "$V")"
+done
+
 HAVE_DOCS=0
 if [ -f "$MANUAL_SRC" ]; then
     mkdir -p "dist/pkgroot-docs/Library/Audio/Plug-Ins/Documentation/$PRODUCT"
@@ -85,6 +113,8 @@ if [ "$HAVE_AU" = "1" ]; then
     pkgbuild --root dist/pkgroot-au --identifier "$IDENT_AU" --version "$VERSION" \
              --install-location / "dist/tmp/$PRODUCT-au.pkg"
 fi
+pkgbuild --root dist/pkgroot-singles --identifier "$IDENT_SINGLES" --version "$VERSION" \
+         --install-location / "dist/tmp/$PRODUCT-singles.pkg"
 if [ "$HAVE_DOCS" = "1" ]; then
     pkgbuild --root dist/pkgroot-docs --identifier "$IDENT_DOCS" --version "$VERSION" \
              --install-location / "dist/tmp/$PRODUCT-docs.pkg"
@@ -101,6 +131,7 @@ fi
   echo '        <line choice="default">'
   echo '            <line choice="vst3"/>'
   [ "$HAVE_AU" = "1" ] && echo '            <line choice="au"/>'
+  echo '            <line choice="singles"/>'
   [ "$HAVE_DOCS" = "1" ] && echo '            <line choice="docs"/>'
   echo '        </line>'
   echo '    </choices-outline>'
@@ -111,6 +142,8 @@ fi
     echo "    <choice id=\"au\" visible=\"false\"><pkg-ref id=\"$IDENT_AU\"/></choice>"
     echo "    <pkg-ref id=\"$IDENT_AU\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-au.pkg</pkg-ref>"
   fi
+  echo "    <choice id=\"singles\" visible=\"false\"><pkg-ref id=\"$IDENT_SINGLES\"/></choice>"
+  echo "    <pkg-ref id=\"$IDENT_SINGLES\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-singles.pkg</pkg-ref>"
   if [ "$HAVE_DOCS" = "1" ]; then
     echo "    <choice id=\"docs\" visible=\"false\"><pkg-ref id=\"$IDENT_DOCS\"/></choice>"
     echo "    <pkg-ref id=\"$IDENT_DOCS\" version=\"$VERSION\" onConclusion=\"none\">$PRODUCT-docs.pkg</pkg-ref>"
@@ -126,6 +159,9 @@ This installs:
   /Library/Audio/Plug-Ins/VST3/$PRODUCT.vst3
   /Library/Audio/Plug-Ins/Components/$PRODUCT.component  (Audio Unit)
   /Library/Audio/Plug-Ins/Documentation/$PRODUCT/$MANUAL_DST
+
+plus the single modules as their own plug-ins (VST3 + Audio Unit):
+  Micropitch, LCR, Polarity, Mid-Side, Autopan, Phaser
 
 Afterwards, restart your DAW or let it rescan its plug-ins.
 
@@ -147,7 +183,9 @@ else
                  --package-path dist/tmp "$OUT"
 fi
 
-rm -rf dist/pkgroot-vst3 dist/pkgroot-au dist/pkgroot-docs dist/tmp
+rm -rf dist/pkgroot-vst3 dist/pkgroot-au dist/pkgroot-docs dist/pkgroot-singles dist/tmp
+mkdir -p "$INSTALLER_DIR"
+cp -f "$OUT" "$INSTALLER_DIR/"
 echo ""
-echo "Fertig: $OUT"
-ls -lh "$OUT"
+echo "Fertig: $INSTALLER_DIR/$(basename "$OUT")"
+ls -lh "$INSTALLER_DIR/$(basename "$OUT")"
