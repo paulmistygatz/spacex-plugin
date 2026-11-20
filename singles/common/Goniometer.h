@@ -43,11 +43,11 @@ namespace fairy
             // Achsen: Mitte senkrecht, Seiten waagerecht, L und R diagonal.
             const auto c = sf.getCentre();
             const float R = juce::jmin (sf.getWidth(), sf.getHeight()) * 0.44f;
-            g.setColour (frameMain.withAlpha (0.14f));
+            g.setColour (themePalette().frameMain.withAlpha (0.14f));
             g.drawLine (c.x, c.y - R, c.x, c.y + R, 1.0f);
             g.drawLine (c.x - R, c.y, c.x + R, c.y, 1.0f);
             const float d = R * 0.7071f;
-            g.setColour (frameMain.withAlpha (0.09f));
+            g.setColour (themePalette().frameMain.withAlpha (0.09f));
             g.drawLine (c.x - d, c.y - d, c.x + d, c.y + d, 1.0f);
             g.drawLine (c.x + d, c.y - d, c.x - d, c.y + d, 1.0f);
 
@@ -59,13 +59,13 @@ namespace fairy
                 {
                     const auto& pts = frames[(size_t) ((head - k + kFrames) % kFrames)];
                     if (pts.empty()) continue;
-                    g.setColour (knob.withAlpha (alphas[k]));
+                    g.setColour (themePalette().knob.withAlpha (alphas[k]));
                     for (auto& p : pts)
                         g.fillRect (ox + p.x - 0.6f, oy + p.y - 0.6f, 1.2f, 1.2f);
                 }
             }
 
-            g.setColour (labelOn.withAlpha (0.45f));
+            g.setColour (labelOn().withAlpha (0.45f));
             g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)).withExtraKerningFactor (0.08f));
             g.drawText ("L", juce::Rectangle<float> (sf.getX() + 9.0f, sf.getY() + 6.0f, 12.0f, 12.0f), juce::Justification::centredLeft);
             g.drawText ("R", juce::Rectangle<float> (sf.getRight() - 21.0f, sf.getY() + 6.0f, 12.0f, 12.0f), juce::Justification::centredRight);
@@ -75,17 +75,17 @@ namespace fairy
                                                sf.getWidth() - 44.0f, 4.0f);
             g.setColour (juce::Colour (0xff2a2e4a));
             g.fillRoundedRectangle (bar, 2.0f);
-            g.setColour (frameMain.withAlpha (0.30f));
+            g.setColour (themePalette().frameMain.withAlpha (0.30f));
             g.fillRect (bar.getCentreX() - 0.5f, bar.getY() - 1.0f, 1.0f, bar.getHeight() + 2.0f);
-            g.setColour (labelOn.withAlpha (0.40f));
+            g.setColour (labelOn().withAlpha (0.40f));
             g.setFont (juce::Font (juce::FontOptions (10.0f)));
             g.drawText (juce::CharPointer_UTF8 ("\xe2\x88\x92" "1"), juce::Rectangle<float> (sf.getX(), bar.getCentreY() - 6.0f, 20.0f, 12.0f), juce::Justification::centredRight);
             g.drawText ("+1", juce::Rectangle<float> (bar.getRight() + 3.0f, bar.getCentreY() - 6.0f, 20.0f, 12.0f), juce::Justification::centredLeft);
             if (corrAlpha > 0.01f)
             {
                 const float x = bar.getX() + (corr * 0.5f + 0.5f) * bar.getWidth();
-                softGlow (g, { x, bar.getCentreY() }, 8.0f, knob, corrAlpha);
-                g.setColour (knob.withAlpha (corrAlpha));
+                CustomLookAndFeel::softIconGlow (g, { x, bar.getCentreY() }, 8.0f, themePalette().knob, corrAlpha);
+                g.setColour (themePalette().knob.withAlpha (corrAlpha));
                 g.fillRoundedRectangle (x - 1.5f, bar.getY() - 2.0f, 3.0f, bar.getHeight() + 4.0f, 1.5f);
             }
         }

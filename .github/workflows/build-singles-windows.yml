@@ -1,19 +1,19 @@
 # Windows-Build der Einzel-Plugins (Ordner singles/).
-# Laeuft bei jedem Push auf main, der etwas unter singles/ aendert, oder von
-# Hand ueber "Run workflow". Ergebnis: Micropitch.vst3 + Installer (.exe)
-# als Download am Lauf.
+# Laeuft bei jedem Push auf main, der singles/ oder den SpaceX-Code unter
+# Source/ aendert (Klang und Look kommen von dort), oder von Hand ueber
+# "Run workflow". Ergebnis: alle sechs .vst3 und je ein Installer (.exe).
 name: Windows Singles
 
 on:
   push:
     branches: [ main ]
-    paths: [ 'singles/**', '.github/workflows/build-singles-windows.yml' ]
+    paths: [ 'singles/**', 'Source/**', '.github/workflows/build-singles-windows.yml' ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    name: Micropitch
+    name: Singles
     steps:
       - uses: actions/checkout@v4
 
@@ -27,35 +27,42 @@ jobs:
         run: cmake -S singles -B singles/build -A x64
 
       - name: Build
-        run: cmake --build singles/build --config Release --target Micropitch_VST3 --parallel
+        run: cmake --build singles/build --config Release --parallel --target Micropitch_VST3 LCR_VST3 Polarity_VST3 MidSide_VST3 Autopan_VST3 Phaser_VST3
 
-      - name: Collect
-        shell: pwsh
-        run: |
-          $name  = "Micropitch.vst3"
-          $found = Get-ChildItem -Path singles\build\Micropitch_artefacts -Recurse -Directory -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $found) { throw "$name nicht gefunden" }
-          New-Item -ItemType Directory -Force -Path singles\out | Out-Null
-          Copy-Item -Recurse -Force -Path $found.FullName -Destination singles\out\
-
-      - name: Installer
+      - name: Collect and installers
         shell: pwsh
         run: |
           $ver = (Select-String -Path singles\CMakeLists.txt -Pattern 'project\(MistycatSingles VERSION ([0-9.]+)').Matches[0].Groups[1].Value
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           if (-not (Test-Path $iscc)) { throw "Inno Setup nicht gefunden" }
-          & $iscc "/DMyVersion=$ver" singles\installer\Micropitch.iss
-          if ($LASTEXITCODE -ne 0) { throw "ISCC fehlgeschlagen" }
+          New-Item -ItemType Directory -Force -Path singles\out | Out-Null
+          # Name im Host -> feste AppId (nie aendern, sonst gibt es Doppel-Installationen)
+          $plugins = [ordered]@{
+            "Micropitch" = "6B0D6E1A-3C1F-4A8E-9E55-2B7F1D9C4A31"
+            "LCR"        = "07567645-23FD-489E-A3D7-7E7241AD4B82"
+            "Polarity"   = "D0C964E4-8864-4E0F-897D-3B643E4D59D3"
+            "Mid-Side"   = "8FB6CB2B-4EA1-4050-9508-5B2AD0C57E8D"
+            "Autopan"    = "3D146260-5186-44C6-A994-8C89E3AAACD7"
+            "Phaser"     = "65F9C31D-ED0F-4B1F-A77D-5F94067FB169"
+          }
+          foreach ($name in $plugins.Keys) {
+            $found = Get-ChildItem -Path singles\build -Recurse -Directory -Filter "$name.vst3" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*Release*" } | Select-Object -First 1
+            if (-not $found) { $found = Get-ChildItem -Path singles\build -Recurse -Directory -Filter "$name.vst3" -ErrorAction SilentlyContinue | Select-Object -First 1 }
+            if (-not $found) { throw "$name.vst3 nicht gefunden" }
+            Copy-Item -Recurse -Force -Path $found.FullName -Destination singles\out\
+            & $iscc "/DMyVersion=$ver" "/DMyName=$name" "/DMyAppId=$($plugins[$name])" singles\installer\Single.iss
+            if ($LASTEXITCODE -ne 0) { throw "ISCC fehlgeschlagen ($name)" }
+          }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Micropitch-VST3-Windows
+          name: Singles-VST3-Windows
           path: singles/out/
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Micropitch-Windows-Installer
+          name: Singles-Windows-Installer
           path: singles/dist/*.exe
           if-no-files-found: error
