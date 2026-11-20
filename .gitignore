@@ -6,3 +6,10 @@ tools/latency-test/LCRExtractor_local.h
 tools/latency-test/latency-test
 dist/
 build_*/
+
+# Arbeitsdateien neben dem Code (seit dem Umzug nach "Onetake SpaceX")
+Claude outputs/
+Versions/
+_claude-tools/
+HANDOFF.md
+code-review-1-0-1.md

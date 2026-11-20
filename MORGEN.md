@@ -7,7 +7,7 @@ weder cmake noch Xcode.
 ## Der schnellste Weg
 
 ```
-cd "/Users/paule/PROJEKTE/CLAUDE/Plugin Imaging/LCRMSPlugin"
+cd "/Users/paule/PROJEKTE/CLAUDE/Onetake SpaceX"
 ./install.sh
 ```
 
