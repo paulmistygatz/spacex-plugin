@@ -61,7 +61,7 @@ public:
     int undoIndex = -1;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "SpaceX"; }
+    const juce::String getName() const override { return "Orbit"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     // Runde 144 (User: "nach ein paar Minuten Stop eine Effekt-Explosion"):

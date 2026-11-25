@@ -54,7 +54,7 @@ FetchContent_MakeAvailable(JUCE)
 # (eigener Name, eigener Plugin-Code), damit alle gleichzeitig im Host
 # geladen werden koennen. Siehe build_variants.sh.
 set(SPACEX_VARIANT "" CACHE STRING "Vergleichsbuild: leer, box, dotsin, dotsout, paraCPU (alt: raye1, raye2, A, B, C)")
-set(SPX_PRODUCT "SpaceX")
+set(SPX_PRODUCT "Orbit")   # Runde 190 (User): SpaceX heisst jetzt Orbit - Plugin-Code Lcrm bleibt, alte Projekte laden weiter
 set(SPX_CODE    "Lcrm")
 set(SPX_ROW2    0)
 # Runde 54 (User: "Der Build soll ab jetzt einfach wieder SpaceX heissen - ich
@@ -72,7 +72,7 @@ set(SPX_PXDIAG  1)
 # Runde 104 (User): Tune-Build - die Mod-Tiefe-Regler pro Sektion sind wieder
 # da und werden gelesen, damit Paul die festen Werte einstellen kann.
 set(SPX_TUNE    0)
-set(SPX_EXTRA   BUNDLE_ID "com.mistycat.spacex")
+set(SPX_EXTRA   BUNDLE_ID "com.mistycat.orbit")
 set(SPX_OWN     "")
 if (SPACEX_VARIANT STREQUAL "A")
     set(SPX_ROW2 1)

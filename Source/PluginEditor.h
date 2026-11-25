@@ -3,7 +3,6 @@
 #include "PluginProcessor.h"
 #include "GUI/CustomLookAndFeel.h"
 #include "GUI/GoniometerComponent.h"
-#include "GUI/LcrGraph.h"
 #include "GUI/ImageTypes.h"   // Runde 182 (1.0.2): LCR-Kurve mit Analyzer
 #include "GUI/LevelMeterComponent.h"
 #include "SpaceXManualData.h"   // eingebettete Anleitung + Theme-Vorschaubilder
@@ -557,7 +556,7 @@ private:
         juce::TextButton themeBtn[kThemes], layoutBtn[kLayouts], behavBtn[kBehav];
         // Die Space-Namen sind seit Runde 100 die OPTION - sie stehen deshalb
         // direkt unter den Themes, durch eine feine Linie abgetrennt.
-        juce::TextButton labelBtn { "SpaceX Labels" };
+        juce::TextButton labelBtn { "Orbit Labels" };
         juce::TextButton sizeBtn { "Save Window Size" }, stateBtn { "Save State as Default" },
                          folderBtn { "Preset Folder..." }, manualBtn { "Manual" },
                          aboutBtn { "Back Panel" }, tourBtn { "Take the Tour" },
@@ -643,7 +642,7 @@ private:
             for (int i = 0; i < kThemes; ++i) themeBtn[i].addMouseListener (this, false);
             for (int i = 0; i < kLayouts; ++i) setup (layoutBtn[i], layoutNames[i], layoutIds()[i]);
             for (int i = 0; i < kBehav;   ++i) setup (behavBtn[i],  behavNames[i],  behavIds()[i]);
-            setup (labelBtn, "SpaceX Labels", idTechnicalLabels);
+            setup (labelBtn, "Orbit Labels", idTechnicalLabels);
             setup (sizeBtn,   "Save Window Size",      idSaveSizeDefault);
             setup (stateBtn,  "Save State as Default", idSaveStateDefault);
             setup (folderBtn, "Preset Folder...",      idOpenPresetFolder);
@@ -669,10 +668,10 @@ private:
             betaWedgeBtn.setTooltip ("Width without a ring - you grab the wedge itself");
             betaThrBtn.setTooltip ("C-Weight sets a threshold for what counts as centre - a stronger, audible change. Experimental");
             behavBtn[0].setTooltip ("The engine is armed when the plugin opens - adds latency from the start");
-            labelBtn.setTooltip ("Names the sections the SpaceX way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
+            labelBtn.setTooltip ("Names the sections the Orbit way: Galaxy, Eclipse, Parallax, Dimension, Hyperdrive, Raye");
             layoutBtn[0].setTooltip ("Soft shading and depth on every panel");
             layoutBtn[1].setTooltip ("Flat panels with a thin outline");
-            stateBtn.setTooltip ("Every new instance of SpaceX starts with the settings you have right now");
+            stateBtn.setTooltip ("Every new instance of Orbit starts with the settings you have right now");
             tourBtn.setTooltip ("A short guided walk through the sections");
             aboutBtn.setTooltip ("Who built this, how to get in touch, and which copy this is");
             manualBtn.setTooltip ("Open the PDF manual");
@@ -926,7 +925,7 @@ private:
                     thanksHead, thanksText, footer, qrCaption;
         juce::TextButton mailBtn, webBtn, instaBtn, linksBtn,
                          tourBtn { "Take the Tour" }, manualBtn { "Manual" }, closeBtn { "Close" },
-                         activateBtn { "Enter Serial" }, buyBtn { "Buy SpaceX" },
+                         activateBtn { "Enter Serial" }, buyBtn { "Buy Orbit" },
                          supportBtn { "Buy me a coffee" }, dontShowBtn { "Don't show again" };
         std::function<void()> onTour;
         std::function<void()> onActivate;
@@ -959,7 +958,7 @@ private:
             lab (thanksText, 13.5f, juce::Colour (0xffd4d8e0), false);
             lab (qrCaption,  11.0f, juce::Colour (0xff8f96a4), false, juce::Justification::centred);
             lab (footer,     13.0f, juce::Colour (0xffb5b9c2), false, juce::Justification::centred);
-            title.setText ("SPACEX", juce::dontSendNotification);
+            title.setText ("ORBIT", juce::dontSendNotification);
             slogan.setText ("Stereo imaging, tuned by ear.", juce::dontSendNotification);
             regHead.setText ("REGISTERED TO", juce::dontSendNotification);
             byHead.setText ("DESIGNED AND BUILT BY", juce::dontSendNotification);
@@ -2372,10 +2371,6 @@ private:
     juce::Slider horizonSlider;
     juce::Label horizonLabel;
     // Runde 182 (1.0.2): Frequenz-Ansicht statt C-Weight/HF-Regain-Regler.
-    LcrGraphComponent lcrGraph { processor };
-    LcrViewToggle     lcrViewToggle;
-    bool lcrAnalyzerView = false;
-    void setLcrAnalyzerView (bool on);
     juce::TextButton galaxyModButton;
     juce::Slider galaxyModDepthSlider;
 

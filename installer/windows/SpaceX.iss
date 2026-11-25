@@ -16,12 +16,12 @@
 
 [Setup]
 AppId={{E000C524-77AE-401F-A595-FCEB2243129C}
-AppName=SpaceX
+AppName=Orbit
 AppVersion={#MyVersion}
-AppVerName=SpaceX {#MyVersion}
+AppVerName=Orbit {#MyVersion}
 AppPublisher=Mistycat Studios
 AppPublisherURL=https://paulmisty.com
-DefaultDirName={commonpf64}\SpaceX
+DefaultDirName={commonpf64}\Orbit
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=no
@@ -29,22 +29,26 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 OutputDir=..\..\dist
-OutputBaseFilename=SpaceX-{#MyVersion}-Windows-Setup
+OutputBaseFilename=Orbit-{#MyVersion}-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=SpaceX {#MyVersion}
+UninstallDisplayName=Orbit {#MyVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-WelcomeLabel2=This will install [name/ver] on your computer.%n%nThe VST3 plug-in goes to Common Files\VST3, the manual to Program Files\SpaceX. The single modules Micropitch, LCR, Polarity, Mid-Side, Autopan and Phaser are installed as their own plug-ins too. Presets are created by the plug-in on first launch.%n%nWithout a serial, SpaceX runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a moment. To activate, click the logo in the plug-in and enter your name and serial.
+WelcomeLabel2=This will install [name/ver] on your computer.%n%nThe VST3 plug-in goes to Common Files\VST3, the manual to Program Files\Orbit. The single modules Micropitch, LCR, Polarity, Mid-Side, Autopan and Phaser are installed as their own plug-ins too. Presets are created by the plug-in on first launch.%n%nWithout a serial, Orbit runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a moment. To activate, click the logo in the plug-in and enter your name and serial.
 FinishedLabel=Setup has finished installing [name] on your computer. Restart your DAW or let it rescan its plug-ins.
 
 [InstallDelete]
-; alte Fassung komplett weg, sonst bleiben geloeschte Dateien im Bundle liegen
+; alte Fassung komplett weg, sonst bleiben geloeschte Dateien im Bundle liegen.
+; Runde 190: SpaceX heisst jetzt Orbit (gleiche AppId, gleiche Plugin-ID) -
+; das alte SpaceX.vst3 und der alte Handbuch-Ordner gehen mit weg.
 Type: filesandordirs; Name: "{commoncf64}\VST3\SpaceX.vst3"
+Type: filesandordirs; Name: "{commonpf64}\SpaceX"
+Type: filesandordirs; Name: "{commoncf64}\VST3\Orbit.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Micropitch.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\LCR.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Polarity.vst3"
@@ -53,10 +57,10 @@ Type: filesandordirs; Name: "{commoncf64}\VST3\Autopan.vst3"
 Type: filesandordirs; Name: "{commoncf64}\VST3\Phaser.vst3"
 
 [Files]
-Source: "..\..\out\SpaceX.vst3\*"; DestDir: "{commoncf64}\VST3\SpaceX.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\out\Orbit.vst3\*"; DestDir: "{commoncf64}\VST3\Orbit.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 20.11.: die sechs Einzel-Plugins (Micropitch, LCR, Polarity, Mid-Side, Autopan, Phaser)
 Source: "..\..\out\singles\*"; DestDir: "{commoncf64}\VST3"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\docs\SpaceXManual_EN.pdf"; DestDir: "{app}"; DestName: "SpaceX Manual (EN).pdf"; Flags: ignoreversion
+Source: "..\..\docs\SpaceXManual_EN.pdf"; DestDir: "{app}"; DestName: "Orbit Manual (EN).pdf"; Flags: ignoreversion
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commoncf64}\VST3\SpaceX.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\Orbit.vst3"

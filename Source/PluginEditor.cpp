@@ -44,7 +44,7 @@ namespace
         // Hier wird SpaceX verkauft - der DEMO-Aufkleber fuehrt direkt dorthin.
         inline constexpr const char* shopUrl     = "https://ko-fi.com/paulmisty";
         inline constexpr const char* designer    = "Paul Misty";
-        inline constexpr const char* thanks      = "Everyone who tested SpaceX and sent feedback";
+        inline constexpr const char* thanks      = "Everyone who tested Orbit and sent feedback";
     }
 
     void styleLabel (juce::Label& l, const juce::String& text)
@@ -1277,12 +1277,12 @@ void LCRMSAudioProcessorEditor::mouseUp (const juce::MouseEvent& e)
             // Runde 60 (User): erst fragen, was der Nutzer eigentlich will -
             // direkt in den Browser zu springen waere uebergriffig. Eigene
             // Knopfbeschriftungen, damit man vor dem Klick weiss, was kommt.
-            demoDialog = std::make_unique<juce::AlertWindow> ("SpaceX Demo",
+            demoDialog = std::make_unique<juce::AlertWindow> ("Orbit Demo",
                 "This copy runs in demo mode and goes quiet for a moment every 50 seconds.\n\n"
                 "Already bought it? Enter your serial. Otherwise have a look at the shop.",
                 juce::MessageBoxIconType::NoIcon);
             demoDialog->addButton ("Enter Serial",  1);
-            demoDialog->addButton ("Buy SpaceX",    2);
+            demoDialog->addButton ("Buy Orbit",    2);
             demoDialog->addButton ("Continue Demo", 0, juce::KeyPress (juce::KeyPress::escapeKey));
             styleNameDialog (*demoDialog);
             // Review 1.0.1: JUCE ruft den Rueckruf auch dann noch (asynchron) auf,
@@ -1674,8 +1674,6 @@ void LCRMSAudioProcessorEditor::applyHintTexts()
     tip (gravitySlider, "C-Weight: how strongly the centre is separated from the sides" + knob);
     tip (horizonSlider, "HF Regain: brings back the highs the split takes away. 0 = off" + knob);
     tip (lcrEqButton,   juce::String::fromUTF8 ("EQ \xe2\x86\x92 LCR: the Sides EQ works on centre and sides of the LCR Matrix instead of mid and side"));
-    tip (lcrViewToggle, "View: knobs or the frequency view with analyzer");
-    lcrGraph.setBaseTooltip (juce::String::fromUTF8 ("Gold = centre, blue = left/right \xc2\xb7 drag up/down: LCR \xc2\xb7 white handle: HF Regain"));
 
     // POLARITY
     tip (polLButton,     juce::String::fromUTF8 ("L: flip the phase of the left channel · Cmd-click: only left"));
@@ -1749,7 +1747,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (globalABButton,             "A/B: switch between two versions of your settings to compare them");
     tip (abCopyButton,               "Copy: send the current settings to the other A/B slot");
     tip (globalResetButton,          "Reset: load the Default preset again");
-    tip (logoButton,                 "SpaceX: click the logo for the back panel");
+    tip (logoButton,                 "Orbit: click the logo for the back panel");
 
     // Galaxy
     tip (lcrTitleLabel,   "GALAXY: pulls the centre out of the stereo image and treats L, C and R apart");
@@ -1823,7 +1821,7 @@ void LCRMSAudioProcessorEditor::applyHoverHints()
     tip (volSlider,       "Vol: output trim, plus or minus 6 dB. Right-click to lock it against presets and Reset");
     tip (panSlider,       "Pan: balance at the very end of the chain. Left or right trims the other side - use it to pull a mode that leans to one side back to the centre");
     tip (prismOnButton,   "Focus: switch the focus range on or off. Wide open it does nothing at all");
-    tip (prismBand,       "Focus: the range SpaceX works in. Drag an edge to resize, the middle to move, up and down or scroll to widen. Outside it the sound passes through untouched");
+    tip (prismBand,       "Focus: the range Orbit works in. Drag an edge to resize, the middle to move, up and down or scroll to widen. Outside it the sound passes through untouched");
     tip (correlationMeter, "Correlation: to the right of centre is mono-safe, to the left it cancels in mono");
     tip (viewGearButton,  "View: display settings for the goniometer and the starfield");
     tip (goniometer,      "Starfield: click the field to switch the scope on or off. Cmd-click the centre for the trace colour, shift-click for its look");
@@ -2111,7 +2109,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     // Runde 173 (User: "kurz und knapp, keine Doktorarbeit - aber ein bisschen
     // mehr darf es sein; ab und zu erwaehnen, dass die Modi sorgfaeltig
     // ausgesucht sind"). Wuerfel heisst ueberall "Smart dice".
-    add ({}, "Welcome", "Welcome to SpaceX",
+    add ({}, "Welcome", "Welcome to Orbit",
          "Six sections, top-left to bottom-right, in the order the audio flows. "
          "Simple on the surface - a lot of fine-tuning underneath. This takes a minute.", true);
 
@@ -2133,7 +2131,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
 
     add (area ({ &globalGalaxyActivateButton }), "Engine", L ("LCR", "Galaxy"),
          "Switches on the real L/C/R split - a true centre, not just mid-side. "
-         "It adds latency while it runs. Off, SpaceX has zero latency.");
+         "It adds latency while it runs. Off, Orbit has zero latency.");
 
     add (area ({ &lcrTitleLabel, &lcrLockButton }), "Every section", "Name and lock",
          "Click a section name to switch it on or off. Cmd-click solos it. "
@@ -2167,7 +2165,7 @@ void LCRMSAudioProcessorEditor::startTour (bool firstRun)
     forceOn ({ LCRMSAudioProcessor::SOLO_HYPERDRIVE, LCRMSAudioProcessor::SOLO_RAY });
 
     add (area ({ &goniometer }), "Look", "The starfield",
-         "Your stereo image, live - it reacts to what SpaceX does. Click the field for the goniometer, "
+         "Your stereo image, live - it reacts to what Orbit does. Click the field for the goniometer, "
          "the sun to switch the view, the gear for the view settings. The bar at the bottom shows how mono-safe you are.");
 
     add (area ({ &volInputMeter, &volOutputMeter, &monoCheckButton, &monoDryButton, &mixSlider,
@@ -2571,9 +2569,15 @@ juce::File LCRMSAudioProcessorEditor::presetFolder() const
     const auto custom = props.getValue ("presetFolder", {});
     juce::File folder = custom.isNotEmpty() ? juce::File (custom)
                       : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                            .getChildFile ("SpaceX").getChildFile ("Presets");
+                            .getChildFile ("Orbit").getChildFile ("Presets");
     if (! folder.exists())
     {
+        // Runde 190: SpaceX heisst jetzt Orbit - der alte Preset-Ordner
+        // (samt Unterordnern) wird einmalig mitgenommen.
+        auto spacexFolder = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                                .getChildFile ("SpaceX").getChildFile ("Presets");
+        if (custom.isEmpty() && spacexFolder.isDirectory())
+            spacexFolder.copyDirectoryTo (folder);
         // Umbenennung "Space X" -> "SpaceX" (User): was im alten Ordner liegt,
         // wird einmalig mitgenommen, damit keine Presets verloren gehen.
         auto legacy = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
@@ -3058,14 +3062,14 @@ void LCRMSAudioProcessorEditor::showLoadPresetPopup (bool deleteMode)
 // geoeffnet. So funktioniert der Eintrag auch ohne Installer.
 void LCRMSAudioProcessorEditor::openManual()
 {
-    const juce::String fileName ("SpaceX Manual (EN).pdf");
+    const juce::String fileName ("Orbit Manual (EN).pdf");
 
     const juce::File installed =
        #if JUCE_MAC
-        juce::File ("/Library/Audio/Plug-Ins/Documentation/SpaceX").getChildFile (fileName);
+        juce::File ("/Library/Audio/Plug-Ins/Documentation/Orbit").getChildFile (fileName);
        #else
         juce::File::getSpecialLocation (juce::File::globalApplicationsDirectory)
-            .getChildFile ("SpaceX").getChildFile (fileName);
+            .getChildFile ("Orbit").getChildFile (fileName);
        #endif
     if (installed.existsAsFile())
     {
@@ -3074,7 +3078,7 @@ void LCRMSAudioProcessorEditor::openManual()
     }
 
     auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("SpaceX");
+                   .getChildFile ("Orbit");
     dir.createDirectory();
     auto pdf = dir.getChildFile (fileName);
     // Nur schreiben, wenn die Datei fehlt oder aus einer aelteren Version
@@ -3084,18 +3088,6 @@ void LCRMSAudioProcessorEditor::openManual()
                              (size_t) SpaceXManualData::SpaceXManual_EN_pdfSize);
     if (pdf.existsAsFile())
         pdf.startAsProcess();
-}
-
-void LCRMSAudioProcessorEditor::setLcrAnalyzerView (bool on)
-{
-    lcrAnalyzerView = on;
-    processor.apvts.state.setProperty ("lcrAnalyzerView", on, nullptr);
-    lcrViewToggle.setAnalyzer (on);
-    // Runde 183 (User-Bug "schaltet nicht um"): resized() legt nur die
-    // skalierte content-Flaeche neu an - bei gleicher Groesse laeuft
-    // layoutContent() dann gar nicht. Deshalb direkt aufrufen.
-    layoutContent();
-    content.repaint();
 }
 
 void LCRMSAudioProcessorEditor::saveCurrentStateAsDefault()
@@ -3326,7 +3318,7 @@ void LCRMSAudioProcessorEditor::promptActivate()
     // und genau das braucht man, um "Registered to" nachzutragen.
     const bool alreadyLicensed = processor.licensed.load (std::memory_order_relaxed);
 
-    presetNameDialog = std::make_unique<juce::AlertWindow> ("Activate SpaceX",
+    presetNameDialog = std::make_unique<juce::AlertWindow> ("Activate Orbit",
                                                               alreadyLicensed
                                                                 ? juce::String ("This copy is activated.\n\n"
                                                                                 "Enter your name and serial number to put\n"
@@ -3386,7 +3378,7 @@ void LCRMSAudioProcessorEditor::promptActivate()
         if (! spacex::isValidSerial (entered))
         {
             juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                "SpaceX", "That serial number was not recognised.\n\nIt looks like: SPX1-XXXX-XXXX-XXXX");
+                "Orbit", "That serial number was not recognised.\n\nIt looks like: SPX1-XXXX-XXXX-XXXX");
             return;
         }
         // Ein Name wurde eingetippt, passt aber nicht zur Nummer: nicht
@@ -3413,7 +3405,7 @@ void LCRMSAudioProcessorEditor::promptActivate()
         refreshSettingsPanel();
         content.repaint();
         juce::NativeMessageBox::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon,
-            "SpaceX", nameRejected ? juce::String ("Activated. Thank you for supporting independent plugins.\n\n"
+            "Orbit", nameRejected ? juce::String ("Activated. Thank you for supporting independent plugins.\n\n"
                                                    "The name did not match this serial, so it is not shown on the back panel. "
                                                    "Type it exactly as in your order to add it later.")
                     : owner.isNotEmpty() ? "Activated. Thank you, " + owner + "."
@@ -4847,13 +4839,8 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     content.addAndMakeVisible (lcrEqButton);
     lcrEqAttachment = std::make_unique<ButtonAttachment> (processor.apvts, LCRMSAudioProcessor::ID_MS_EQ_LCR, lcrEqButton);
 
-    // Runde 182 (1.0.2, User): Umschalter Regler <-> Frequenz-Ansicht. Die
-    // Wahl gehoert zur Instanz und wird mit dem Projekt gespeichert.
-    content.addChildComponent (lcrGraph);
-    content.addAndMakeVisible (lcrViewToggle);
-    lcrViewToggle.onToggle = [this] { setLcrAnalyzerView (! lcrAnalyzerView); };
-    lcrAnalyzerView = (bool) processor.apvts.state.getProperty ("lcrAnalyzerView", false);
-    lcrViewToggle.setAnalyzer (lcrAnalyzerView);
+    // Runde 190 (User): die Frequenz-Ansicht (Runden 182-185) ist wieder raus -
+    // LCR zeigt nur Balken, C-Weight und HF Regain.
 
     styleRotary (elevateSlider, false);
     content.addAndMakeVisible (elevateSlider);
@@ -5636,8 +5623,6 @@ void LCRMSAudioProcessorEditor::timerCallback()
             horizonSlider.repaint();
     }
     setSectionOff (horizonSlider, isLcrOn);
-    setSectionOff (lcrGraph,      isLcrOn);
-    setSectionOff (lcrViewToggle, isLcrOn);
     // Runde 182 (1.0.2): C-Weight zeigt sich an den Balkenbreiten.
     {
         const float cw = processor.apvts.getRawParameterValue (LCRMSAudioProcessor::ID_LCR_SENS)->load() * 0.01f;
@@ -6633,34 +6618,33 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
                                         .withExtraKerningFactor (0.0f);
         g.setFont (markFont);
 
-        const juce::String wordSpace ("SPACE");
-        const juce::String wordX ("X");
-        const int spaceW = juce::GlyphArrangement::getStringWidthInt (markFont, wordSpace);
+        // Runde 190 (User): das Plugin heisst jetzt ORBIT. Gleiche Sprache wie
+        // vorher bei SPACE + X - ein hervorgehobener Buchstabe in der
+        // Akzentfarbe, nur jetzt vorne: grosses "O", danach "RBIT".
+        const juce::String wordO ("O");
+        const juce::String wordRest ("RBIT");
+        const int oW = juce::GlyphArrangement::getStringWidthInt (xFont, wordO);
 
         auto markLine = titleLine;
 
-        // (1) Schein - komplett entfernt (User: "Glow komplett entfernen").
+        // (1) "O" in der Akzentfarbe, groesser, an derselben Grundlinienmitte.
+        g.setFont (xFont);
+        auto oLine = markLine.expanded (0, 14);
+        const auto xBase = pairAccentColour();
+        juce::ColourGradient oGrad (xBase.interpolatedWith (juce::Colours::white, 0.40f), 0.0f, (float) oLine.getY(),
+                                     xBase, 0.0f, (float) oLine.getBottom(), false);
+        g.setGradientFill (oGrad);
+        g.drawText (wordO, oLine, juce::Justification::centredLeft);
 
-        // (2) "SPACE" mit senkrechtem Verlauf
+        // (2) "RBIT" mit senkrechtem Verlauf, knapp angesetzt.
+        g.setFont (markFont);
+        const int restX = oW + 1;
+        const int spaceW = restX + juce::GlyphArrangement::getStringWidthInt (markFont, wordRest);
         juce::ColourGradient markGrad (juce::Colours::white, 0.0f, (float) markLine.getY(),
                                         juce::Colour (0xffb9c2d0), 0.0f, (float) markLine.getBottom(), false);
         g.setGradientFill (markGrad);
-        g.drawText (wordSpace, markLine, juce::Justification::centredLeft);
-
-        // (3) "X" in der Akzentfarbe, groesser und mit knappem Abstand.
-        g.setFont (xFont);
-        // Deutlich groesser und so nah heran, dass es leicht unter das "E"
-        // schiebt (User: "kann sogar ueberlappen") - das X ist die Marke,
-        // nicht der zweite Teil eines Wortes. expanded() gibt der grossen
-        // Type die Hoehe, die die Titelzeile allein nicht hergibt.
-        auto xLine = markLine.withTrimmedLeft (spaceW + 1).expanded (0, 14);
-        // Runde 110 (User): das X haengt an der Theme-Farbe - vorher war sein
-        // Violett die einzige Stelle mit dieser Farbe im ganzen Theme.
-        const auto xBase = pairAccentColour();
-        juce::ColourGradient xGrad (xBase.interpolatedWith (juce::Colours::white, 0.40f), 0.0f, (float) xLine.getY(),
-                                     xBase, 0.0f, (float) xLine.getBottom(), false);
-        g.setGradientFill (xGrad);
-        g.drawText (wordX, xLine, juce::Justification::centredLeft);
+        g.drawText (wordRest, markLine.withTrimmedLeft (restX), juce::Justification::centredLeft);
+        const juce::String wordX;   // Breite fuer die BYPASS-Plakette: steckt schon in spaceW
 
         // Runde 174 (User): BYPASS-Plakette oben im Header, rechts neben der
         // Wortmarke - gut sichtbar und nie im Weg der DEMO-Plakette, die eine
@@ -8499,22 +8483,6 @@ void LCRMSAudioProcessorEditor::layoutContent()
         gravityLabel.setBounds  (xK1 - g / 2, labelY, knobD + g, 14);
         horizonSlider.setBounds (xK2, knobY, knobD, knobD);
         horizonLabel.setBounds  (xK2 - g / 2, labelY, knobD + g, 14);
-
-        // Runde 182 (1.0.2): Frequenz-Ansicht nimmt die Flaeche der zwei Regler.
-        for (juce::Component* c : { (juce::Component*) &gravitySlider, (juce::Component*) &gravityLabel,
-                                    (juce::Component*) &horizonSlider, (juce::Component*) &horizonLabel })
-            c->setVisible (! lcrAnalyzerView);
-        lcrGraph.setBounds (juce::Rectangle<int> (xK1 - g / 2, lcrInner.getY(),
-                                                  lcrInner.getRight() - (xK1 - g / 2), lcrInner.getHeight()));
-        lcrGraph.setVisible (lcrAnalyzerView);
-        lcrGraph.setActive (lcrAnalyzerView);
-        {
-            const auto eb = lcrEqButton.getBounds();
-            const int  th = juce::jlimit (14, 20, eb.getHeight() > 0 ? eb.getHeight() - 6 : 18);   // Runde 185: kleiner
-            const int  tw = th * 2 + 6;
-            const int  tx = (eb.getWidth() > 0 ? eb.getX() : lcrInner.getRight()) - 10 - tw;
-            lcrViewToggle.setBounds (tx, (eb.getHeight() > 0 ? eb.getCentreY() : lcrInner.getY() - 12) - th / 2, tw, th);
-        }
 
         // Der Starfield-Mond orientiert sich an der Reglergroesse dieser Sektion.
         goniometer.setGravityKnobDiameter ((float) knobD);

@@ -26,14 +26,14 @@
 set -e
 cd "$(dirname "$0")"
 
-PRODUCT="SpaceX"
+PRODUCT="Orbit"   # Runde 190: frueher SpaceX
 # 1.0.1: Version direkt aus CMakeLists.txt - nie wieder zwei Stellen pflegen.
 VERSION="$(sed -n 's/^project(LCRMSPlugin VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
 [ -n "$VERSION" ] || { echo "Fehler: Version in CMakeLists.txt nicht gefunden."; exit 1; }
-IDENT_AU="com.paulmisty.spacex.au"
-IDENT_VST3="com.paulmisty.spacex.vst3"
-IDENT_DOCS="com.paulmisty.spacex.docs"
-IDENT_SINGLES="com.paulmisty.spacex.singles"
+IDENT_AU="com.paulmisty.orbit.au"
+IDENT_VST3="com.paulmisty.orbit.vst3"
+IDENT_DOCS="com.paulmisty.orbit.docs"
+IDENT_SINGLES="com.paulmisty.orbit.singles"
 INSTALLER_IDENTITY=""          # z. B. "Developer ID Installer: Paul Misty (TEAMID)"
 KEYCHAIN_PROFILE="notary-profile"
 
@@ -42,7 +42,7 @@ INSTALLER_DIR="$HOME/PROJEKTE/CLAUDE/_Installer"
 SINGLES="Micropitch LCR Polarity MidSide Autopan Phaser"
 
 MANUAL_SRC="docs/SpaceXManual_EN.pdf"
-MANUAL_DST="SpaceX Manual (EN).pdf"
+MANUAL_DST="Orbit Manual (EN).pdf"
 
 # ---- Plugin finden -----------------------------------------------------
 # Review 1.0.1: zuerst den Release-Build nehmen. .../VST3 ohne Release ist ein
@@ -107,8 +107,17 @@ else
 fi
 
 echo "==> Baue Komponenten-Pakete ..."
+# Runde 190: SpaceX heisst jetzt Orbit (gleiche Plugin-ID) - das alte Bundle
+# wird vor der Installation entfernt, sonst sieht der Host das Plugin doppelt.
+mkdir -p dist/tmp/scripts
+cat > dist/tmp/scripts/preinstall <<'PRE'
+#!/bin/sh
+rm -rf "/Library/Audio/Plug-Ins/VST3/SpaceX.vst3" "/Library/Audio/Plug-Ins/Components/SpaceX.component"
+exit 0
+PRE
+chmod +x dist/tmp/scripts/preinstall
 pkgbuild --root dist/pkgroot-vst3 --identifier "$IDENT_VST3" --version "$VERSION" \
-         --install-location / "dist/tmp/$PRODUCT-vst3.pkg"
+         --scripts dist/tmp/scripts --install-location / "dist/tmp/$PRODUCT-vst3.pkg"
 if [ "$HAVE_AU" = "1" ]; then
     pkgbuild --root dist/pkgroot-au --identifier "$IDENT_AU" --version "$VERSION" \
              --install-location / "dist/tmp/$PRODUCT-au.pkg"
@@ -165,7 +174,7 @@ plus the single modules as their own plug-ins (VST3 + Audio Unit):
 
 Afterwards, restart your DAW or let it rescan its plug-ins.
 
-Without a serial, SpaceX runs as a demo: everything works, but about every
+Without a serial, Orbit runs as a demo: everything works, but about every
 50 seconds the sound goes quiet for a moment. To activate, click the logo
 in the plugin and enter your name and serial.
 WELCOME

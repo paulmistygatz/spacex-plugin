@@ -3,7 +3,7 @@
 # fremden Rechnern scheitert: fehlende Architektur und zu hohe
 # Mindest-macOS-Version. Letzteres sieht man dem Plugin sonst nirgends an -
 # es taucht auf dem anderen Mac einfach nicht in der Plugin-Liste auf.
-BIN="${1:-/Library/Audio/Plug-Ins/VST3/SpaceX.vst3/Contents/MacOS/SpaceX}"
+BIN="${1:-/Library/Audio/Plug-Ins/VST3/Orbit.vst3/Contents/MacOS/Orbit}"
 [ -f "$BIN" ] || { echo "Nicht gefunden: $BIN"; exit 1; }
 echo "Datei:          $BIN"
 echo -n "Architekturen:  "; lipo -archs "$BIN"

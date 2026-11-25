@@ -21,7 +21,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    name: SpaceX
+    name: Orbit
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +53,7 @@ jobs:
       - name: Collect
         shell: pwsh
         run: |
-          $name  = "SpaceX.vst3"
+          $name  = "Orbit.vst3"
           $found = Get-ChildItem -Path build\LCRMSPlugin_artefacts -Recurse -Directory -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $found) {
             Write-Host "$name nicht gefunden - Inhalt von build\LCRMSPlugin_artefacts:"
@@ -85,13 +85,13 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SpaceX-VST3-Windows
+          name: Orbit-VST3-Windows
           path: out/
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SpaceX-Windows-Installer
+          name: Orbit-Windows-Installer
           path: dist/*.exe
           if-no-files-found: error
 

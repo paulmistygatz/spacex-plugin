@@ -8,7 +8,7 @@
 set -e
 cd "$(dirname "$0")"
 
-NAME="SpaceX.vst3"
+NAME="Orbit.vst3"   # Runde 190: frueher SpaceX
 SRC="build/LCRMSPlugin_artefacts/VST3/$NAME"
 DST="/Library/Audio/Plug-Ins/VST3"
 
@@ -45,12 +45,16 @@ sudo rm -rf "$DST/SpaceXout.vst3" "$DST/SpaceXin.vst3" \
             "$DST/SpaceXraye1.vst3" "$DST/SpaceXraye2.vst3" \
             "$DST/SpaceXparaCPU.vst3" "$DST/SpaceXpresets.vst3" \
             "$DST/SpaceXclick.vst3" "$DST/SpaceXpara.vst3" \
-            "$DST/SpaceXdiag.vst3" 2>/dev/null || true
+            "$DST/SpaceXdiag.vst3" "$DST/SpaceX.vst3" 2>/dev/null || true
+# Runde 190: SpaceX heisst jetzt Orbit - gleiche Plugin-ID, also das alte Bundle weg,
+# sonst sieht der Host das Plugin doppelt.
+sudo rm -rf "/Library/Audio/Plug-Ins/Components/SpaceX.component" 2>/dev/null || true
+rm -rf "$HOME/Library/Audio/Plug-Ins/VST3/SpaceX.vst3" "$HOME/Library/Audio/Plug-Ins/Components/SpaceX.component" 2>/dev/null || true
 
 echo "OK -> $DST/$NAME"
 
 # 1.0.1: Audio Unit (nur Mac) nach /Library/Audio/Plug-Ins/Components.
-AU_NAME="SpaceX.component"
+AU_NAME="Orbit.component"
 AU_SRC="build/LCRMSPlugin_artefacts/Release/AU/$AU_NAME"
 [ -d "$AU_SRC" ] || AU_SRC="build/LCRMSPlugin_artefacts/AU/$AU_NAME"
 AU_DST="/Library/Audio/Plug-Ins/Components"
@@ -68,7 +72,7 @@ fi
 
 # Kurzer Selbsttest: beide Architekturen drin, und wie alt darf das Ziel-macOS
 # sein? Ohne das faellt "laeuft nur auf meinem Rechner" erst beim Kollegen auf.
-"$(dirname "$0")/tools/check_binary.sh" "$DST/$NAME/Contents/MacOS/SpaceX" 2>/dev/null || true
+"$(dirname "$0")/tools/check_binary.sh" "$DST/$NAME/Contents/MacOS/Orbit" 2>/dev/null || true
 
 # 20.11. (Paul): jedes Mal auch den Installer bauen - landet in
 # ~/PROJEKTE/CLAUDE/_Installer (SpaceX + alle Einzel-Plugins).
