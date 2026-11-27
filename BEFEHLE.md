@@ -3,7 +3,7 @@
 ## 0. Immer zuerst (neues Terminal-Fenster)
 
 ```
-cd "/Users/paule/PROJEKTE/CLAUDE/Onetake SpaceX"
+cd "/Users/paule/PROJEKTE/CLAUDE/Onetake Orbit"
 ```
 
 Alles Weitere setzt voraus, dass du in diesem Ordner stehst.
@@ -101,7 +101,7 @@ Danach DAW neu starten. Die DEMO-Plakette steht wieder neben dem Slogan.
 ## Layout-Varianten zum Vergleichen (A / B / C)
 
 ```bash
-cd "/Users/paule/PROJEKTE/CLAUDE/Onetake SpaceX"
+cd "/Users/paule/PROJEKTE/CLAUDE/Onetake Orbit"
 ./build_variants.sh        # baut SpaceX-A, SpaceX-B, SpaceX-C
 ./build_variants.sh B      # nur eine Variante neu
 ```

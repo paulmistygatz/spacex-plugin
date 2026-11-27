@@ -7,7 +7,7 @@ weder cmake noch Xcode.
 ## Der schnellste Weg
 
 ```
-cd "/Users/paule/PROJEKTE/CLAUDE/Onetake SpaceX"
+cd "/Users/paule/PROJEKTE/CLAUDE/Onetake Orbit"
 ./install.sh
 ```
 
