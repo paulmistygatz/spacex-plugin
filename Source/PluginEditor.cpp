@@ -6431,8 +6431,7 @@ void LCRMSAudioProcessorEditor::timerCallback()
 
 void LCRMSAudioProcessorEditor::drawLogo (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    // Einfaches, modernes Icon: leuchtender Ring mit gekreuzter Achse -
-    // angelehnt an das "Space"-Thema, ohne aufwendige Assets. Per Klick
+    // Icon: leuchtender Ring mit dem Mistycat-Logo (Runde 192). Per Klick
     // schaltbarer GUI-Bypass: im bypassten Zustand wird das Logo neutral
     // grau statt farbig gezeichnet, als klare visuelle Rueckmeldung.
     const bool bypassed = processor.isBypassedNow();
@@ -6457,17 +6456,20 @@ void LCRMSAudioProcessorEditor::drawLogo (juce::Graphics& g, juce::Rectangle<flo
     g.setColour (ringCol);
     g.strokePath (ring, juce::PathStrokeType (2.0f));
 
-    juce::Path cross;
-    float d = r * 0.62f;
-    cross.startNewSubPath (centre.x - d, centre.y - d * 0.5f);
-    cross.lineTo (centre.x + d, centre.y + d * 0.5f);
-    cross.startNewSubPath (centre.x - d, centre.y + d * 0.5f);
-    cross.lineTo (centre.x + d, centre.y - d * 0.5f);
-    g.setColour (bypassed ? juce::Colour (0xffaaadb5) : juce::Colours::white);
-    g.strokePath (cross, juce::PathStrokeType (2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    g.setColour (glowCol);
-    g.fillEllipse (centre.x - 2.5f, centre.y - 2.5f, 5.0f, 5.0f);
+    // Runde 192 (User): im Ring sitzt jetzt das Mistycat-Logo (Ohren-Linie +
+    // Augen, ohne Schrift) statt des Achsenkreuzes. Die Grafik ist eine reine
+    // Alpha-Maske und wird in der Ringfarbe eingefaerbt (bypass = grau).
+    // ImageCache haelt das dekodierte Bild - kein statisches Image (sauberes Entladen).
+    const juce::Image head = juce::ImageCache::getFromMemory (SpaceXManualData::mistycat_head_png,
+                                                              SpaceXManualData::mistycat_head_pngSize);
+    if (head.isValid())
+    {
+        const float w = r * 1.42f;
+        const float h = w * (float) head.getHeight() / (float) head.getWidth();
+        g.setColour (ringCol);
+        g.drawImage (head, juce::Rectangle<float> (centre.x - w * 0.5f, centre.y - h * 0.5f + r * 0.04f, w, h),
+                     juce::RectanglePlacement::stretchToFit, true);
+    }
 }
 
 void LCRMSAudioProcessorEditor::paint (juce::Graphics& g)
