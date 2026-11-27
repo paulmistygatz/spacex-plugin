@@ -1107,13 +1107,14 @@ private:
             };
             line (regHead, regName, 6);
             {
-                // Links: Seriennummer eintragen und kaufen. Rechts: der
-                // Unterstuetzer-Knopf (User Runde 60).
+                // Seriennummer eintragen und kaufen.
                 auto a = r.removeFromTop (juce::jmin (30, r.getHeight()));
                 const bool lic = activateBtn.getToggleState();
                 // Runde 132 (User): "Buy me a coffee" etwas groesser - breiter
                 // und ein paar Pixel hoeher als die Knoepfe links daneben.
-                supportBtn.setBounds (a.removeFromRight (juce::jmin (184, (a.getWidth() * 11) / 20)).expanded (0, 3));
+                // Runde 191 (User): "Buy me a coffee" (Ko-fi) ist raus - Orbit wird verkauft.
+                supportBtn.setVisible (false);
+                supportBtn.setBounds ({});
                 activateBtn.setBounds (a.removeFromLeft (juce::jmin (126, a.getWidth())));
                 a.removeFromLeft (8);
                 buyBtn.setVisible (! lic);

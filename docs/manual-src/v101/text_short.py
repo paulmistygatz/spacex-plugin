@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# SpaceX 1.0.1 - short manual. Only what you cannot guess. **x** = control name.
+# Orbit 1.0.1 - short manual. Only what you cannot guess. **x** = control name.
 
 SECTIONS_INTRO = "Every section: click the name to switch it on or off, Cmd-click to solo it. The lock keeps the Smart dice away."
 
@@ -7,8 +7,7 @@ SECTIONS = [
     ("LCR Matrix",
      "Splits the image into a real centre and real sides - not just mid-side. Runs while **LCR** is armed in the header, "
      "which adds latency. **LCR** sets how much of the centre goes out - the bars show centre and sides, **C-Weight** how firmly the centre is held, "
-     "**HF Regain** brings back the centre's highs. **EQ → LCR** puts the Sides EQ on this split. The icons in the header switch to a frequency view: "
-     "gold is the centre, blue is left and right."),
+     "**HF Regain** brings back the centre's highs. **EQ → LCR** puts the Sides EQ on this split."),
     ("Polarity",
      "Flips the phase of the left or right side. **PRE / POST** decides whether that happens before or after Micropitch and "
      "Mid-Side - two different sounds. The biggest single change in the plugin, so check Mono."),
@@ -34,7 +33,7 @@ CONTROL = [
     ("Life & Mod",
      "**Life** is how much everything moves - one knob for all modulation. **Mod** switches the modulation off without losing it."),
     ("LCR",
-     "Arms the L/C/R engine. Off, SpaceX runs with zero latency."),
+     "Arms the L/C/R engine. Off, Orbit runs with zero latency."),
     ("Output",
      "**Mono** and **Dry** to check, **Mix** to blend, **Vol** at the very end. **AG** matches the level, so bypass is a fair "
      "comparison. Right-click **Mix** or **Vol** to lock them against presets and Reset."),
@@ -50,12 +49,12 @@ CONTROL = [
      "Click the **?** at the bottom left and hover anything for a short hint."),
 ]
 
-RULE = ("The more room already sits in front of SpaceX, the further you can push it. Last in the chain is the usual spot. "
+RULE = ("The more room already sits in front of Orbit, the further you can push it. Last in the chain is the usual spot. "
         "It is not a mastering EQ in disguise - on the master bus only if you know exactly why.")
 CREATE = ("And where there is no room, it makes some. Width, depth and a real third dimension - elegant, and mono-compatible. "
           "A mono lead becomes a convincing double that still sounds like a record. Drums, a kick, a mono sub or an 808 gain "
           "depth and weight. Space without reverb - more depth, more 3D.")
-LICENCE = ("Without a serial SpaceX runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a "
+LICENCE = ("Without a serial Orbit runs as a demo: everything works, but about every 50 seconds the sound goes quiet for a "
            "moment. To activate, click the logo and enter your name and serial - the name exactly as in your order.")
 THANKS = "Thanks to Jeff Ellis, whose words for the forbidden zone and the fourth dimension gave the idea a name."
 CONTACT = "Paul Misty · Mistycat Studios · info@paulmisty.com · paulmisty.com · @paulmisty.studio"

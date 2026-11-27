@@ -41,8 +41,9 @@ namespace
         inline constexpr const char* instagram   = "@paulmisty.studio";
         inline constexpr const char* instagramUrl= "https://www.instagram.com/paulmisty.studio/";
         inline constexpr const char* linksUrl    = "https://lnk.bio/paulmisty";
-        // Hier wird SpaceX verkauft - der DEMO-Aufkleber fuehrt direkt dorthin.
-        inline constexpr const char* shopUrl     = "https://ko-fi.com/paulmisty";
+        // Hier wird Orbit verkauft - der DEMO-Aufkleber und "Buy Orbit" fuehren dorthin.
+        // Runde 191 (User): kein Ko-fi mehr. Bis der Shop steht: die Website.
+        inline constexpr const char* shopUrl     = "https://www.paulmisty.com/";
         inline constexpr const char* designer    = "Paul Misty";
         inline constexpr const char* thanks      = "Everyone who tested Orbit and sent feedback";
     }
@@ -5013,7 +5014,7 @@ LCRMSAudioProcessorEditor::LCRMSAudioProcessorEditor (LCRMSAudioProcessor& p)
     backPanel.onTour   = [this] { closeBackPanel(); startTour(); };
     backPanel.onActivate = [this] { promptActivate(); };
     backPanel.onBuy      = [this] { juce::URL (spacexContact::shopUrl).launchInDefaultBrowser(); };
-    backPanel.onSupport  = [this] { juce::URL (spacexContact::shopUrl).launchInDefaultBrowser(); };
+    // Runde 191 (User): "Buy me a coffee" ist raus - Orbit wird verkauft.
     backPanel.onDontShow = [this] (bool dontShow)
     {
         juce::PropertiesFile wp (LCRMSAudioProcessor::appPropertiesOptions());

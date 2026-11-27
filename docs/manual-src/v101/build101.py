@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# SpaceX 1.0.1 manual builder: HTML (fonts + images embedded) -> PDF via Playwright/Chromium.
+# Orbit 1.0.1 manual builder: HTML (fonts + images embedded) -> PDF via Playwright/Chromium.
 import base64, html, os, random, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from text101 import *
@@ -156,7 +156,7 @@ table.jobs td.x{ width:8mm; color:var(--gold); font-family:Sora }
 PAGES = []
 def page(inner, cls='', seed=None, foot=True):
     n = len(PAGES) + 1
-    f = ('<div class="foot"><span>SPACEX <b>%s</b> · MANUAL</span><span>%02d</span></div>' % (VERSION, n)) if foot else ''
+    f = ('<div class="foot"><span>ORBIT <b>%s</b> · MANUAL</span><span>%02d</span></div>' % (VERSION, n)) if foot else ''
     PAGES.append('<section class="page %s">%s%s%s</section>' % (cls, stars(seed if seed is not None else n), inner, f))
 
 def kv(rows, wide=False):
@@ -210,10 +210,10 @@ page('''%s<h1>Good to <em>know.</em></h1>
 <div class="endlogo"><p class="thanks">%s</p><img src="%s"><p>%s</p></div>''' % (
     eyebrow('', 'Tips'), e(RULE), e(CREATE), e(LICENCE), e(THANKS), img('logo_a'), e(CONTACT)))
 
-HTML = '<!doctype html><html><head><meta charset="utf-8"><title>SpaceX Manual %s</title><style>%s</style></head><body>%s</body></html>' % (
+HTML = '<!doctype html><html><head><meta charset="utf-8"><title>Orbit Manual %s</title><style>%s</style></head><body>%s</body></html>' % (
     VERSION, CSS, '\n'.join(PAGES))
 
-out_html = os.path.join(HERE, 'SpaceXManual_EN.html')
+out_html = os.path.join(HERE, 'OrbitManual_EN.html')
 open(out_html, 'w').write(HTML)
 
 if '--pdf' in sys.argv:

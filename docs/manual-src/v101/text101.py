@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# SpaceX 1.0.1 - manual text (EN). The UI is the truth, not this file.
+# Orbit 1.0.1 - manual text (EN). The UI is the truth, not this file.
 
 VERSION = "1.0.2"
 
@@ -7,7 +7,7 @@ INTRO_LEAD = ("Depth, fullness and dimension - without a single millisecond of r
               "No wash, no mud, nothing you have to EQ back out afterwards.")
 
 INTRO = [
-    "SpaceX gives a sound its own place in a mix that is already full. Wider, deeper, more "
+    "Orbit gives a sound its own place in a mix that is already full. Wider, deeper, more "
     "three-dimensional - and still standing exactly where the song needs it.",
     "On the surface it is six sections, the Smart dice and a handful of knobs. Underneath it listens to the "
     "centre, the sides and everything in between, and keeps every move inside the range where it "
@@ -36,7 +36,7 @@ BIO = [
     "else's session is the fastest way to see where the real decisions are.",
     "Two terms from Jeff Ellis' Mixer Brain course stuck with me, because they put a name on something "
     "I had been doing for years: the forbidden zone and the fourth dimension. When every frequency in "
-    "a mix is taken, width and depth are the only room left. SpaceX lives in that room.",
+    "a mix is taken, width and depth are the only room left. Orbit lives in that room.",
 ]
 
 JOBS = [
@@ -48,7 +48,7 @@ JOBS = [
     ("Goniometer and correlation", "a metering plugin"),
 ]
 JOBS_NOTE = ("I own every one of those tools. Together they cost well over $500 and eat five slots. "
-             "SpaceX does it in one window, with one preset and one latency.")
+             "Orbit does it in one window, with one preset and one latency.")
 
 WHERE = [
     ("Lead vocals", "Width around a centre that does not move."),
@@ -63,7 +63,7 @@ CREATE_TITLE = "And where there is no room, it makes some"
 CREATE = ("Width, depth and a real third dimension - elegant, and mono-compatible. That part matters. "
           "A mono lead becomes a convincing double that still sounds like a record. Drums, a kick, a mono sub "
           "or an 808 gain depth and weight. Space without reverb - more depth, more 3D.")
-WHERE_RULE = ("Rule of thumb: the more room already sits in front of SpaceX, the further you can push it. "
+WHERE_RULE = ("Rule of thumb: the more room already sits in front of Orbit, the further you can push it. "
               "Last in the chain is the usual spot. It is not a mastering EQ in disguise - on the master "
               "bus only if you know exactly why.")
 
@@ -228,7 +228,7 @@ PRESETS = [
     ("Undo / Redo", "works on everything, the dice included."),
     ("Reset", "back to the Default preset."),
 ]
-PRESET_NOTE = ("Factory presets are copied into Documents / SpaceX / Presets. SpaceX never overwrites a file that is "
+PRESET_NOTE = ("Factory presets are copied into Documents / Orbit / Presets. Orbit never overwrites a file that is "
                "already there - your edits stay yours.")
 
 SETTINGS = [
@@ -280,7 +280,7 @@ SHORT = [
 ]
 
 DEMO = [
-    "Without a serial SpaceX runs as a demo. Everything works, but about every 50 seconds the sound goes quiet "
+    "Without a serial Orbit runs as a demo. Everything works, but about every 50 seconds the sound goes quiet "
     "for a moment. The DEMO badge next to the logo lights up while that happens - never a mystery.",
     "Activation asks for your name and your serial. The two belong together: type the name exactly as it "
     "appears in your order - upper and lower case and spaces do not matter. Your name then sits on the back "
@@ -288,10 +288,10 @@ DEMO = [
 ]
 
 CREDITS = [
-    "SpaceX started as a way to stop opening five plugins for one idea. Nothing in it happened by accident: "
+    "Orbit started as a way to stop opening five plugins for one idea. Nothing in it happened by accident: "
     "the order of the chain, where the polarity flip may sit, how far each section is allowed to go. Every one of "
     "those decisions was made by listening - and then made again.",
     "Thanks to Jeff Ellis, whose words for the forbidden zone and the fourth dimension gave the idea a name. And "
-    "to everyone who tested SpaceX and sent feedback - a lot of what is good in the details came from you.",
+    "to everyone who tested Orbit and sent feedback - a lot of what is good in the details came from you.",
 ]
 CONTACT = "Paul Misty · Mistycat Studios · info@paulmisty.com · paulmisty.com · @paulmisty.studio"
