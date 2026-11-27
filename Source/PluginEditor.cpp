@@ -6694,15 +6694,19 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         // Runde 110 (User): der Slogan begleitet, statt zu rufen - das Cyan
         // kam sonst nirgends vor. Theme-Farbe gedaempft, Sperrung etwas enger.
         juce::ignoreUnused (sloganGrad);
-        const juce::Font sloganFont = juce::Font (juce::FontOptions (13.8f, juce::Font::bold))
-                                          .withExtraKerningFactor (0.16f);
+        // Runde 193 (User): statt des Slogans steht hier die Firma - klein und
+        // gesperrt, der Plugin-Name darueber bleibt das Groesste. Gleiches
+        // Schema fuer alle grossen Mistycat-Plugins: Icon + Name + MISTYCAT.
+        // "Spatial Intelligence" lebt in Handbuch, Shop und Website weiter.
+        const juce::Font sloganFont = juce::Font (juce::FontOptions (12.5f, juce::Font::bold))
+                                          .withExtraKerningFactor (0.34f);
         g.setFont (sloganFont);
         g.setColour (themePalette().knob.withAlpha (0.72f));
         // Slogan aus Pauls Auswahl. "Spatial Intelligence" transportiert das
         // "smart" ohne das Wort selbst zu benutzen - damit kollidiert es nicht
         // mit den Smart-Knoepfen im Header, und es kollidiert auch nicht mit
         // den Sektionsnamen (Dimension). Aendern ist eine Zeile.
-        g.drawText ("SPATIAL INTELLIGENCE", sloganLine, juce::Justification::centredLeft);
+        g.drawText ("MISTYCAT", sloganLine, juce::Justification::centredLeft);
 
         // DEMO-Plakette. Steht bewusst klein neben dem Slogan und nicht als
         // Banner ueber der GUI: das Plugin soll sich im Demo-Modus wie das
@@ -6710,7 +6714,7 @@ void LCRMSAudioProcessorEditor::paintContent (juce::Graphics& g)
         if (! processor.licensed.load (std::memory_order_relaxed))
         {
             auto f = juce::Font (juce::FontOptions (11.0f, juce::Font::bold)).withExtraKerningFactor (0.18f);
-            const float sloganW = juce::GlyphArrangement::getStringWidth (sloganFont, "SPATIAL INTELLIGENCE");
+            const float sloganW = juce::GlyphArrangement::getStringWidth (sloganFont, "MISTYCAT");
             const float chipW   = juce::GlyphArrangement::getStringWidth (f, "DEMO") + 16.0f;
             juce::Rectangle<float> chip ((float) sloganLine.getX() + sloganW + 14.0f,
                                          (float) sloganLine.getCentreY() - 8.5f, chipW, 17.0f);
